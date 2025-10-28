@@ -1,26 +1,32 @@
 {
   "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "resolvePackageJsonExports": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "declaration": true,
-    "removeComments": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",   
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2022"],
+    "baseUrl": ".",
+    
+    // NestJS requirements
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
+    "removeComments": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
-    "incremental": true,
-    "skipLibCheck": true,
-    "strictNullChecks": true,
-    "forceConsistentCasingInFileNames": true,
+    
+    // Relax strictness
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
-  }
+    "noFallthroughCasesInSwitch": false,
+    
+    // Monorepo paths
+    "paths": {
+      "@repo/wallet-sdk": ["../../packages/wallet-sdk/dist"],
+      "@repo/wallet-sdk/*": ["../../packages/wallet-sdk/dist/*"],
+      "@repo/types": ["../../packages/types/dist"],
+      "@repo/types/*": ["../../packages/types/dist/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "../../packages"]
 }

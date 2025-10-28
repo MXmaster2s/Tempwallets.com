@@ -5,6 +5,8 @@
     "paths": {
       "@/*": ["./*"],
       "@repo/ui/*": ["../../packages/ui/src/*"],
+      "@repo/wallet-sdk": ["../../packages/wallet-sdk/src"],
+      "@repo/wallet-sdk/*": ["../../packages/wallet-sdk/src/*"]
     },
     "plugins": [
       {

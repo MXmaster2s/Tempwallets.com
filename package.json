@@ -17,5 +17,13 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+  "overrides": {
+    "bare-crypto": "npm:noop2@^2.0.0",
+    "bare-node-runtime": "npm:noop2@^2.0.0",
+    "bare-inspector": "npm:noop2@^2.0.0",
+    "bare-ws": "npm:noop2@^2.0.0"
   }
+}
 }

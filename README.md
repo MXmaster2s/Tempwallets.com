@@ -2,10 +2,17 @@
 
 A full-stack application built with a Turborepo monorepo structure, featuring a NestJS backend and Next.js frontend.
 
+## 🚀 Quick Start
+
+**New to this project?** Check out [QUICK_START.md](./QUICK_START.md) for a 5-minute setup guide!
+
+**For detailed environment configuration and Railway deployment:** See [ENV_SETUP.md](./ENV_SETUP.md)
+
 ## Prerequisites
 
 - Node.js >= 18
 - pnpm 9.0.0 (recommended package manager)
+- PostgreSQL (local or Docker)
 
 ## Quick Start
 
@@ -80,7 +87,9 @@ This Turborepo includes the following packages/apps:
 
 - `backend`: a [NestJS](https://nestjs.com/) API server with TypeScript
 - `web`: a [Next.js](https://nextjs.org/) 15 app with React 19 and Turbopack
+- `@repo/wallet-sdk`: Pure wallet/chain logic layer with @tetherto/wdk integration
 - `@repo/types`: shared TypeScript types and DTOs used across the monorepo
+- `@repo/ui`: shadcn/ui component library
 - `@repo/eslint-config`: ESLint configurations (includes `eslint-config-next` and `eslint-config-prettier`)
 - `@repo/typescript-config`: shared `tsconfig.json` configurations used throughout the monorepo
 
@@ -118,7 +127,9 @@ Tempwallets.com/
 │       ├── app/          # App router pages
 │       └── public/       # Static assets
 ├── packages/
+│   ├── wallet-sdk/       # Wallet/chain logic with @tetherto/wdk
 │   ├── types/            # Shared TypeScript types & DTOs
+│   ├── ui/               # Shared UI components (shadcn/ui)
 │   ├── eslint-config/    # Shared ESLint configurations
 │   └── typescript-config/ # Shared TypeScript configurations
 ├── turbo.json            # Turborepo configuration
@@ -204,20 +215,57 @@ This enables:
 
 ## Environment Variables
 
-Create `.env` files in each app directory as needed:
-
+**Quick Setup:**
 ```sh
-# apps/backend/.env
-NODE_ENV=development
-PORT=3001
-DATABASE_URL=postgresql://...
+# Backend
+cd apps/backend
+cp .env.example .env
+# Edit .env with your DATABASE_URL and other settings
 
-# apps/web/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:3001
+# Web
+cd apps/web
+cp .env.example .env.local
+# Edit .env.local with your API URL
 ```
 
+**📖 For detailed instructions:** See [ENV_SETUP.md](./ENV_SETUP.md) for:
+- Local development setup
+- Railway deployment guide
+- Environment variable reference
+- Security best practices
+
 > [!NOTE]
-> Never commit `.env` files. They are already in `.gitignore`.
+> Never commit `.env` or `.env.local` files. They are already in `.gitignore`.
+
+## Import Rules & Package Boundaries
+
+### Apps can import from:
+- ✅ Any package (`@repo/*`)
+- ❌ Other apps (no cross-app imports)
+
+### Packages can import from:
+- ✅ Other packages in dependency order
+- ❌ Apps (packages must be app-agnostic)
+
+### Import Examples:
+```typescript
+// Backend
+import { WalletFactory } from '@repo/wallet-sdk';
+import { CreateProductRequest } from '@repo/types';
+
+// Frontend
+import { Button } from '@repo/ui/components/ui/button';
+import { WalletManager } from '@repo/wallet-sdk';
+```
+
+**Dependency Graph**:
+```
+apps/web ──────┐
+               ├──> @repo/wallet-sdk ──> @tetherto/wdk-*
+apps/backend ──┘                    └──> @repo/types
+
+apps/web ──> @repo/ui
+```
 
 ## Useful Links
 
