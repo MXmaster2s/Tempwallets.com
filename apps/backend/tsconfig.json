@@ -21,8 +21,6 @@
     
     // Monorepo paths
     "paths": {
-      "@repo/wallet-sdk": ["../../packages/wallet-sdk/dist"],
-      "@repo/wallet-sdk/*": ["../../packages/wallet-sdk/dist/*"],
       "@repo/types": ["../../packages/types/dist"],
       "@repo/types/*": ["../../packages/types/dist/*"]
     }

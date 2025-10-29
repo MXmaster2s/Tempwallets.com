@@ -18,6 +18,9 @@ This guide explains how to set up environment variables for local development an
    JWT_SECRET="your-development-secret"
    PORT=5005
    
+   # Wallet Encryption Key (generate with: openssl rand -base64 32)
+   WALLET_ENC_KEY="your-base64-encoded-32-byte-key"
+   
    # Add your actual RPC and service URLs
    ETH_RPC_URL="https://mainnet.infura.io/v3/YOUR_INFURA_KEY"
    # ... other chain configurations
@@ -87,6 +90,9 @@ JWT_SECRET=your-production-jwt-secret-min-32-chars
 
 # Server Configuration
 PORT=5005
+
+# Wallet Encryption Key (generate with: openssl rand -base64 32)
+WALLET_ENC_KEY=your-base64-encoded-32-byte-key
 
 # Ethereum Mainnet Configuration
 ETH_BUNDLER_URL=https://bundler.ethereum.org
@@ -187,6 +193,7 @@ railway run npx prisma migrate deploy
 - ✅ `DATABASE_URL` - PostgreSQL connection string
 - ✅ `JWT_SECRET` - JWT signing secret
 - ✅ `PORT` - Server port (default: 5005)
+- ✅ `WALLET_ENC_KEY` - 32-byte base64 key for wallet seed encryption (generate with: `openssl rand -base64 32`)
 - ✅ Chain-specific RPC URLs
 - ✅ Bundler and Paymaster configurations
 

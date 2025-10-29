@@ -121,3 +121,27 @@ video {
   -moz-user-drag: none;
   -o-user-drag: none;
 }
+
+/* Wallet Component Custom Properties */
+:root {
+  /* Wallet gradient colors */
+  --wallet-gradient-from: #667eea;
+  --wallet-gradient-to: #764ba2;
+
+  /* Wallet text colors */
+  --wallet-text: #9ca3af;
+  --wallet-amount: #ffffff;
+
+  /* Points system colors */
+  --points-bg: #1f2937;
+  --points-text: #ffffff;
+
+  /* Wallet actions background */
+  --wallet-actions-bg: #1f2937;
+
+  /* Action icon colors */
+  --wallet-action-icon: #9ca3af;
+
+  /* Header text color */
+  --header-text: #ffffff;
+}

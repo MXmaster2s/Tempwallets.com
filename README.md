@@ -8,6 +8,8 @@ A full-stack application built with a Turborepo monorepo structure, featuring a 
 
 **For detailed environment configuration and Railway deployment:** See [ENV_SETUP.md](./ENV_SETUP.md)
 
+**For wallet API documentation:** See [WALLET_API.md](./WALLET_API.md)
+
 ## Prerequisites
 
 - Node.js >= 18

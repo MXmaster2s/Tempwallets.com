@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@repo/ui": "workspace:*",
-    "@repo/wallet-sdk": "workspace:*",
     "@web3icons/react": "^4.0.26",
+    "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
     "react": "^19.1.0",

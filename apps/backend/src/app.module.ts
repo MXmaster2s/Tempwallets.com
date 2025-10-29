@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ProductsModule } from './products/products.module.js';
-import { WalletsModule } from './wallets/wallets.module.js';
 import { PrismaModule } from './database/prisma.module.js';
+import { WalletModule } from './wallet/wallet.module.js';
 
 @Module({
   imports: [
@@ -11,8 +10,7 @@ import { PrismaModule } from './database/prisma.module.js';
       envFilePath: '.env',
     }),
     PrismaModule,
-    ProductsModule,
-    WalletsModule,
+    WalletModule,
   ],
   controllers: [],
   providers: [],

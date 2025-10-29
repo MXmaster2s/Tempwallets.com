@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@repo/ui/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { AssetProtection } from "../AssetProtection";
+import Link from "next/link";
 
 export default function Hero() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -94,12 +95,14 @@ export default function Hero() {
             top: 'clamp(580px, 55vh, 600px)'
           }}
         >
-          <Button
-            variant="glass"
-            className="font-['Poppins'] text-sm md:text-base"
-          >
-            Get started
-          </Button>
+          <Link href="/dashboard">
+            <Button
+              variant="glass"
+              className="font-['Poppins'] text-sm md:text-base"
+            >
+              Get started
+            </Button>
+          </Link>
         </div>
 
         {/* Stats Section - Responsive */}

@@ -45,3 +45,15 @@ model WalletAddress {
   @@index([address])
 }
 
+model WalletSeed {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  ciphertext String
+  iv        String
+  authTag   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+

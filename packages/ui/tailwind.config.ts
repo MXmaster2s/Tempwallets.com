@@ -63,7 +63,17 @@ const config = {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
-  			}
+  			},
+  			// Wallet component colors
+  			'wallet-gradient-from': 'var(--wallet-gradient-from)',
+  			'wallet-gradient-to': 'var(--wallet-gradient-to)',
+  			'wallet-text': 'var(--wallet-text)',
+  			'wallet-amount': 'var(--wallet-amount)',
+  			'points-bg': 'var(--points-bg)',
+  			'points-text': 'var(--points-text)',
+  			'wallet-actions-bg': 'var(--wallet-actions-bg)',
+  			'wallet-action-icon': 'var(--wallet-action-icon)',
+  			'header-text': 'var(--header-text)'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
