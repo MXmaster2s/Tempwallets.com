@@ -11,6 +11,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.0.1",
     "@repo/ui": "workspace:*",
     "@web3icons/react": "^4.0.26",
     "embla-carousel-react": "^8.6.0",

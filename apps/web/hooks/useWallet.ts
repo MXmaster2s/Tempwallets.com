@@ -71,100 +71,64 @@ export function useWallet(): UseWalletReturn {
   }, []);
 
   const loadWallets = useCallback(async (userId: string) => {
+    if (!userId) {
+      console.warn('⚠️ loadWallets called without userId');
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    console.log('🔍 Loading wallet for user:', userId);
     
     try {
-      // First check if we have cached addresses
-      const cachedAddresses = walletStorage.getAddresses(userId);
-      
-      if (cachedAddresses) {
-        // Use cached addresses immediately
-        processWallets(cachedAddresses);
-        setLoading(false);
-        
-        // Check if user has any wallets in cache
-        const hasWallets = Object.values(cachedAddresses).some(address => address && address.length > 0);
-        
-        if (!hasWallets) {
-          // Auto-create wallet if none exists
-          await walletApi.createOrImportSeed({
-            userId,
-            mode: 'random',
-          });
-          
-          // Fetch fresh addresses after creation
-          const newAddresses = await walletApi.getAddresses(userId);
-          walletStorage.setAddresses(userId, newAddresses);
-          processWallets(newAddresses);
-        }
-        
-        return;
-      }
-      
-      // No cache, fetch from API
+      // Try to get addresses from API
       const addresses = await walletApi.getAddresses(userId);
       
       // Check if user has any wallets
       const hasWallets = Object.values(addresses).some(address => address && address.length > 0);
       
       if (!hasWallets) {
+        console.log('🆕 No wallet found. Creating new wallet...');
+        
         // Auto-create wallet if none exists
         await walletApi.createOrImportSeed({
           userId,
           mode: 'random',
         });
         
+        // Wait a moment for backend to process
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Fetch addresses again after creation
         const newAddresses = await walletApi.getAddresses(userId);
+        console.log('✅ New wallet created successfully');
+        
+        // Cache the new addresses
         walletStorage.setAddresses(userId, newAddresses);
         processWallets(newAddresses);
       } else {
-        // Cache the addresses for future use
+        console.log('✅ Existing wallet loaded');
+        
+        // Cache the addresses
         walletStorage.setAddresses(userId, addresses);
         processWallets(addresses);
       }
     } catch (err) {
       const errorMessage = err instanceof ApiError 
-        ? `Failed to load wallets: ${err.message}`
-        : 'Failed to load wallets';
+        ? err.message
+        : 'Failed to load wallet';
       setError(errorMessage);
-      console.error('Error loading wallets:', err);
+      console.error('❌ Error loading wallet:', err);
     } finally {
       setLoading(false);
     }
   }, [processWallets]);
 
   const changeWallets = useCallback(async (userId: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      // Clear cached addresses since we're generating new ones
-      walletStorage.clearAddresses();
-      
-      // Create a new wallet with random seed phrase (this will replace the existing one)
-      await walletApi.createOrImportSeed({
-        userId,
-        mode: 'random',
-      });
-      
-      // Fetch the new wallet addresses
-      const newAddresses = await walletApi.getAddresses(userId);
-      
-      // Cache the new addresses
-      walletStorage.setAddresses(userId, newAddresses);
-      processWallets(newAddresses);
-    } catch (err) {
-      const errorMessage = err instanceof ApiError 
-        ? `Failed to change wallets: ${err.message}`
-        : 'Failed to change wallets';
-      setError(errorMessage);
-      console.error('Error changing wallets:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [processWallets]);
+    // Note: This function is no longer needed since we handle wallet changes
+    // by generating a new fingerprint ID. Keeping it for backwards compatibility.
+    console.warn('⚠️ changeWallets called but wallet changes are handled via fingerprint');
+  }, []);
 
   return {
     wallets,

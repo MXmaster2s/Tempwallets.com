@@ -4,6 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@repo/
 import { useState, useEffect, useRef } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { walletStorage } from "@/lib/walletStorage";
+import { useBrowserFingerprint } from "@/hooks/useBrowserFingerprint";
 
 const WalletInfo = () => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -11,13 +12,15 @@ const WalletInfo = () => {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const { wallets, loading, error, loadWallets, changeWallets } = useWallet();
   
-  // For demo purposes, using a static userId. In a real app, this would come from auth context
-  const userId = "demo-user-123";
+  // Use browser fingerprint as unique user ID
+  const { fingerprint, loading: fingerprintLoading, generateNewWallet } = useBrowserFingerprint();
 
-  // Load wallets when component mounts
+  // Load wallets when fingerprint is ready
   useEffect(() => {
-    loadWallets(userId);
-  }, [loadWallets, userId]);
+    if (fingerprint) {
+      loadWallets(fingerprint);
+    }
+  }, [loadWallets, fingerprint]);
 
   // Set up carousel API
   useEffect(() => {
@@ -48,7 +51,14 @@ const WalletInfo = () => {
     const currentWallet = wallets[currentSlide];
     
     if (action === 'change') {
-      await changeWallets(userId);
+      if (fingerprint) {
+        // Generate new wallet ID (this updates state and triggers re-render)
+        const newWalletId = generateNewWallet();
+        
+        // Load wallets for the new ID
+        // The useEffect will automatically call loadWallets when fingerprint changes
+        // So we don't need to do anything here - React handles it!
+      }
     } else if (action === 'copy' && currentWallet) {
       await copyToClipboard(currentWallet.address, currentSlide);
     }
@@ -69,10 +79,10 @@ const WalletInfo = () => {
   return (
     <div className="w-full max-w-2xl mx-auto">
       {/* Wallet Cards - Always show structure */}
-      {(loading || error || wallets.length > 0) && (
+      {(fingerprintLoading || loading || error || wallets.length > 0) && (
         <Carousel opts={{ loop: wallets.length > 1 }} className="w-full" setApi={setCarouselApi}>
           <CarouselContent>
-            {(loading || error) ? (
+            {(fingerprintLoading || loading || error) ? (
               // Show loading state in carousel structure
               <CarouselItem>
                 <div className="rounded-t-3xl p-6 md:p-8 shadow-lg" style={{ backgroundImage: 'url("/04.-Purplies-Gradient-Texture-Background.jpg")', backgroundSize: 'cover', backgroundPosition: 'center' }}>
@@ -86,7 +96,7 @@ const WalletInfo = () => {
                       <div className="rounded-lg px-4 py-2 flex items-center gap-2">
                         <Loader2 className="h-6 w-6 md:h-5 md:w-5 animate-spin text-white" />
                         <span className="text-white font-semibold text-3xl md:text-2xl">
-                          Loading...
+                          {fingerprintLoading ? 'Initializing...' : 'Loading...'}
                         </span>
                       </div>
                     </div>
