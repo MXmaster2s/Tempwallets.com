@@ -64,10 +64,20 @@ export class WalletService {
 
   /**
    * Get all wallet addresses for all chains
+   * Auto-creates wallet if it doesn't exist
    * @param userId - The user ID
    * @returns Object containing addresses for all chains
    */
   async getAddresses(userId: string): Promise<WalletAddresses> {
+    // Check if wallet exists, create if not
+    const hasSeed = await this.seedRepository.hasSeed(userId);
+    
+    if (!hasSeed) {
+      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      await this.createOrImportSeed(userId, 'random');
+      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+    }
+
     const seedPhrase = await this.seedRepository.getSeedPhrase(userId);
 
     const wdk = this.createWdkInstance(seedPhrase);
@@ -102,10 +112,20 @@ export class WalletService {
 
   /**
    * Get balances for all chains
+   * Auto-creates wallet if it doesn't exist
    * @param userId - The user ID
    * @returns Array of balance objects
    */
   async getBalances(userId: string): Promise<Array<{ chain: string; balance: string }>> {
+    // Check if wallet exists, create if not
+    const hasSeed = await this.seedRepository.hasSeed(userId);
+    
+    if (!hasSeed) {
+      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      await this.createOrImportSeed(userId, 'random');
+      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+    }
+
     const seedPhrase = await this.seedRepository.getSeedPhrase(userId);
     const wdk = this.createWdkInstance(seedPhrase);
 
