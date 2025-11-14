@@ -11,7 +11,7 @@ async function bootstrap() {
     'http://localhost:5555', // Prisma Studio
     'http://localhost:5173', // Vite (if you use it)
     'https://www.tempwallets.com', // Production frontend
-    'https://tempwallets.com', // Production frontend without www
+    'https://tempwallets.com', // Production frontend without
   ];
 
   // Add production frontend URL if set
