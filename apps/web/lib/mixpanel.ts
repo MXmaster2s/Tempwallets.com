@@ -11,7 +11,8 @@ const getToken = () => {
   }
 
   const token =
-    process.env.MIXPANEL_TOKEN ?? process.env.MIXPANEL_TOKEN_DEV;
+    process.env.NEXT_PUBLIC_MIXPANEL_TOKEN ??
+    process.env.NEXT_PUBLIC_MIXPANEL_TOKEN_DEV;
 
   if (!token) {
     console.warn("Mixpanel token is not configured.");
