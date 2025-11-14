@@ -10,6 +10,8 @@ async function bootstrap() {
     'http://localhost:3000', // Next.js web app
     'http://localhost:5555', // Prisma Studio
     'http://localhost:5173', // Vite (if you use it)
+    'https://www.tempwallets.com', // Production frontend
+    'https://tempwallets.com', // Production frontend without www
   ];
 
   // Add production frontend URL if set
