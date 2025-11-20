@@ -11,6 +11,7 @@ import { SeedManager } from './seed.manager.js';
 import { AccountFactory } from '../factories/account.factory.js';
 import { PimlicoAccountFactory } from '../factories/pimlico-account.factory.js';
 import { SubstrateManager } from '../substrate/managers/substrate.manager.js';
+import { AddressCacheRepository } from '../repositories/address-cache.repository.js';
 
 /**
  * Address Manager
@@ -66,31 +67,55 @@ export class AddressManager implements IAddressManager {
     private pimlicoAccountFactory: PimlicoAccountFactory,
     @Inject(forwardRef(() => SubstrateManager))
     private substrateManager: SubstrateManager,
+    private addressCacheRepository: AddressCacheRepository,
   ) {}
 
   /**
    * Get all wallet addresses for all chains
    * Auto-creates wallet if it doesn't exist
+   * Fast path: Returns cached addresses from database instantly
    */
   async getAddresses(userId: string): Promise<WalletAddresses> {
-    // Check cache first
-    const cached = this.addressCache.get(userId);
-    if (cached && Date.now() - cached.timestamp < this.ADDRESS_CACHE_TTL) {
-      return cached.addresses;
+    // Fast path: Check database cache first
+    const cachedAddresses = await this.addressCacheRepository.getCachedAddresses(userId);
+    
+    // If we have cached addresses, check if they're complete
+    if (Object.keys(cachedAddresses).length > 0) {
+      const allExpectedChains = this.getAllExpectedChainNames();
+      const hasAllChains = allExpectedChains.every(chain => cachedAddresses[chain] !== undefined);
+      
+      if (hasAllChains) {
+        // We have all addresses cached, return immediately
+        this.logger.debug(`Returning cached addresses from DB for user ${userId}`);
+        const partialResult = this.mapCachedAddressesToWalletAddresses(cachedAddresses);
+        const result = this.ensureCompleteAddresses(partialResult);
+        const metadata = this.buildMetadata(result);
+        
+        // Update in-memory cache
+        this.addressCache.set(userId, {
+          addresses: result,
+          metadata,
+          timestamp: Date.now(),
+        });
+        
+        return result;
+      }
     }
 
     // Ensure wallet exists
     const hasSeed = await this.seedManager.hasSeed(userId);
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.seedManager.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     const seedPhrase = await this.seedManager.getSeed(userId);
 
-    // Get addresses for all chains
-    const addresses: Partial<WalletAddresses> = {};
+    // Start with cached addresses, then generate missing ones
+    const cachedPartial = this.mapCachedAddressesToWalletAddresses(cachedAddresses);
+    const addresses: Partial<WalletAddresses> = { ...cachedPartial };
+    const addressesToSave: Record<string, string> = {};
 
     // EOA chains
     const eoaChains: AllChainTypes[] = [
@@ -108,6 +133,11 @@ export class AddressManager implements IAddressManager {
     ];
 
     for (const chain of eoaChains) {
+      // Skip if already cached
+      if (addresses[chain as keyof WalletAddresses]) {
+        continue;
+      }
+
       try {
         const account = await this.accountFactory.createAccount(
           seedPhrase,
@@ -116,6 +146,9 @@ export class AddressManager implements IAddressManager {
         );
         const address = await account.getAddress();
         addresses[chain as keyof WalletAddresses] = address;
+        addressesToSave[chain] = address;
+        // Save to database immediately
+        await this.addressCacheRepository.saveAddress(userId, chain, address);
       } catch (error) {
         this.logger.error(
           `Error getting EOA address for ${chain}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -134,6 +167,13 @@ export class AddressManager implements IAddressManager {
     )[] = ['ethereum', 'base', 'arbitrum', 'polygon', 'avalanche'];
 
     for (const chain of erc4337Chains) {
+      const chainKey = `${chain}Erc4337` as keyof WalletAddresses;
+      
+      // Skip if already cached
+      if (addresses[chainKey]) {
+        continue;
+      }
+
       try {
         const account = await this.pimlicoAccountFactory.createAccount(
           seedPhrase,
@@ -141,13 +181,14 @@ export class AddressManager implements IAddressManager {
           0,
         );
         const address = await account.getAddress();
-        const chainKey = `${chain}Erc4337` as keyof WalletAddresses;
         addresses[chainKey] = address;
+        addressesToSave[chainKey] = address;
+        // Save to database immediately
+        await this.addressCacheRepository.saveAddress(userId, chainKey, address);
       } catch (error) {
         this.logger.error(
           `Error getting ERC-4337 address for ${chain}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
-        const chainKey = `${chain}Erc4337` as keyof WalletAddresses;
         addresses[chainKey] = null as any;
       }
     }
@@ -157,30 +198,43 @@ export class AddressManager implements IAddressManager {
       const substrateAddresses = await this.substrateManager.getAddresses(userId, false);
       
       // Map Substrate addresses to WalletAddresses format
-      // Note: hydration, unique, bifrost exist in both EVM and Substrate - use Substrate suffix for Substrate versions
-      addresses.polkadot = substrateAddresses.polkadot ?? null;
-      addresses.hydrationSubstrate = substrateAddresses.hydration ?? null;
-      addresses.bifrostSubstrate = substrateAddresses.bifrost ?? null;
-      addresses.uniqueSubstrate = substrateAddresses.unique ?? null;
-      addresses.paseo = substrateAddresses.paseo ?? null;
-      addresses.paseoAssethub = substrateAddresses.paseoAssethub ?? null;
+      const substrateMappings: Array<{ key: keyof WalletAddresses; value: string | null }> = [
+        { key: 'polkadot', value: substrateAddresses.polkadot ?? null },
+        { key: 'hydrationSubstrate', value: substrateAddresses.hydration ?? null },
+        { key: 'bifrostSubstrate', value: substrateAddresses.bifrost ?? null },
+        { key: 'uniqueSubstrate', value: substrateAddresses.unique ?? null },
+        { key: 'paseo', value: substrateAddresses.paseo ?? null },
+        { key: 'paseoAssethub', value: substrateAddresses.paseoAssethub ?? null },
+      ];
+
+      for (const { key, value } of substrateMappings) {
+        // Only update if not already cached or if cached value is null
+        if (addresses[key] === undefined || addresses[key] === null) {
+          addresses[key] = value as any;
+          if (value) {
+            addressesToSave[key] = value;
+            // Save to database immediately
+            await this.addressCacheRepository.saveAddress(userId, key, value);
+          }
+        }
+      }
     } catch (error) {
       this.logger.error(
         `Error getting Substrate addresses: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      // Set defaults
-      addresses.polkadot = null;
-      addresses.hydrationSubstrate = null;
-      addresses.bifrostSubstrate = null;
-      addresses.uniqueSubstrate = null;
-      addresses.paseo = null;
-      addresses.paseoAssethub = null;
+      // Set defaults only if not already set
+      if (addresses.polkadot === undefined) addresses.polkadot = null;
+      if (addresses.hydrationSubstrate === undefined) addresses.hydrationSubstrate = null;
+      if (addresses.bifrostSubstrate === undefined) addresses.bifrostSubstrate = null;
+      if (addresses.uniqueSubstrate === undefined) addresses.uniqueSubstrate = null;
+      if (addresses.paseo === undefined) addresses.paseo = null;
+      if (addresses.paseoAssethub === undefined) addresses.paseoAssethub = null;
     }
 
     const result = addresses as WalletAddresses;
     const metadata = this.buildMetadata(result);
 
-    // Cache the addresses
+    // Update in-memory cache
     this.addressCache.set(userId, {
       addresses: result,
       metadata,
@@ -222,7 +276,8 @@ export class AddressManager implements IAddressManager {
 
   /**
    * Stream addresses progressively (for SSE)
-   * Yields addresses as they become available
+   * Fast path: Streams cached addresses from database first (instant)
+   * Then generates and streams missing addresses as they're created
    */
   async *streamAddresses(
     userId: string,
@@ -230,11 +285,34 @@ export class AddressManager implements IAddressManager {
     // Ensure wallet exists
     const hasSeed = await this.seedManager.hasSeed(userId);
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.seedManager.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
+    // Step 1: Fetch all cached addresses from database (instant)
+    const cachedAddresses = await this.addressCacheRepository.getCachedAddresses(userId);
+    this.logger.debug(`Found ${Object.keys(cachedAddresses).length} cached addresses for user ${userId}`);
+
+    // Step 2: Stream all cached addresses immediately
+    const allExpectedChains = this.getAllExpectedChainNames();
+    for (const chain of allExpectedChains) {
+      if (cachedAddresses[chain]) {
+        yield { chain, address: cachedAddresses[chain] };
+      }
+    }
+
+    // Step 3: Determine which addresses are missing
+    const missingChains = allExpectedChains.filter(chain => !cachedAddresses[chain]);
+    
+    if (missingChains.length === 0) {
+      // All addresses are cached, we're done
+      return;
+    }
+
+    this.logger.debug(`Generating ${missingChains.length} missing addresses for user ${userId}`);
+
+    // Step 4: Generate missing addresses
     const seedPhrase = await this.seedManager.getSeed(userId);
 
     // Process EOA chains
@@ -253,6 +331,11 @@ export class AddressManager implements IAddressManager {
     ];
 
     for (const { name, chain } of eoaChains) {
+      // Skip if already cached
+      if (cachedAddresses[name]) {
+        continue;
+      }
+
       try {
         const account = await this.accountFactory.createAccount(
           seedPhrase,
@@ -260,6 +343,8 @@ export class AddressManager implements IAddressManager {
           0,
         );
         const address = await account.getAddress();
+        // Save to database BEFORE streaming
+        await this.addressCacheRepository.saveAddress(userId, name, address);
         yield { chain: name, address };
       } catch (error) {
         this.logger.error(
@@ -282,6 +367,11 @@ export class AddressManager implements IAddressManager {
     ];
 
     for (const { name, chain } of erc4337Chains) {
+      // Skip if already cached
+      if (cachedAddresses[name]) {
+        continue;
+      }
+
       try {
         const account = await this.pimlicoAccountFactory.createAccount(
           seedPhrase,
@@ -289,6 +379,8 @@ export class AddressManager implements IAddressManager {
           0,
         );
         const address = await account.getAddress();
+        // Save to database BEFORE streaming
+        await this.addressCacheRepository.saveAddress(userId, name, address);
         yield { chain: name, address };
       } catch (error) {
         this.logger.error(
@@ -313,16 +405,27 @@ export class AddressManager implements IAddressManager {
       ];
 
       for (const { name, address } of substrateChains) {
+        // Skip if already cached
+        if (cachedAddresses[name]) {
+          continue;
+        }
+
+        if (address) {
+          // Save to database BEFORE streaming
+          await this.addressCacheRepository.saveAddress(userId, name, address);
+        }
         yield { chain: name, address };
       }
     } catch (error) {
       this.logger.error(
         `Error streaming Substrate addresses: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      // Yield null addresses for all Substrate chains on error
+      // Yield null addresses for all Substrate chains on error (only if not cached)
       const substrateChainNames = ['polkadot', 'hydrationSubstrate', 'bifrostSubstrate', 'uniqueSubstrate', 'paseo', 'paseoAssethub'];
       for (const name of substrateChainNames) {
+        if (!cachedAddresses[name]) {
         yield { chain: name, address: null };
+        }
       }
     }
   }
@@ -462,5 +565,120 @@ export class AddressManager implements IAddressManager {
       return label;
     }
     return chain;
+  }
+
+  /**
+   * Get all expected chain names that should be cached
+   */
+  private getAllExpectedChainNames(): string[] {
+    return [
+      // EOA chains
+      'ethereum',
+      'base',
+      'arbitrum',
+      'polygon',
+      'avalanche',
+      'moonbeamTestnet',
+      'astarShibuya',
+      'paseoPassetHub',
+      'tron',
+      'bitcoin',
+      'solana',
+      'hydration',
+      'unique',
+      'bifrost',
+      'bifrostTestnet',
+      // ERC-4337 chains
+      'ethereumErc4337',
+      'baseErc4337',
+      'arbitrumErc4337',
+      'polygonErc4337',
+      'avalancheErc4337',
+      // Substrate chains
+      'polkadot',
+      'hydrationSubstrate',
+      'bifrostSubstrate',
+      'uniqueSubstrate',
+      'paseo',
+      'paseoAssethub',
+    ];
+  }
+
+  /**
+   * Map cached addresses from database format to WalletAddresses format
+   */
+  private mapCachedAddressesToWalletAddresses(
+    cachedAddresses: Record<string, string>,
+  ): Partial<WalletAddresses> {
+    const addresses: Partial<WalletAddresses> = {};
+    
+    // Map all known chains
+    const allChains = this.getAllExpectedChainNames();
+    for (const chain of allChains) {
+      if (cachedAddresses[chain]) {
+        addresses[chain as keyof WalletAddresses] = cachedAddresses[chain] as any;
+      }
+    }
+
+    return addresses;
+  }
+
+  /**
+   * Ensure all required fields are present in WalletAddresses
+   * Fills missing fields with null or empty string as appropriate
+   */
+  private ensureCompleteAddresses(
+    partial: Partial<WalletAddresses>,
+  ): WalletAddresses {
+    const allChains = this.getAllExpectedChainNames();
+    const complete: any = { ...partial };
+
+    // Ensure all required string fields have a value (default to empty string)
+    const stringFields: (keyof WalletAddresses)[] = [
+      'ethereum',
+      'base',
+      'arbitrum',
+      'polygon',
+      'avalanche',
+      'tron',
+      'bitcoin',
+      'solana',
+      'moonbeamTestnet',
+      'astarShibuya',
+      'paseoPassetHub',
+      'hydration',
+      'unique',
+      'bifrost',
+      'bifrostTestnet',
+      'ethereumErc4337',
+      'baseErc4337',
+      'arbitrumErc4337',
+      'polygonErc4337',
+      'avalancheErc4337',
+    ];
+
+    for (const field of stringFields) {
+      if (complete[field] === undefined || complete[field] === null) {
+        complete[field] = '';
+      }
+    }
+
+    // Substrate fields can be null
+    const nullableFields: (keyof WalletAddresses)[] = [
+      'polkadot',
+      'hydrationSubstrate',
+      'bifrostSubstrate',
+      'uniqueSubstrate',
+      'paseo',
+      'paseoAssethub',
+    ];
+
+    for (const field of nullableFields) {
+      if (complete[field] === undefined) {
+        complete[field] = null;
+      }
+    }
+
+    return complete as WalletAddresses;
   }
 }

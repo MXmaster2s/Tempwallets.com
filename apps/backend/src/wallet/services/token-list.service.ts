@@ -61,7 +61,7 @@ export class TokenListService {
         const fileContent = fs.readFileSync(polkadotEvmPath, 'utf-8');
         const data: TokenListFile = JSON.parse(fileContent);
         this.polkadotEvmTokens = data.tokens || [];
-        this.logger.log(
+        this.logger.debug(
           `Loaded ${this.polkadotEvmTokens.length} tokens from polkadot-evm-tokens.json`,
         );
       } else {
@@ -76,7 +76,7 @@ export class TokenListService {
         const fileContent = fs.readFileSync(allTokensPath, 'utf-8');
         const data: TokenListFile = JSON.parse(fileContent);
         this.allTokens = data.tokens || [];
-        this.logger.log(
+        this.logger.debug(
           `Loaded ${this.allTokens.length} tokens from all-tokens.json`,
         );
       } else {

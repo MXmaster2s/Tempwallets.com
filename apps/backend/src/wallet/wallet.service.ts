@@ -15,6 +15,7 @@ import { PimlicoAccountFactory } from './factories/pimlico-account.factory.js';
 import { PolkadotEvmRpcService } from './services/polkadot-evm-rpc.service.js';
 import { SubstrateManager } from './substrate/managers/substrate.manager.js';
 import { SubstrateChainKey } from './substrate/config/substrate-chain.config.js';
+import { BalanceCacheRepository } from './repositories/balance-cache.repository.js';
 import { IAccount } from './types/account.types.js';
 import { AllChainTypes, Erc4337Chain } from './types/chain.types.js';
 import {
@@ -140,6 +141,7 @@ export class WalletService {
     private pimlicoAccountFactory: PimlicoAccountFactory,
     private polkadotEvmRpcService: PolkadotEvmRpcService,
     private substrateManager: SubstrateManager,
+    private balanceCacheRepository: BalanceCacheRepository,
   ) {}
 
   /**
@@ -542,8 +544,13 @@ export class WalletService {
    * Get all token positions across any supported chains for the user's primary addresses
    * Uses Zerion any-chain endpoints per address (no chain filter) and merges results.
    * Primary addresses considered: EVM EOA (ethereum), first ERC-4337 smart account, and Solana.
+   * @param userId - The user ID
+   * @param forceRefresh - Force refresh from API (bypass Zerion's internal cache)
    */
-  async getTokenBalancesAny(userId: string): Promise<
+  async getTokenBalancesAny(
+    userId: string,
+    forceRefresh: boolean = false,
+  ): Promise<
     Array<{
       chain: string;
       address: string | null;
@@ -556,9 +563,9 @@ export class WalletService {
     // Ensure wallet exists
     const hasSeed = await this.seedRepository.hasSeed(userId);
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     const addresses = await this.getAddresses(userId);
@@ -579,6 +586,17 @@ export class WalletService {
     
     // Polkadot EVM chains use the same EOA address as ethereum
     const polkadotEvmAddress = addresses.ethereum;
+
+    // Invalidate Zerion cache for all addresses if force refresh is requested
+    if (forceRefresh) {
+      for (const addr of targetAddresses) {
+        // Invalidate for common chains that Zerion supports
+        const chains = ['ethereum', 'base', 'arbitrum', 'polygon', 'avalanche', 'solana'];
+        for (const chain of chains) {
+          this.zerionService.invalidateCache(addr, chain);
+        }
+      }
+    }
 
     // Fetch positions for each address in parallel (Zerion)
     const zerionResults = targetAddresses.length > 0
@@ -724,9 +742,9 @@ export class WalletService {
   > {
     const hasSeed = await this.seedRepository.hasSeed(userId);
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     const addresses = await this.getAddresses(userId);
@@ -998,25 +1016,59 @@ export class WalletService {
    */
   async getBalances(
     userId: string,
+    forceRefresh: boolean = false,
   ): Promise<Array<{ chain: string; balance: string }>> {
+    // Substrate chains are handled separately by getSubstrateBalances()
+    // Skip them here to avoid returning misleading cached values
+    const substrateChains = [
+      'polkadot',
+      'hydrationSubstrate',
+      'bifrostSubstrate',
+      'uniqueSubstrate',
+      'paseo',
+      'paseoAssethub',
+    ];
+
+    // Fast path: Check database cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cachedBalances = await this.balanceCacheRepository.getCachedBalances(userId);
+      if (cachedBalances) {
+        this.logger.debug(`Returning cached balances from DB for user ${userId}`);
+        // Convert cached format to response format, excluding Substrate chains
+        return Object.entries(cachedBalances)
+          .filter(([chain]) => !substrateChains.includes(chain) && !chain.startsWith('substrate_'))
+          .map(([chain, data]) => ({
+            chain,
+            balance: data.balance,
+          }));
+      }
+    }
+
     // Check if wallet exists, create if not
     const hasSeed = await this.seedRepository.hasSeed(userId);
 
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     // Get addresses first (using WDK - addresses stay on backend)
     const addresses = await this.getAddresses(userId);
 
     const balances: Array<{ chain: string; balance: string }> = [];
+    const balancesToCache: Record<string, { balance: string; lastUpdated: number }> = {};
 
     // For each chain, get balance from Zerion
     for (const [chain, address] of Object.entries(addresses)) {
+      // Skip Substrate chains - they're handled by getSubstrateBalances()
+      if (substrateChains.includes(chain)) {
+        continue;
+      }
+
       if (!address) {
         balances.push({ chain, balance: '0' });
+        balancesToCache[chain] = { balance: '0', lastUpdated: Date.now() };
         continue;
       }
 
@@ -1027,6 +1079,7 @@ export class WalletService {
         if (!portfolio?.data || !Array.isArray(portfolio.data)) {
           // Zerion doesn't support this chain or returned no data
           balances.push({ chain, balance: '0' });
+          balancesToCache[chain] = { balance: '0', lastUpdated: Date.now() };
           continue;
         }
 
@@ -1050,6 +1103,8 @@ export class WalletService {
           balance,
         });
 
+        balancesToCache[chain] = { balance, lastUpdated: Date.now() };
+
         this.logger.log(
           `Successfully got balance for ${chain} from Zerion: ${balance}`,
         );
@@ -1059,10 +1114,26 @@ export class WalletService {
         );
         // Return 0 balance if Zerion fails (Zerion is primary source)
         balances.push({ chain, balance: '0' });
+        balancesToCache[chain] = { balance: '0', lastUpdated: Date.now() };
       }
     }
 
+    // Save to cache
+    await this.balanceCacheRepository.updateCachedBalances(userId, balancesToCache);
+
     return balances;
+  }
+
+  /**
+   * Refresh balances from external APIs and update cache
+   * @param userId - The user ID
+   * @returns Fresh balances from APIs
+   */
+  async refreshBalances(
+    userId: string,
+  ): Promise<Array<{ chain: string; balance: string }>> {
+    this.logger.debug(`Refreshing balances for user ${userId}`);
+    return this.getBalances(userId, true); // Force refresh
   }
 
   /**
@@ -1788,9 +1859,9 @@ export class WalletService {
     const hasSeed = await this.seedRepository.hasSeed(userId);
 
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     // Validate amount
@@ -2259,9 +2330,9 @@ export class WalletService {
     const hasSeed = await this.seedRepository.hasSeed(userId);
 
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     // Map WalletConnect chain ID to internal chain name
@@ -2446,11 +2517,13 @@ export class WalletService {
    * Get token balances for a specific chain using Zerion API
    * @param userId - The user ID
    * @param chain - The blockchain network
+   * @param forceRefresh - Force refresh from API (bypass Zerion's internal cache)
    * @returns Array of token balances
    */
   async getTokenBalances(
     userId: string,
     chain: string,
+    forceRefresh: boolean = false,
   ): Promise<
     Array<{
       address: string | null;
@@ -2460,16 +2533,16 @@ export class WalletService {
     }>
   > {
     this.logger.log(
-      `Getting token balances for user ${userId} on chain ${chain} using Zerion`,
+      `Getting token balances for user ${userId} on chain ${chain} using Zerion${forceRefresh ? ' (force refresh)' : ''}`,
     );
 
     // Check if wallet exists, create if not
     const hasSeed = await this.seedRepository.hasSeed(userId);
 
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     try {
@@ -2480,6 +2553,11 @@ export class WalletService {
       if (!address) {
         this.logger.warn(`No address found for chain ${chain}`);
         return [];
+      }
+
+      // Invalidate Zerion cache if force refresh is requested
+      if (forceRefresh) {
+        this.zerionService.invalidateCache(address, chain);
       }
 
       // Get portfolio from Zerion (includes native + all ERC-20 tokens)
@@ -3080,9 +3158,9 @@ export class WalletService {
     const hasSeed = await this.seedRepository.hasSeed(userId);
 
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     try {
@@ -3219,12 +3297,68 @@ export class WalletService {
   async getSubstrateBalances(
     userId: string,
     useTestnet: boolean = false,
+    forceRefresh: boolean = false,
   ): Promise<Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>> {
+    // Fast path: Check database cache first (unless force refresh)
+    const cacheKey = `substrate_${useTestnet ? 'testnet' : 'mainnet'}`;
+    
+    if (!forceRefresh) {
+      const cachedBalances = await this.balanceCacheRepository.getCachedBalances(userId);
+      if (cachedBalances) {
+        // Check if we have substrate balances cached
+        const substrateChains: SubstrateChainKey[] = ['polkadot', 'hydration', 'bifrost', 'unique', 'paseo', 'paseoAssethub'];
+        const hasSubstrateCache = substrateChains.some(chain => {
+          const key = `${cacheKey}_${chain}`;
+          return cachedBalances[key] !== undefined;
+        });
+
+        if (hasSubstrateCache) {
+          this.logger.debug(`Returning cached Substrate balances from DB for user ${userId}`);
+          const result: Record<string, { balance: string; address: string | null; token: string; decimals: number }> = {};
+          
+          for (const chain of substrateChains) {
+            const key = `${cacheKey}_${chain}`;
+            const cached = cachedBalances[key];
+            if (cached) {
+              const chainConfig = this.substrateManager.getChainConfig(chain, useTestnet);
+              // We need to get the address separately since it's not in cache
+              const addresses = await this.addressManager.getAddresses(userId);
+              let address: string | null = null;
+              
+              // Map chain to address key
+              const addressMap: Record<SubstrateChainKey, keyof WalletAddresses> = {
+                polkadot: 'polkadot',
+                hydration: 'hydrationSubstrate',
+                bifrost: 'bifrostSubstrate',
+                unique: 'uniqueSubstrate',
+                paseo: 'paseo',
+                paseoAssethub: 'paseoAssethub',
+              };
+              
+              address = addresses[addressMap[chain]] ?? null;
+              
+              result[chain] = {
+                balance: cached.balance,
+                address,
+                token: chainConfig.token.symbol,
+                decimals: chainConfig.token.decimals,
+              };
+            }
+          }
+          
+          if (Object.keys(result).length > 0) {
+            return result as Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>;
+          }
+        }
+      }
+    }
+
     this.logger.log(`[WalletService] Getting Substrate balances for user ${userId} (testnet: ${useTestnet})`);
     const balances = await this.substrateManager.getBalances(userId, useTestnet);
     this.logger.log(`[WalletService] Received ${Object.keys(balances).length} Substrate chain balances`);
     
     const result: Record<string, { balance: string; address: string | null; token: string; decimals: number }> = {};
+    const balancesToCache: Record<string, { balance: string; lastUpdated: number }> = {};
 
     for (const [chain, data] of Object.entries(balances)) {
       const chainConfig = this.substrateManager.getChainConfig(chain as SubstrateChainKey, useTestnet);
@@ -3234,8 +3368,21 @@ export class WalletService {
         token: chainConfig.token.symbol,
         decimals: chainConfig.token.decimals,
       };
+      
+      // Cache with a key that includes testnet/mainnet distinction
+      const cacheKeyForChain = `${cacheKey}_${chain}`;
+      balancesToCache[cacheKeyForChain] = {
+        balance: data.balance,
+        lastUpdated: Date.now(),
+      };
+      
       this.logger.debug(`[WalletService] ${chain}: ${data.balance} ${chainConfig.token.symbol} (address: ${data.address ? 'present' : 'null'})`);
     }
+
+    // Update cache with substrate balances (merge with existing cache)
+    const existingCache = await this.balanceCacheRepository.getCachedBalances(userId) || {};
+    const mergedCache = { ...existingCache, ...balancesToCache };
+    await this.balanceCacheRepository.updateCachedBalances(userId, mergedCache);
 
     this.logger.log(`[WalletService] Returning ${Object.keys(result).length} Substrate balances`);
     return result as Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>;

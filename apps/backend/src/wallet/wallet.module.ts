@@ -20,6 +20,9 @@ import { PolkadotEvmRpcService } from './services/polkadot-evm-rpc.service.js';
 import { TokenListService } from './services/token-list.service.js';
 // Import Substrate module
 import { SubstrateModule } from './substrate/substrate.module.js';
+// Import cache repositories
+import { AddressCacheRepository } from './repositories/address-cache.repository.js';
+import { BalanceCacheRepository } from './repositories/balance-cache.repository.js';
 
 @Module({
   imports: [PrismaModule, CryptoModule, SubstrateModule],
@@ -43,6 +46,9 @@ import { SubstrateModule } from './substrate/substrate.module.js';
     PolkadotEvmRpcService,
     // Token List service
     TokenListService,
+    // Cache repositories
+    AddressCacheRepository,
+    BalanceCacheRepository,
   ],
   exports: [
     WalletService,
@@ -59,6 +65,9 @@ import { SubstrateModule } from './substrate/substrate.module.js';
     PolkadotEvmRpcService,
     // Export Token List service
     TokenListService,
+    // Export cache repositories
+    AddressCacheRepository,
+    BalanceCacheRepository,
   ],
 })
 export class WalletModule {}

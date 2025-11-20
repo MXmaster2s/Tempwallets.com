@@ -90,16 +90,44 @@ export class WalletController {
   }
 
   @Get('balances')
-  async getBalances(@Query('userId') userId: string) {
-    this.logger.log(`Getting balances for user ${userId}`);
+  async getBalances(
+    @Query('userId') userId: string,
+    @Query('refresh') refresh?: string,
+  ) {
+    const forceRefresh = refresh === 'true';
+    this.logger.log(`Getting balances for user ${userId}${forceRefresh ? ' (force refresh)' : ''}`);
 
     try {
-      const balances = await this.walletService.getBalances(userId);
+      const balances = await this.walletService.getBalances(userId, forceRefresh);
 
       return balances;
     } catch (error) {
       this.logger.error(
         `Failed to get balances: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
+  }
+
+  @Post('balances/refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshBalances(@Body() body: { userId: string }) {
+    if (!body.userId) {
+      throw new BadRequestException('userId is required');
+    }
+
+    this.logger.debug(`Refreshing balances for user ${body.userId}`);
+
+    try {
+      const balances = await this.walletService.refreshBalances(body.userId);
+
+      return {
+        success: true,
+        balances,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to refresh balances: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
       throw error;
     }
@@ -155,9 +183,11 @@ export class WalletController {
   async getTokenBalances(
     @Query('userId') userId: string,
     @Query('chain') chain: string,
+    @Query('refresh') refresh?: string,
   ) {
+    const forceRefresh = refresh === 'true';
     this.logger.log(
-      `Getting token balances for user ${userId} on chain ${chain}`,
+      `Getting token balances for user ${userId} on chain ${chain}${forceRefresh ? ' (force refresh)' : ''}`,
     );
 
     if (!userId) {
@@ -168,7 +198,11 @@ export class WalletController {
     }
 
     try {
-      const balances = await this.walletService.getTokenBalances(userId, chain);
+      const balances = await this.walletService.getTokenBalances(
+        userId,
+        chain,
+        forceRefresh,
+      );
 
       return balances;
     } catch (error) {
@@ -180,15 +214,24 @@ export class WalletController {
   }
 
   @Get('assets-any')
-  async getAssetsAny(@Query('userId') userId: string) {
-    this.logger.log(`Getting any-chain assets for user ${userId}`);
+  async getAssetsAny(
+    @Query('userId') userId: string,
+    @Query('refresh') refresh?: string,
+  ) {
+    const forceRefresh = refresh === 'true';
+    this.logger.log(
+      `Getting any-chain assets for user ${userId}${forceRefresh ? ' (force refresh)' : ''}`,
+    );
 
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
 
     try {
-      const assets = await this.walletService.getTokenBalancesAny(userId);
+      const assets = await this.walletService.getTokenBalancesAny(
+        userId,
+        forceRefresh,
+      );
       return assets;
     } catch (error) {
       this.logger.error(
@@ -509,22 +552,24 @@ export class WalletController {
 
   /**
    * Get Substrate balances for a user
-   * GET /wallet/substrate/balances?userId=xxx&useTestnet=false
+   * GET /wallet/substrate/balances?userId=xxx&useTestnet=false&refresh=false
    */
   @Get('substrate/balances')
   async getSubstrateBalances(
     @Query('userId') userId: string,
     @Query('useTestnet') useTestnet?: string,
+    @Query('refresh') refresh?: string,
   ) {
     if (!userId) {
       throw new BadRequestException('userId is required');
     }
 
     const useTestnetBool = useTestnet === 'true';
-    this.logger.log(`Getting Substrate balances for user ${userId} (testnet: ${useTestnetBool})`);
+    const forceRefresh = refresh === 'true';
+    this.logger.log(`Getting Substrate balances for user ${userId} (testnet: ${useTestnetBool}${forceRefresh ? ', force refresh' : ''})`);
 
     try {
-      const balances = await this.walletService.getSubstrateBalances(userId, useTestnetBool);
+      const balances = await this.walletService.getSubstrateBalances(userId, useTestnetBool, forceRefresh);
       this.logger.log(`Successfully retrieved Substrate balances for user ${userId}: ${Object.keys(balances).length} chains`);
       return {
         userId,

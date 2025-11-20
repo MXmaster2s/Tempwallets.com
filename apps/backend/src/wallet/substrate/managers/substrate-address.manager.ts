@@ -66,9 +66,9 @@ export class SubstrateAddressManager {
     // Ensure wallet exists
     const hasSeed = await this.seedManager.hasSeed(userId);
     if (!hasSeed) {
-      this.logger.log(`No wallet found for user ${userId}. Auto-creating...`);
+      this.logger.debug(`No wallet found for user ${userId}. Auto-creating...`);
       await this.seedManager.createOrImportSeed(userId, 'random');
-      this.logger.log(`Successfully auto-created wallet for user ${userId}`);
+      this.logger.debug(`Successfully auto-created wallet for user ${userId}`);
     }
 
     // Derive addresses for all enabled chains

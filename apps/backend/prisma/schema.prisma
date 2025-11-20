@@ -57,3 +57,28 @@ model WalletSeed {
   @@index([userId])
 }
 
+model WalletCache {
+  id            String   @id @default(cuid())
+  fingerprint   String   @unique // browser fingerprint (same as userId)
+  cachedBalances Json     // Store balances per chain: { chain: { balance: string, lastUpdated: timestamp } }
+  lastUpdated   DateTime @default(now()) @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@index([fingerprint])
+  @@map("wallet_cache")
+}
+
+model WalletAddressCache {
+  id          String   @id @default(cuid())
+  fingerprint String   // browser fingerprint (same as userId)
+  chain       String   // chain identifier (ethereum, base, solana, etc.)
+  address     String   // public address for this chain
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([fingerprint, chain])
+  @@index([fingerprint])
+  @@index([chain])
+  @@map("wallet_address_cache")
+}
+

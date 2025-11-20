@@ -43,7 +43,10 @@ async function bootstrap() {
 
   await app.listen(port);
 
+  // Production-ready logging
+  if (process.env.NODE_ENV !== 'production') {
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📊 Health check available at: http://localhost:${port}/health`);
+  }
 }
 bootstrap();

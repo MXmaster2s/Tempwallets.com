@@ -16,6 +16,7 @@
     "start:debug": "nest start --debug --watch",
     "migrate:deploy": "prisma migrate deploy",
     "start:prod": "prisma migrate deploy && node dist/main.js",
+    "studio": "prisma studio",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -28,24 +29,23 @@
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@polkadot/api": "^16.5.2",
+    "@polkadot/keyring": "13.5.8",
+    "@polkadot/types": "^16.5.2",
+    "@polkadot/util": "13.5.8",
+    "@polkadot/util-crypto": "13.5.8",
     "@prisma/client": "^6.18.0",
     "@tetherto/wdk": "1.0.0-beta.3",
     "@tetherto/wdk-wallet-btc": "1.0.0-beta.3",
     "@tetherto/wdk-wallet-evm": "1.0.0-beta.3",
     "@tetherto/wdk-wallet-solana": "1.0.0-beta.2",
     "@tetherto/wdk-wallet-tron": "1.0.0-beta.2",
-    "viem": "^2.21.45",
-    "permissionless": "^0.2.10",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "permissionless": "^0.2.10",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "@polkadot/api": "^16.5.2",
-    "@polkadot/types": "^16.5.2",
-    "@polkadot/keyring": "13.5.8",
-    "@polkadot/util": "13.5.8",
-    "@polkadot/util-crypto": "13.5.8"
-
+    "viem": "^2.21.45"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -68,28 +68,11 @@
     "prisma": "^6.18.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
-    "ts-jest": "^29.2.5",
+    "ts-jest": "^29.4.5",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
   }
 }
