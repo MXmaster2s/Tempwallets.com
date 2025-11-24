@@ -3,8 +3,8 @@ import Link from "next/link";
 
 const UpperBar = () => {
   return (
-    <div className="lg:hidden fixed top-6 left-0 right-0 z-40 bg-black/40 backdrop-blur-md">
-      <div className="flex items-center justify-between px-4 py-2">
+    <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 via-black/50 to-black/40 backdrop-blur-md">
+      <div className="flex items-center justify-between px-4 pt-8">
         {/* Profile Circle - Left */}
         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-500/20 hover:bg-gray-500/30 transition-colors">
           <User className="h-5 w-5 text-white" />

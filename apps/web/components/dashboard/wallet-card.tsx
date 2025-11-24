@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { Chain } from '@/lib/chains';
 import { WalletData } from '@/hooks/useWalletV2';
 
@@ -12,13 +13,39 @@ interface WalletCardProps {
 }
 
 export function WalletCard({ wallet, chain, loading, error }: WalletCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   const truncateAddress = (address: string) => {
     if (address.length <= 15) return address;
     return `${address.slice(0, 7)}...${address.slice(-5)}`;
   };
 
+  const copyToClipboard = async () => {
+    if (!wallet?.address) return;
+    
+    try {
+      await navigator.clipboard.writeText(wallet.address);
+      setShowTooltip(true);
+      setTimeout(() => setShowTooltip(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  };
+
   return (
-    <div className="rounded-3xl p-6 md:p-8 shadow-lg bg-white min-h-[150px] flex items-center justify-center">
+    <div 
+      className={`rounded-3xl p-6 md:p-8 shadow-lg bg-white min-h-[150px] flex items-center justify-center relative ${
+        wallet ? 'cursor-pointer hover:shadow-xl transition-shadow duration-200' : ''
+      }`}
+      onClick={wallet ? copyToClipboard : undefined}
+    >
+      {/* Floating tooltip */}
+      {showTooltip && (
+        <div className="absolute top-28 right-2 bg-black/20 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm opacity-60 pointer-events-none z-10">
+          Copied
+        </div>
+      )}
+
       {/* Wallet address or loading state */}
       <div className="text-center space-y-2 w-full">
         {error ? (
@@ -41,7 +68,7 @@ export function WalletCard({ wallet, chain, loading, error }: WalletCardProps) {
         ) : wallet ? (
           // Wallet loaded
           <div className="space-y-2">
-            <p className="text-gray-800 text-regular md:text-base font-rubik-light">
+            <p className="text-gray-800 text-medium md:text-base font-rubik-light">
               {chain.name} Wallet
             </p>
             <div className="flex items-center justify-center ">

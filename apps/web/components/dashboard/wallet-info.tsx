@@ -11,6 +11,7 @@ import { WalletCard } from "./wallet-card";
 import { ChainSelector } from "./chain-selector";
 import { DEFAULT_CHAIN, getChainById } from "@/lib/chains";
 import { useWalletConfig } from "@/hooks/useWalletConfig";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
 
 const WalletInfo = () => {
   const router = useRouter();
@@ -20,6 +21,20 @@ const WalletInfo = () => {
   const [evmWalletConnectOpen, setEvmWalletConnectOpen] = useState(false);
   const { wallets, loading, error, loadWallets, getWalletByChainType } = useWalletV2();
   const walletConfig = useWalletConfig();
+  
+  // Track chain changes
+  const handleChainChange = (chainId: string) => {
+    const previousChainId = selectedChainId;
+    setSelectedChainId(chainId);
+    
+    trackMixpanelEvent("V2-Dashboard", {
+      action: "chain_changed",
+      previousChainId,
+      newChainId: chainId,
+      timestamp: new Date().toISOString(),
+      source: "web-app",
+    });
+  };
   
   // Use browser fingerprint as unique user ID
   const { fingerprint, loading: fingerprintLoading, generateNewWallet } = useBrowserFingerprint();
@@ -33,6 +48,22 @@ const WalletInfo = () => {
   // Get wallet by specific chain ID instead of just by type
   // This ensures we get the correct wallet when switching between EOA and Smart Account variants
   const currentWallet = wallets.find(w => w.chain === selectedChainId) || getWalletByChainType(selectedChain.type);
+
+  // Track wallet display in Mixpanel
+  useEffect(() => {
+    if (currentWallet && !loading && !error) {
+      trackMixpanelEvent("V2-Dashboard", {
+        action: "wallet_displayed",
+        chainId: selectedChainId,
+        chainName: selectedChain.name,
+        chainType: selectedChain.type,
+        walletAddress: currentWallet.address,
+        isSmartAccount: selectedChainConfig?.isSmartAccount || false,
+        timestamp: new Date().toISOString(),
+        source: "web-app",
+      });
+    }
+  }, [currentWallet, loading, error, selectedChainId, selectedChain, selectedChainConfig]);
 
   // Load wallets when fingerprint is ready
   useEffect(() => {
@@ -85,6 +116,14 @@ const WalletInfo = () => {
       if (fingerprint) {
         console.log('🔄 Change button clicked - Current fingerprint:', fingerprint);
         
+        // Track wallet change action
+        trackMixpanelEvent("V2-Dashboard", {
+          action: "wallet_change_initiated",
+          previousChainId: selectedChainId,
+          timestamp: new Date().toISOString(),
+          source: "web-app",
+        });
+        
         // Clear the cache for current user first
         walletStorage.clearAddresses();
         console.log('🧹 Cleared wallet cache');
@@ -98,6 +137,15 @@ const WalletInfo = () => {
         console.log('📡 Fetching new wallets from backend...');
         await loadWallets(newWalletId, true);
         console.log('✅ New wallets loaded successfully');
+        
+        // Track successful wallet creation
+        trackMixpanelEvent("V2-Dashboard", {
+          action: "wallet_created",
+          newFingerprint: newWalletId,
+          chainId: selectedChainId,
+          timestamp: new Date().toISOString(),
+          source: "web-app",
+        });
       }
     } else if (action === 'copy' && currentWallet) {
       await copyToClipboard(currentWallet.address);
@@ -120,6 +168,17 @@ const WalletInfo = () => {
       await navigator.clipboard.writeText(address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      
+      // Track address copy action
+      trackMixpanelEvent("V2-Dashboard", {
+        action: "wallet_address_copied",
+        chainId: selectedChainId,
+        chainName: selectedChain.name,
+        chainType: selectedChain.type,
+        isSmartAccount: selectedChainConfig?.isSmartAccount || false,
+        timestamp: new Date().toISOString(),
+        source: "web-app",
+      });
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -192,7 +251,7 @@ const WalletInfo = () => {
       {/* Chain Selector - Replaces Quick Actions */}
       <ChainSelector
         selectedChainId={selectedChainId}
-        onChainChange={setSelectedChainId}
+        onChainChange={handleChainChange}
       />
 
       {/* WalletConnect Modals */}
