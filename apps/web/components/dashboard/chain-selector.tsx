@@ -63,8 +63,8 @@ export function ChainSelector({
 
   return (
     <>
-      <div className={cn('rounded-3xl p-4 md:p-6 mt-4', className)} style={{ backgroundColor: '#292828' }}>
-        <div className="flex items-center justify-between">
+      <div className={cn('rounded-3xl p-3 md:p-4 mt-4', className)} style={{ backgroundColor: '#292828' }}>
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-white text-sm md:text-base font-rubik-regular">More Networks</h3>
           <button
             onClick={() => setShowList(true)}
@@ -76,7 +76,7 @@ export function ChainSelector({
       
       {/* Horizontal scrollable chain icons - 4 visible at a time */}
       <div className="overflow-x-auto overflow-y-hidden scrollbar-hide">
-        <div className="flex gap-4 snap-x snap-mandatory">
+        <div className="flex gap-3 snap-x snap-mandatory">
           {visibleChains.map((chain) => {
             const isSelected = selectedChainId === chain.id;
             const Icon = chain.icon;
@@ -86,35 +86,45 @@ export function ChainSelector({
                 key={chain.id}
                 onClick={() => onChainChange(chain.id)}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-2 p-3 rounded-xl transition-all flex-shrink-0 snap-start',
+                  'flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl transition-all flex-shrink-0 snap-start',
                   'hover:scale-105 active:scale-95',
                   // Make each icon take 1/4 of the container width (minus gaps)
-                  'w-[calc(25%-0.75rem)]',
+                  'w-[calc(25%-0.5625rem)]',
                   isSelected
                     ? 'scale-105 shadow-lg'
                     : 'opacity-70 hover:opacity-100'
                 )}
                 style={{
-                  minWidth: 'calc(25% - 0.75rem)',
+                  minWidth: 'calc(25% - 0.5625rem)',
                 }}
               >
                 <div className="relative">
                   <Icon 
-                    className="w-10 h-10 md:w-12 md:h-12" 
+                    className="w-9 h-9 md:w-10 md:h-10" 
                     style={{ fill: 'currentColor', color: chain.color || '#ffffff' }}
                   />
                   {isSelected && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#292828]" />
+                    <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#292828]" />
                   )}
                 </div>
-                <span
-                  className={cn(
-                    'text-xs md:text-sm font-rubik-medium whitespace-nowrap',
-                    isSelected ? 'text-white' : 'text-white/70'
+                <div className="flex flex-col items-center gap-0.5 min-h-[36px]">
+                  <span
+                    className={cn(
+                      'text-[11px] md:text-xs font-rubik-medium whitespace-nowrap',
+                      isSelected ? 'text-white' : 'text-white/70'
+                    )}
+                  >
+                    {chain.name}
+                  </span>
+                  {/* Always reserve space for tag to maintain consistent height */}
+                  {chain.isSmartAccount ? (
+                    <span className="px-1 py-0 text-[9px] bg-blue-500/20 text-blue-400 rounded-full font-rubik-medium leading-tight">
+                      Gasless
+                    </span>
+                  ) : (
+                    <span className="h-[14px]" />
                   )}
-                >
-                  {chain.name}
-                </span>
+                </div>
               </button>
             );
           })}
@@ -196,17 +206,17 @@ export function ChainSelector({
 
                         {/* Chain Info */}
                         <div className="flex-1 text-left min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 min-h-[24px]">
                             <h4 className="text-white font-rubik-bold text-base truncate">
                               {chain.name}
                             </h4>
                             {chain.isTestnet && (
-                              <span className="px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded-full font-rubik-medium">
+                              <span className="px-2 py-0.5 text-[10px] bg-yellow-500/20 text-yellow-400 rounded-full font-rubik-medium leading-tight whitespace-nowrap">
                                 Testnet
                               </span>
                             )}
                             {chain.isSmartAccount && (
-                              <span className="px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full font-rubik-medium">
+                              <span className="px-2 py-0.5 text-[10px] bg-blue-500/20 text-blue-400 rounded-full font-rubik-medium leading-tight whitespace-nowrap">
                                 Gasless
                               </span>
                             )}

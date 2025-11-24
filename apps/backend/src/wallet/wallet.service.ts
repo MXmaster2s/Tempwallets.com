@@ -334,6 +334,27 @@ export class WalletService {
   ): UiWalletEntry[] {
     const entries: UiWalletEntry[] = [];
 
+    // EVM EOA chains (standard EVM wallets)
+    const eoaChains: WalletAddressKey[] = [
+      'ethereum',
+      'base',
+      'arbitrum',
+      'polygon',
+      'avalanche',
+    ];
+    eoaChains.forEach((chain) => {
+      const entry = metadata[chain];
+      if (entry?.visible && entry.address) {
+        entries.push({
+          key: chain,
+          label: entry.label,
+          chain,
+          address: entry.address,
+          category: 'evm',
+        });
+      }
+    });
+
     // Polkadot EVM chains
     const polkadotEvmChains: WalletAddressKey[] = [
       'moonbeamTestnet',
