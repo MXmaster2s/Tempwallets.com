@@ -69,33 +69,42 @@ export function useEvmWalletConnect(userId: string | null): UseEvmWalletConnectR
       return;
     }
 
-    // Prevent multiple initializations
-    if (isInitializedRef.current || globalEvmSignClient) {
-      setClient(globalEvmSignClient);
-      setIsInitializing(false);
-      if (globalEvmSignClient) {
-        const existingSessions = globalEvmSignClient.session.getAll();
-        setSessions(
-          existingSessions
-            .filter(s => {
-              if (!s || !s.topic) return false;
-              return s.namespaces?.eip155 !== undefined;
-            })
-            .map(s => ({
-              topic: s.topic,
-              peer: s.peer || { metadata: undefined },
-              namespaces: s.namespaces || {},
-            }))
-        );
+    // If already initialized with a valid client, just use it
+    if (globalEvmSignClient) {
+      if (client !== globalEvmSignClient) {
+        setClient(globalEvmSignClient);
       }
+      setIsInitializing(false);
+      isInitializedRef.current = true;
+      const existingSessions = globalEvmSignClient.session.getAll();
+      setSessions(
+        existingSessions
+          .filter(s => {
+            if (!s || !s.topic) return false;
+            return s.namespaces?.eip155 !== undefined;
+          })
+          .map(s => ({
+            topic: s.topic,
+            peer: s.peer || { metadata: undefined },
+            namespaces: s.namespaces || {},
+          }))
+      );
+      return;
+    }
+
+    // Prevent multiple initializations
+    if (isInitializedRef.current) {
+      setIsInitializing(false);
       return;
     }
 
     // Prevent concurrent initializations
     if (isInitializingEvmGlobal) {
       // Wait for existing initialization
-      while (isInitializingEvmGlobal) {
+      let waitCount = 0;
+      while (isInitializingEvmGlobal && waitCount < 50) {
         await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
       }
       const existingClient = globalEvmSignClient as SignClient | null;
       if (existingClient) {
@@ -151,9 +160,9 @@ export function useEvmWalletConnect(userId: string | null): UseEvmWalletConnectR
         return;
       }
 
-      // Wait longer to ensure Substrate client initialization is complete (if any)
-      // This helps avoid storage conflicts between the two clients
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait a bit to ensure any other WalletConnect initialization has finished first
+      // This helps avoid storage conflicts
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Initialize SignClient with error handling for storage conflicts
       let signClient: SignClient;
@@ -171,7 +180,7 @@ export function useEvmWalletConnect(userId: string | null): UseEvmWalletConnectR
         // If initialization fails due to storage conflict, wait and retry once
         if (initError?.message?.includes('restore') || initError?.message?.includes('storage')) {
           console.warn('[EvmWalletConnect] Initialization conflict detected, retrying after delay...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1000));
           signClient = await SignClient.init({
             projectId,
             metadata: {

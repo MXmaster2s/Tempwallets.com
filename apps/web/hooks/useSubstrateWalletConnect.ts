@@ -61,33 +61,42 @@ export function useSubstrateWalletConnect(userId: string | null): UseSubstrateWa
       return;
     }
 
-    // Prevent multiple initializations
-    if (isInitializedRef.current || globalSubstrateSignClient) {
-      setClient(globalSubstrateSignClient);
-      setIsInitializing(false);
-      if (globalSubstrateSignClient) {
-        const existingSessions = globalSubstrateSignClient.session.getAll();
-        setSessions(
-          existingSessions
-            .filter(s => {
-              if (!s || !s.topic) return false;
-              return s.namespaces?.polkadot !== undefined;
-            })
-            .map(s => ({
-              topic: s.topic,
-              peer: s.peer || { metadata: undefined },
-              namespaces: s.namespaces || {},
-            }))
-        );
+    // If already initialized with a valid client, just use it
+    if (globalSubstrateSignClient) {
+      if (client !== globalSubstrateSignClient) {
+        setClient(globalSubstrateSignClient);
       }
+      setIsInitializing(false);
+      isInitializedRef.current = true;
+      const existingSessions = globalSubstrateSignClient.session.getAll();
+      setSessions(
+        existingSessions
+          .filter(s => {
+            if (!s || !s.topic) return false;
+            return s.namespaces?.polkadot !== undefined;
+          })
+          .map(s => ({
+            topic: s.topic,
+            peer: s.peer || { metadata: undefined },
+            namespaces: s.namespaces || {},
+          }))
+      );
+      return;
+    }
+
+    // Prevent multiple initializations
+    if (isInitializedRef.current) {
+      setIsInitializing(false);
       return;
     }
 
     // Prevent concurrent initializations
     if (isInitializingGlobal) {
       // Wait for existing initialization
-      while (isInitializingGlobal) {
+      let waitCount = 0;
+      while (isInitializingGlobal && waitCount < 50) {
         await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
       }
       const existingClient = globalSubstrateSignClient as SignClient | null;
       if (existingClient) {
@@ -264,50 +273,59 @@ export function useSubstrateWalletConnect(userId: string | null): UseSubstrateWa
               const namespaces: SessionTypes.Namespaces = {};
               
               // Handle both required and optional namespaces
-              const polkadotNamespace = params.requiredNamespaces?.polkadot || params.optionalNamespaces?.polkadot;
+              const requiredPolkadot = params.requiredNamespaces?.polkadot;
+              const optionalPolkadot = params.optionalNamespaces?.polkadot;
               
-              if (!polkadotNamespace) {
+              if (!requiredPolkadot && !optionalPolkadot) {
                 throw new Error('Polkadot namespace is required but not provided in the connection request');
               }
 
-              const chains = polkadotNamespace.chains || [];
-              const methods = polkadotNamespace.methods || SUBSTRATE_WALLETCONNECT_METHODS;
-              const events = polkadotNamespace.events || SUBSTRATE_WALLETCONNECT_EVENTS;
+              // Get ALL required chains - we MUST include all of them in the response
+              const requiredChains = requiredPolkadot?.chains || [];
+              const optionalChains = optionalPolkadot?.chains || [];
+              
+              // Merge methods and events from both required and optional
+              const requiredMethods = requiredPolkadot?.methods || [];
+              const optionalMethods = optionalPolkadot?.methods || [];
+              const allMethods = [...new Set([...requiredMethods, ...optionalMethods])];
+              
+              const requiredEvents = requiredPolkadot?.events || [];
+              const optionalEvents = optionalPolkadot?.events || [];
+              const allEvents = [...new Set([...requiredEvents, ...optionalEvents])];
 
-              // Ensure chains array is not empty
-              if (chains.length === 0) {
+              // Use all chains (required + optional) for the response
+              const allChains = [...new Set([...requiredChains, ...optionalChains])];
+
+              // Ensure we have at least some chains
+              if (allChains.length === 0) {
                 throw new Error('No chains specified in the connection request');
               }
 
-              // Ensure methods array is not empty
-              if (methods.length === 0) {
-                throw new Error('No methods specified in the connection request');
+              // Ensure we have at least one account
+              if (!accountsData.accounts || accountsData.accounts.length === 0) {
+                throw new Error('No Substrate accounts available. Please ensure your wallet has addresses created.');
               }
 
-              // Filter accounts to only include chains requested by the dapp
-              const requestedChains = chains.map((c: string) => c.split(':')[1]); // Extract genesis hash
-              const filteredAccounts = accountsData.accounts.filter(acc => {
-                const accountGenesisHash = acc.accountId.split(':')[1];
-                return requestedChains.includes(accountGenesisHash);
-              });
+              // Build accounts for ALL requested chains using the same address
+              // WalletConnect requires accounts in format: "polkadot:genesisHash:address"
+              const baseAddress = accountsData.accounts[0]?.accountId?.split(':')[2];
+              if (!baseAddress) {
+                throw new Error('Invalid account format from backend');
+              }
 
-              // If no accounts match the requested chains, use all available accounts
-              // This is more permissive and allows the connection to proceed
-              const accountsToUse = filteredAccounts.length > 0 
-                ? filteredAccounts 
-                : accountsData.accounts;
-
-              // Ensure we have at least one account
-              if (accountsToUse.length === 0) {
-                throw new Error('No Substrate accounts available. Please ensure your wallet has addresses created.');
+              // Create accounts for all requested chains
+              const allAccounts: string[] = [];
+              for (const chain of allChains) {
+                // chain format is "polkadot:genesisHash"
+                allAccounts.push(`${chain}:${baseAddress}`);
               }
 
               // Build the polkadot namespace with all required fields
               namespaces.polkadot = {
-                accounts: accountsToUse.map(acc => acc.accountId),
-                methods: Array.isArray(methods) && methods.length > 0 ? methods : SUBSTRATE_WALLETCONNECT_METHODS,
-                events: Array.isArray(events) && events.length > 0 ? events : SUBSTRATE_WALLETCONNECT_EVENTS,
-                chains: Array.isArray(chains) && chains.length > 0 ? chains : [],
+                accounts: allAccounts,
+                methods: allMethods.length > 0 ? allMethods : SUBSTRATE_WALLETCONNECT_METHODS,
+                events: allEvents.length > 0 ? allEvents : SUBSTRATE_WALLETCONNECT_EVENTS,
+                chains: allChains,
               };
 
               // Validate namespaces before approving
