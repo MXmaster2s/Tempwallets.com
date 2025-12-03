@@ -115,7 +115,9 @@ export class PolkadotEvmRpcService {
         const data = (await response.json()) as RpcResponse<T>;
 
         if (data.error) {
-          throw new Error(`RPC error: ${data.error.message} (code: ${data.error.code})`);
+          throw new Error(
+            `RPC error: ${data.error.message} (code: ${data.error.code})`,
+          );
         }
 
         if (data.result === undefined) {
@@ -372,7 +374,10 @@ export class PolkadotEvmRpcService {
     }
 
     const cacheKey = `${chain}:${address.toLowerCase()}:txs:${limit}`;
-    const cached = this.getCached<Transaction[]>(cacheKey, this.TRANSACTION_TTL);
+    const cached = this.getCached<Transaction[]>(
+      cacheKey,
+      this.TRANSACTION_TTL,
+    );
     if (cached) {
       return cached;
     }
@@ -395,7 +400,11 @@ export class PolkadotEvmRpcService {
       const MAX_CONSECUTIVE_ERRORS = 5;
 
       // Scan blocks with rate limiting
-      for (let blockNum = currentBlock; blockNum >= startBlock && transactions.length < limit; blockNum--) {
+      for (
+        let blockNum = currentBlock;
+        blockNum >= startBlock && transactions.length < limit;
+        blockNum--
+      ) {
         try {
           // Add delay between requests to avoid rate limiting (200ms = ~5 req/sec)
           if (blockNum < currentBlock) {
@@ -517,7 +526,11 @@ export class PolkadotEvmRpcService {
     try {
       // Get native balance
       const nativeBalance = await this.getNativeBalance(address, chain);
-      if (nativeBalance && nativeBalance.balance !== '0' && BigInt(nativeBalance.balance) > 0n) {
+      if (
+        nativeBalance &&
+        nativeBalance.balance !== '0' &&
+        BigInt(nativeBalance.balance) > 0n
+      ) {
         const config = this.chainConfig.getEvmChainConfig(chain as any);
         assets.push({
           chain,
@@ -593,4 +606,3 @@ export class PolkadotEvmRpcService {
     return this.balanceCache as Map<string, CachedData<T>>;
   }
 }
-

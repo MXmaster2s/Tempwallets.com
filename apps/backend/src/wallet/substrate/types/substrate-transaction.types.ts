@@ -1,6 +1,6 @@
 /**
  * Substrate Transaction Types
- * 
+ *
  * Issue #2: Missing Transaction Signing Implementation
  * - Transaction construction, signing, and broadcasting types
  */
@@ -49,7 +49,7 @@ export interface FeeEstimate {
 /**
  * Transaction status
  */
-export type TransactionStatus = 
+export type TransactionStatus =
   | 'pending'
   | 'inBlock'
   | 'finalized'
@@ -104,4 +104,3 @@ export interface SignedTransaction {
   nonce: number;
   era?: number; // Mortality era
 }
-

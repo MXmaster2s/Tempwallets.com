@@ -16,7 +16,8 @@ describe('AddressManager', () => {
   let addressCacheRepository: jest.Mocked<AddressCacheRepository>;
 
   const mockUserId = 'test-fingerprint-123';
-  const mockSeedPhrase = 'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12';
+  const mockSeedPhrase =
+    'word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12';
 
   beforeEach(async () => {
     // Create mocks
@@ -122,12 +123,16 @@ describe('AddressManager', () => {
         paseoAssethub: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       };
 
-      addressCacheRepository.getCachedAddresses.mockResolvedValue(cachedAddresses);
+      addressCacheRepository.getCachedAddresses.mockResolvedValue(
+        cachedAddresses,
+      );
 
       const result = await addressManager.getAddresses(mockUserId);
 
       // Should return cached addresses without generating new ones
-      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(mockUserId);
+      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(
+        mockUserId,
+      );
       // Note: hasSeed might be called to check, but createAccount should not be called
       expect(accountFactory.createAccount).not.toHaveBeenCalled();
       expect(result).toBeDefined();
@@ -141,14 +146,18 @@ describe('AddressManager', () => {
 
       // Mock account creation
       const mockAccount = {
-        getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
+        getAddress: jest
+          .fn()
+          .mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
       };
       accountFactory.createAccount.mockResolvedValue(mockAccount as any);
 
       const result = await addressManager.getAddresses(mockUserId);
 
       // Should check cache first
-      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(mockUserId);
+      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(
+        mockUserId,
+      );
       // Should check if seed exists
       expect(seedManager.hasSeed).toHaveBeenCalledWith(mockUserId);
       // Should get seed
@@ -168,7 +177,9 @@ describe('AddressManager', () => {
       seedManager.getSeed.mockResolvedValue(mockSeedPhrase);
 
       const mockAccount = {
-        getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
+        getAddress: jest
+          .fn()
+          .mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
       };
       accountFactory.createAccount.mockResolvedValue(mockAccount as any);
 
@@ -176,7 +187,10 @@ describe('AddressManager', () => {
 
       // Should create seed
       expect(seedManager.hasSeed).toHaveBeenCalledWith(mockUserId);
-      expect(seedManager.createOrImportSeed).toHaveBeenCalledWith(mockUserId, 'random');
+      expect(seedManager.createOrImportSeed).toHaveBeenCalledWith(
+        mockUserId,
+        'random',
+      );
     });
 
     it('should return instantly from DB on second call', async () => {
@@ -210,7 +224,9 @@ describe('AddressManager', () => {
         paseoAssethub: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       };
 
-      addressCacheRepository.getCachedAddresses.mockResolvedValue(cachedAddresses);
+      addressCacheRepository.getCachedAddresses.mockResolvedValue(
+        cachedAddresses,
+      );
 
       // First call
       const result1 = await addressManager.getAddresses(mockUserId);
@@ -218,7 +234,9 @@ describe('AddressManager', () => {
       const result2 = await addressManager.getAddresses(mockUserId);
 
       // Should only call cache repository, not generate new addresses
-      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledTimes(2);
+      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledTimes(
+        2,
+      );
       // Note: hasSeed might be called, but createAccount should not be called
       expect(accountFactory.createAccount).not.toHaveBeenCalled();
       expect(result1).toBeDefined();
@@ -258,7 +276,9 @@ describe('AddressManager', () => {
         paseoAssethub: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       };
 
-      addressCacheRepository.getCachedAddresses.mockResolvedValue(cachedAddresses);
+      addressCacheRepository.getCachedAddresses.mockResolvedValue(
+        cachedAddresses,
+      );
       seedManager.hasSeed.mockResolvedValue(true);
 
       const streamed: Array<{ chain: string; address: string | null }> = [];
@@ -267,7 +287,9 @@ describe('AddressManager', () => {
       }
 
       // Should get cached addresses first
-      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(mockUserId);
+      expect(addressCacheRepository.getCachedAddresses).toHaveBeenCalledWith(
+        mockUserId,
+      );
       // Should stream cached addresses
       expect(streamed.length).toBeGreaterThan(0);
       expect(streamed[0]?.chain).toBeDefined();
@@ -287,7 +309,9 @@ describe('AddressManager', () => {
       });
 
       const mockAccount = {
-        getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
+        getAddress: jest
+          .fn()
+          .mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
       };
       accountFactory.createAccount.mockResolvedValue(mockAccount as any);
       pimlicoAccountFactory.createAccount.mockResolvedValue(mockAccount as any);
@@ -312,7 +336,9 @@ describe('AddressManager', () => {
       seedManager.getSeed.mockResolvedValue(mockSeedPhrase);
 
       const mockAccount = {
-        getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
+        getAddress: jest
+          .fn()
+          .mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'),
       };
       accountFactory.createAccount.mockResolvedValue(mockAccount as any);
       pimlicoAccountFactory.createAccount.mockResolvedValue(mockAccount as any);
@@ -362,7 +388,9 @@ describe('AddressManager', () => {
         paseo: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
         paseoAssethub: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
       };
-      addressCacheRepository.getCachedAddresses.mockResolvedValue(allCachedAddresses);
+      addressCacheRepository.getCachedAddresses.mockResolvedValue(
+        allCachedAddresses,
+      );
 
       await addressManager.getAddresses(mockUserId);
 
@@ -371,4 +399,3 @@ describe('AddressManager', () => {
     });
   });
 });
-

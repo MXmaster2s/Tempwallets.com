@@ -26,4 +26,3 @@ import { PrismaModule } from '../database/prisma.module.js';
   exports: [AuthService],
 })
 export class AuthModule {}
-

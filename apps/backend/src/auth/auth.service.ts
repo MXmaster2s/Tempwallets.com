@@ -44,7 +44,9 @@ export class AuthService {
   async linkFingerprintToUser(googleId: string, fingerprint: string) {
     return this.prisma.$transaction(async (tx) => {
       const googleUser = await tx.user.findUnique({ where: { googleId } });
-      const fingerprintUser = await tx.user.findUnique({ where: { fingerprint } });
+      const fingerprintUser = await tx.user.findUnique({
+        where: { fingerprint },
+      });
 
       if (!googleUser) {
         throw new Error('Google user not found');
@@ -159,4 +161,3 @@ export class AuthService {
     return { success: true };
   }
 }
-

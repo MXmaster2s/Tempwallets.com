@@ -9,11 +9,13 @@ import Tron from '@thirdweb-dev/chain-icons/dist/tron';
 import Arbitrum from '@thirdweb-dev/chain-icons/dist/arbitrum';
 // Base uses Ethereum icon as fallback since Base icon is not available in the package
 const Base = Ethereum;
+// Aptos icon - using Solana as fallback since Aptos icon may not be available
+const Aptos = Solana;
 
 /**
  * Chain types that determine wallet compatibility and functionality
  */
-export type ChainType = 'evm' | 'bitcoin' | 'substrate' | 'solana' | 'tron';
+export type ChainType = 'evm' | 'bitcoin' | 'substrate' | 'solana' | 'tron' | 'aptos';
 
 /**
  * Chain category for organizing chains
@@ -102,6 +104,17 @@ export const chains: Chain[] = [
     symbol: 'TRX',
     icon: Tron,
     type: 'solana', // Using 'solana' as generic non-EVM type for now
+    hasWalletConnect: false,
+    isTestnet: false,
+    category: 'layer1',
+    featured: true,
+  },
+  {
+    id: 'aptos',
+    name: 'Aptos',
+    symbol: 'APT',
+    icon: Aptos,
+    type: 'aptos',
     hasWalletConnect: false,
     isTestnet: false,
     category: 'layer1',
@@ -209,6 +222,8 @@ export const mapWalletCategoryToChainType = (category?: string): ChainType | nul
     case 'tron':
     case 'trx':
       return 'solana'; // Using 'solana' as generic non-EVM type
+    case 'aptos':
+      return 'aptos';
     default:
       return null;
   }

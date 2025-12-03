@@ -4,7 +4,7 @@ import { SubstrateRpcService } from '../services/substrate-rpc.service.js';
 
 /**
  * Nonce Manager
- * 
+ *
  * Issue #4: No Nonce Management for Transactions
  * - Track pending nonces per address/chain
  * - Prevent race conditions with simultaneous transactions
@@ -19,7 +19,7 @@ export class NonceManager {
 
   /**
    * Get next available nonce for an address
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -31,31 +31,36 @@ export class NonceManager {
     useTestnet?: boolean,
   ): Promise<number> {
     const key = this.getKey(address, chain, useTestnet);
-    
+
     // Get on-chain nonce
-    const onChainNonce = await this.rpcService.getNonce(address, chain, useTestnet);
-    
+    const onChainNonce = await this.rpcService.getNonce(
+      address,
+      chain,
+      useTestnet,
+    );
+
     // Get pending nonce (if any)
     const pendingNonce = this.pendingNonces.get(key);
-    
+
     // Use the maximum of on-chain and pending nonce
-    const nextNonce = pendingNonce !== undefined 
-      ? Math.max(onChainNonce, pendingNonce)
-      : onChainNonce;
-    
+    const nextNonce =
+      pendingNonce !== undefined
+        ? Math.max(onChainNonce, pendingNonce)
+        : onChainNonce;
+
     // Reserve the next nonce
     this.pendingNonces.set(key, nextNonce + 1);
-    
+
     this.logger.debug(
       `Next nonce for ${address} on ${chain}: ${nextNonce} (on-chain: ${onChainNonce}, pending: ${pendingNonce ?? 'none'})`,
     );
-    
+
     return nextNonce;
   }
 
   /**
    * Mark nonce as used (transaction confirmed)
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param nonce - Nonce that was used
@@ -69,18 +74,20 @@ export class NonceManager {
   ): void {
     const key = this.getKey(address, chain, useTestnet);
     const currentPending = this.pendingNonces.get(key);
-    
+
     // Update pending nonce to be at least nonce + 1
     if (currentPending === undefined || currentPending <= nonce) {
       this.pendingNonces.set(key, nonce + 1);
-      this.logger.debug(`Marked nonce ${nonce} as used for ${address} on ${chain}`);
+      this.logger.debug(
+        `Marked nonce ${nonce} as used for ${address} on ${chain}`,
+      );
     }
   }
 
   /**
    * Clear pending nonces for an address
    * Useful when transaction fails and we want to reset
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -97,7 +104,7 @@ export class NonceManager {
 
   /**
    * Get pending nonce for an address (for debugging)
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -132,4 +139,3 @@ export class NonceManager {
     this.logger.debug('Cleared all pending nonces');
   }
 }
-

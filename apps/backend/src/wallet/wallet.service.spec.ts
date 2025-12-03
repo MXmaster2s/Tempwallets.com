@@ -171,12 +171,16 @@ describe('WalletService', () => {
         },
       };
 
-      balanceCacheRepository.getCachedBalances.mockResolvedValue(cachedBalances);
+      balanceCacheRepository.getCachedBalances.mockResolvedValue(
+        cachedBalances,
+      );
 
       const result = await walletService.getBalances(mockUserId, false);
 
       // Should check cache first
-      expect(balanceCacheRepository.getCachedBalances).toHaveBeenCalledWith(mockUserId);
+      expect(balanceCacheRepository.getCachedBalances).toHaveBeenCalledWith(
+        mockUserId,
+      );
       // Should not call Zerion API
       expect(zerionService.getPortfolio).not.toHaveBeenCalled();
       expect(result).toBeDefined();
@@ -238,7 +242,9 @@ describe('WalletService', () => {
         },
       };
 
-      balanceCacheRepository.getCachedBalances.mockResolvedValue(cachedBalances);
+      balanceCacheRepository.getCachedBalances.mockResolvedValue(
+        cachedBalances,
+      );
       addressManager.getAddresses.mockResolvedValue(mockAddresses);
 
       const mockPortfolio = {
@@ -301,13 +307,16 @@ describe('WalletService', () => {
         },
       };
 
-      balanceCacheRepository.getCachedBalances.mockResolvedValue(cachedBalances);
+      balanceCacheRepository.getCachedBalances.mockResolvedValue(
+        cachedBalances,
+      );
 
       const result = await walletService.getBalances(mockUserId, false);
 
-      expect(balanceCacheRepository.getCachedBalances).toHaveBeenCalledWith(mockUserId);
+      expect(balanceCacheRepository.getCachedBalances).toHaveBeenCalledWith(
+        mockUserId,
+      );
       expect(result).toBeDefined();
     });
   });
 });
-

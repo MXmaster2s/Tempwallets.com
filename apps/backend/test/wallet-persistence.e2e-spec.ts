@@ -185,4 +185,3 @@ describe('Wallet Persistence (e2e)', () => {
     });
   });
 });
-

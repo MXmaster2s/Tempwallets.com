@@ -22,13 +22,23 @@ import { TokenListService } from './services/token-list.service.js';
 import { SubstrateModule } from './substrate/substrate.module.js';
 // Import EVM module
 import { EvmModule } from './evm/evm.module.js';
+// Import Aptos module
+import { AptosModule } from './aptos/aptos.module.js';
 // Import cache repositories
 import { AddressCacheRepository } from './repositories/address-cache.repository.js';
 import { BalanceCacheRepository } from './repositories/balance-cache.repository.js';
 import { WalletHistoryRepository } from './repositories/wallet-history.repository.js';
+// Import Aptos managers and services
+import { AptosAddressManager } from './aptos/managers/aptos-address.manager.js';
+import { AptosAccountFactory } from './aptos/factories/aptos-account.factory.js';
+import { AptosRpcService } from './aptos/services/aptos-rpc.service.js';
+import { AptosAccountService } from './aptos/services/aptos-account.service.js';
+import { AptosSequenceManager } from './aptos/managers/aptos-sequence.manager.js';
+import { AptosTransactionService } from './aptos/services/aptos-transaction.service.js';
+import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
 
 @Module({
-  imports: [PrismaModule, CryptoModule, SubstrateModule, EvmModule],
+  imports: [PrismaModule, CryptoModule, SubstrateModule, EvmModule, AptosModule],
   controllers: [WalletController],
   providers: [
     WalletService,
@@ -40,9 +50,17 @@ import { WalletHistoryRepository } from './repositories/wallet-history.repositor
     // Managers
     SeedManager,
     AddressManager,
+    AptosAddressManager,
+    AptosSequenceManager,
     // Factories
     AccountFactory,
     PimlicoAccountFactory,
+    AptosAccountFactory,
+    // Aptos Services
+    AptosRpcService,
+    AptosAccountService,
+    AptosTransactionService,
+    AptosFaucetService,
     // Pimlico bundler/paymaster service
     PimlicoService,
     // Polkadot EVM RPC service
@@ -66,6 +84,12 @@ import { WalletHistoryRepository } from './repositories/wallet-history.repositor
     AddressManager,
     AccountFactory,
     PimlicoAccountFactory,
+    AptosAddressManager,
+    AptosAccountFactory,
+    AptosRpcService,
+    AptosAccountService,
+    AptosTransactionService,
+    AptosSequenceManager,
     // Export Pimlico service
     PimlicoService,
     // Export Polkadot EVM RPC service

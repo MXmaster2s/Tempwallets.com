@@ -1,14 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Keyring from '@polkadot/keyring';
 import { SeedManager } from '../../managers/seed.manager.js';
-import { SubstrateChainKey, getChainConfig } from '../config/substrate-chain.config.js';
+import {
+  SubstrateChainKey,
+  getChainConfig,
+} from '../config/substrate-chain.config.js';
 import { buildDerivationPath } from '../utils/derivation.util.js';
 import { ensureCryptoReady } from '../utils/crypto-init.util.js';
 import { ss58Util } from '../utils/ss58.util.js';
 
 /**
  * Substrate Account Factory
- * 
+ *
  * Issue #3: Seed Phrase Security Risk
  * - Always use userId instead of raw seed phrases
  * - Decrypt seed only when needed
@@ -29,7 +32,7 @@ export class SubstrateAccountFactory {
 
   /**
    * Create account for a chain
-   * 
+   *
    * @param userId - User ID (NOT raw seed phrase)
    * @param chain - Chain key
    * @param accountIndex - Account index (default: 0)
@@ -137,7 +140,7 @@ export class SubstrateAccountFactory {
 
   /**
    * Get keypair for signing (internal use)
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param accountIndex - Account index
@@ -180,4 +183,3 @@ export class SubstrateAccountFactory {
     }
   }
 }
-

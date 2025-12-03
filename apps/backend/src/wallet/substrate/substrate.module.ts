@@ -14,7 +14,7 @@ import { WalletModule } from '../wallet.module.js';
 
 /**
  * Substrate Module
- * 
+ *
  * Encapsulates all Substrate/Polkadot wallet functionality
  * Separate from EVM/Solana wallet logic
  */
@@ -46,4 +46,3 @@ import { WalletModule } from '../wallet.module.js';
   ],
 })
 export class SubstrateModule {}
-

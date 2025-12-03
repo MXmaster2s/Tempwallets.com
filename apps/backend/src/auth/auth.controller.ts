@@ -53,14 +53,15 @@ export class AuthController {
       const { accessToken } = this.authService.generateTokens(googleUser.id);
 
       // Redirect to frontend with token
-      const frontendUrl =
-        process.env.FRONTEND_URL || 'http://localhost:3000';
-      const redirectUrl = `${frontendUrl}/auth/callback?token=${accessToken}&user=${encodeURIComponent(JSON.stringify({
-        id: googleUser.id,
-        email: googleUser.email,
-        name: googleUser.name,
-        picture: googleUser.picture,
-      }))}`;
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const redirectUrl = `${frontendUrl}/auth/callback?token=${accessToken}&user=${encodeURIComponent(
+        JSON.stringify({
+          id: googleUser.id,
+          email: googleUser.email,
+          name: googleUser.name,
+          picture: googleUser.picture,
+        }),
+      )}`;
 
       this.logger.log(`Redirecting to frontend: ${redirectUrl}`);
       res.redirect(redirectUrl);
@@ -85,4 +86,3 @@ export class AuthController {
     return this.authService.logout(req.user.id);
   }
 }
-

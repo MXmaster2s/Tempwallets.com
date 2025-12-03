@@ -3,10 +3,10 @@ import { Logger } from '@nestjs/common';
 
 /**
  * WASM Initialization Utility
- * 
+ *
  * CRITICAL: Lazy initialization pattern to avoid NestJS module initialization issues.
  * Each service that uses SR25519 must wait for ensureCryptoReady() before crypto operations.
- * 
+ *
  * Issue #1: WASM Initialization Timing Problem
  * - DO NOT initialize in main.ts or module initialization
  * - Services initialize WASM on-demand when first crypto operation is needed
@@ -98,4 +98,3 @@ export async function ensureCryptoReady(): Promise<void> {
 export function isCryptoReady(): boolean {
   return cryptoInitUtil.checkReady();
 }
-

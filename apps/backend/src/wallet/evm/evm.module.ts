@@ -6,7 +6,7 @@ import { WalletModule } from '../wallet.module.js';
 
 /**
  * EVM Module
- * 
+ *
  * Encapsulates all EVM WalletConnect functionality
  * Separate from Substrate wallet logic for namespace isolation
  */
@@ -17,9 +17,6 @@ import { WalletModule } from '../wallet.module.js';
     // Services
     EvmWalletConnectService,
   ],
-  exports: [
-    EvmWalletConnectService,
-  ],
+  exports: [EvmWalletConnectService],
 })
 export class EvmModule {}
-

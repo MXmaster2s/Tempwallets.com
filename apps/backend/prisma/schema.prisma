@@ -31,6 +31,7 @@ model Wallet {
   createdAt        DateTime        @default(now())
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   addresses        WalletAddress[]
+  aptosAccounts    AptosAccount[]
 
   @@index([userId])
 }
@@ -100,4 +101,22 @@ model WalletAddressCache {
   @@index([fingerprint])
   @@index([chain])
   @@map("wallet_address_cache")
+}
+
+model AptosAccount {
+  id             String   @id @default(cuid())
+  walletId       String
+  address        String   // Normalized (lowercase, 0x + 64 hex chars)
+  publicKey      String
+  sequenceNumber Int      @default(0)
+  network        String   // 'mainnet' | 'testnet' | 'devnet'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  wallet         Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, network])
+  @@unique([address, network])
+  @@index([walletId])
+  @@index([address])
+  @@map("aptos_account")
 }

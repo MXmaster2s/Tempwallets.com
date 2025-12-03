@@ -28,6 +28,11 @@ const CHAIN_NAMES: Record<string, string> = {
   baseErc4337: "Base (ERC-4337)",
   arbitrumErc4337: "Arbitrum (ERC-4337)",
   polygonErc4337: "Polygon (ERC-4337)",
+  // Aptos chains
+  aptos: "Aptos",
+  aptosMainnet: "Aptos Mainnet",
+  aptosTestnet: "Aptos Testnet",
+  aptosDevnet: "Aptos Devnet",
   // Substrate/Polkadot chains
   polkadot: "Polkadot",
   hydrationSubstrate: "Hydration (Substrate)",

@@ -3,7 +3,7 @@ import { SubstrateChainKey } from '../config/substrate-chain.config.js';
 
 /**
  * Metadata Cache Service
- * 
+ *
  * Issue #12: No Metadata Caching Strategy
  * - Cache chain metadata (runtime version, genesis hash) with TTL
  * - Reduces unnecessary RPC calls
@@ -22,7 +22,7 @@ export class MetadataCacheService {
 
   /**
    * Get cached data or fetch and cache
-   * 
+   *
    * @param chain - Chain key
    * @param key - Cache key (e.g., 'genesisHash', 'runtimeVersion')
    * @param fetcher - Function to fetch data if not cached
@@ -66,7 +66,7 @@ export class MetadataCacheService {
 
   /**
    * Invalidate cache for a specific chain and key
-   * 
+   *
    * @param chain - Chain key
    * @param key - Cache key
    */
@@ -78,7 +78,7 @@ export class MetadataCacheService {
 
   /**
    * Invalidate all cache for a specific chain
-   * 
+   *
    * @param chain - Chain key
    */
   invalidateChain(chain: SubstrateChainKey): void {
@@ -113,4 +113,3 @@ export class MetadataCacheService {
     };
   }
 }
-

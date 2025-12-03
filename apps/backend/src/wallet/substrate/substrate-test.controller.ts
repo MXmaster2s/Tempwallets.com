@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { ensureCryptoReady, isCryptoReady } from './utils/crypto-init.util.js';
 import { ss58Util } from './utils/ss58.util.js';
-import { buildDerivationPath, parseDerivationPath } from './utils/derivation.util.js';
+import {
+  buildDerivationPath,
+  parseDerivationPath,
+} from './utils/derivation.util.js';
 import {
   SUBSTRATE_CHAINS,
   getChainConfig,
@@ -25,7 +28,7 @@ import { SubstrateAddressManager } from './managers/substrate-address.manager.js
 
 /**
  * Substrate Test Controller
- * 
+ *
  * Test endpoints for Phase 2 components
  * Use these to verify all services are working correctly
  */
@@ -111,7 +114,7 @@ export class SubstrateTestController {
       const testPublicKey = new Uint8Array(32).fill(1);
       const testPrefix = prefix ? parseInt(prefix, 10) : 0;
       const encoded = ss58Util.encode(testPublicKey, testPrefix);
-      
+
       return {
         success: true,
         test: 'encode',
@@ -123,9 +126,10 @@ export class SubstrateTestController {
 
     // Validate existing address
     const prefixNum = prefix ? parseInt(prefix, 10) : undefined;
-    const isValid = prefixNum !== undefined
-      ? ss58Util.validateWithPrefix(address, prefixNum)
-      : ss58Util.validate(address);
+    const isValid =
+      prefixNum !== undefined
+        ? ss58Util.validateWithPrefix(address, prefixNum)
+        : ss58Util.validate(address);
 
     let decoded: { publicKey: Uint8Array; prefix: number } | null = null;
     try {
@@ -184,15 +188,23 @@ export class SubstrateTestController {
     const useTestnetBool = useTestnet === 'true';
 
     try {
-      this.logger.log(`Testing RPC connection for ${chainKey} (testnet: ${useTestnetBool})`);
-      
+      this.logger.log(
+        `Testing RPC connection for ${chainKey} (testnet: ${useTestnetBool})`,
+      );
+
       // Get chain config to show RPC URL
       const chainConfig = getChainConfig(chainKey, useTestnetBool);
-      
+
       // Test connection with timeout
-      const connectionPromise = this.rpcService.getConnection(chainKey, useTestnetBool);
+      const connectionPromise = this.rpcService.getConnection(
+        chainKey,
+        useTestnetBool,
+      );
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('RPC connection test timeout after 45s')), 45000),
+        setTimeout(
+          () => reject(new Error('RPC connection test timeout after 45s')),
+          45000,
+        ),
       );
 
       const api = await Promise.race([connectionPromise, timeoutPromise]);
@@ -217,10 +229,10 @@ export class SubstrateTestController {
       this.logger.error(
         `RPC test failed for ${chainKey}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
-      
+
       // Get chain config for error response
       const chainConfig = getChainConfig(chainKey, useTestnetBool);
-      
+
       return {
         success: false,
         chain: chainKey,
@@ -253,7 +265,7 @@ export class SubstrateTestController {
     try {
       // Get genesis hash (will be cached)
       const genesisHash1 = await this.rpcService.getGenesisHash(chainKey);
-      
+
       // Get again (should be from cache)
       const genesisHash2 = await this.rpcService.getGenesisHash(chainKey);
 
@@ -418,13 +430,22 @@ export class SubstrateTestController {
       );
 
       // Validate each address
-      const validated: Record<string, { address: string | null; isValid: boolean }> = {};
+      const validated: Record<
+        string,
+        { address: string | null; isValid: boolean }
+      > = {};
       for (const [chain, address] of Object.entries(addresses)) {
         if (address) {
-          const chainConfig = getChainConfig(chain as SubstrateChainKey, useTestnetBool);
+          const chainConfig = getChainConfig(
+            chain as SubstrateChainKey,
+            useTestnetBool,
+          );
           validated[chain] = {
             address,
-            isValid: ss58Util.validateWithPrefix(address, chainConfig.ss58Prefix),
+            isValid: ss58Util.validateWithPrefix(
+              address,
+              chainConfig.ss58Prefix,
+            ),
           };
         } else {
           validated[chain] = { address: null, isValid: false };
@@ -536,7 +557,9 @@ export class SubstrateTestController {
       );
 
       const chainConfig = getChainConfig(chainKey, useTestnetBool);
-      const balanceHuman = (BigInt(balance) / BigInt(10 ** chainConfig.token.decimals)).toString();
+      const balanceHuman = (
+        BigInt(balance) / BigInt(10 ** chainConfig.token.decimals)
+      ).toString();
 
       return {
         success: true,
@@ -597,7 +620,12 @@ export class SubstrateTestController {
       );
 
       // Mark one as used
-      this.nonceManager.markNonceUsed(address, chainKey, nonce1, useTestnetBool);
+      this.nonceManager.markNonceUsed(
+        address,
+        chainKey,
+        nonce1,
+        useTestnetBool,
+      );
       const nonce4 = await this.nonceManager.getNextNonce(
         address,
         chainKey,
@@ -677,10 +705,10 @@ export class SubstrateTestController {
       // Use a known valid Polkadot address for testing decode/validate
       // This is a test address that should always validate
       const testAddress = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-      
+
       // Test validation
       const isValid = ss58Util.validate(testAddress);
-      
+
       // Test decode
       let decoded: { publicKey: Uint8Array; prefix: number } | null = null;
       try {
@@ -688,7 +716,7 @@ export class SubstrateTestController {
       } catch (decodeError) {
         // Ignore decode errors
       }
-      
+
       // Test encode (encode the decoded public key back)
       let reEncoded: string | null = null;
       if (decoded) {
@@ -698,7 +726,7 @@ export class SubstrateTestController {
           // Ignore encode errors
         }
       }
-      
+
       results.ss58 = {
         success: isValid && decoded !== null,
         testAddress,
@@ -706,9 +734,10 @@ export class SubstrateTestController {
         decoded: decoded ? Array.from(decoded.publicKey) : null,
         prefix: decoded?.prefix ?? null,
         reEncoded,
-        note: isValid && decoded !== null 
-          ? 'SS58 encoding/decoding/validation working' 
-          : 'SS58 test failed - check implementation',
+        note:
+          isValid && decoded !== null
+            ? 'SS58 encoding/decoding/validation working'
+            : 'SS58 test failed - check implementation',
       };
     } catch (error) {
       results.ss58 = {
@@ -737,24 +766,29 @@ export class SubstrateTestController {
     try {
       // First check if user has a wallet
       const hasSeed = await this.addressManager['seedManager'].hasSeed(userId);
-      
+
       // Try to derive addresses
       const addresses = await this.addressManager.getAddresses(userId, true);
       const count = Object.values(addresses).filter((a) => a !== null).length;
       const failedChains = Object.entries(addresses)
         .filter(([_, addr]) => addr === null)
         .map(([chain]) => chain);
-      
+
       // Try to derive a single address to get more error details
       let singleAddressError: string | null = null;
       if (count === 0 && failedChains.length > 0) {
         try {
-          await this.addressManager.getAddressForChain(userId, failedChains[0] as SubstrateChainKey, true);
+          await this.addressManager.getAddressForChain(
+            userId,
+            failedChains[0] as SubstrateChainKey,
+            true,
+          );
         } catch (error) {
-          singleAddressError = error instanceof Error ? error.message : 'Unknown error';
+          singleAddressError =
+            error instanceof Error ? error.message : 'Unknown error';
         }
       }
-      
+
       results.addressDerivation = {
         success: count > 0,
         hasWallet: hasSeed,
@@ -762,11 +796,12 @@ export class SubstrateTestController {
         count,
         failedChains: failedChains.length > 0 ? failedChains : undefined,
         error: singleAddressError || undefined,
-        note: count === 0 
-          ? hasSeed
-            ? 'Wallet exists but address derivation failed - check logs for errors'
-            : 'Wallet auto-creation may have failed - check logs'
-          : `${count} addresses derived successfully`,
+        note:
+          count === 0
+            ? hasSeed
+              ? 'Wallet exists but address derivation failed - check logs for errors'
+              : 'Wallet auto-creation may have failed - check logs'
+            : `${count} addresses derived successfully`,
       };
     } catch (error) {
       results.addressDerivation = {
@@ -801,7 +836,8 @@ export class SubstrateTestController {
       summary: {
         total: Object.keys(results).length,
         passed: Object.values(results).filter((r) => r.success === true).length,
-        failed: Object.values(results).filter((r) => r.success === false).length,
+        failed: Object.values(results).filter((r) => r.success === false)
+          .length,
       },
     };
   }
@@ -937,7 +973,11 @@ export class SubstrateTestController {
       const detectedPrefix = ss58Util.detectPrefix(address);
 
       // Try to find chain config
-      let chainInfo: { chain: SubstrateChainKey; config: ChainNetworkConfig; isTestnet: boolean } | null = null;
+      let chainInfo: {
+        chain: SubstrateChainKey;
+        config: ChainNetworkConfig;
+        isTestnet: boolean;
+      } | null = null;
       try {
         chainInfo = getChainConfigFromAddress(address);
       } catch {
@@ -981,12 +1021,17 @@ export class SubstrateTestController {
     @Query('transferMethod') transferMethod?: string,
   ) {
     if (!from || !to || !amount || !chain) {
-      throw new BadRequestException('from, to, amount, and chain parameters are required');
+      throw new BadRequestException(
+        'from, to, amount, and chain parameters are required',
+      );
     }
 
     const chainKey = chain as SubstrateChainKey;
     const useTestnetBool = useTestnet === 'true';
-    const method = (transferMethod === 'transferKeepAlive' ? 'transferKeepAlive' : 'transferAllowDeath') as 'transferAllowDeath' | 'transferKeepAlive';
+    const method =
+      transferMethod === 'transferKeepAlive'
+        ? 'transferKeepAlive'
+        : 'transferAllowDeath';
 
     try {
       const transaction = await this.transactionService.constructTransfer({
@@ -1039,12 +1084,17 @@ export class SubstrateTestController {
     @Query('transferMethod') transferMethod?: string,
   ) {
     if (!from || !to || !amount || !chain) {
-      throw new BadRequestException('from, to, amount, and chain parameters are required');
+      throw new BadRequestException(
+        'from, to, amount, and chain parameters are required',
+      );
     }
 
     const chainKey = chain as SubstrateChainKey;
     const useTestnetBool = useTestnet === 'true';
-    const method = (transferMethod === 'transferKeepAlive' ? 'transferKeepAlive' : 'transferAllowDeath') as 'transferAllowDeath' | 'transferKeepAlive';
+    const method =
+      transferMethod === 'transferKeepAlive'
+        ? 'transferKeepAlive'
+        : 'transferAllowDeath';
 
     try {
       // Construct transaction
@@ -1066,7 +1116,10 @@ export class SubstrateTestController {
       );
 
       const chainConfig = getChainConfig(chainKey, useTestnetBool);
-      const feeHuman = (BigInt(feeEstimate.partialFee) / BigInt(10 ** chainConfig.token.decimals)).toString();
+      const feeHuman = (
+        BigInt(feeEstimate.partialFee) /
+        BigInt(10 ** chainConfig.token.decimals)
+      ).toString();
 
       return {
         success: true,
@@ -1111,18 +1164,29 @@ export class SubstrateTestController {
     @Query('transferMethod') transferMethod?: string,
   ) {
     if (!userId || !to || !amount || !chain) {
-      throw new BadRequestException('userId, to, amount, and chain parameters are required');
+      throw new BadRequestException(
+        'userId, to, amount, and chain parameters are required',
+      );
     }
 
     const chainKey = chain as SubstrateChainKey;
     const useTestnetBool = useTestnet === 'true';
-    const method = (transferMethod === 'transferKeepAlive' ? 'transferKeepAlive' : 'transferAllowDeath') as 'transferAllowDeath' | 'transferKeepAlive';
+    const method =
+      transferMethod === 'transferKeepAlive'
+        ? 'transferKeepAlive'
+        : 'transferAllowDeath';
 
     try {
       // Get sender address
-      const from = await this.addressManager.getAddressForChain(userId, chainKey, useTestnetBool);
+      const from = await this.addressManager.getAddressForChain(
+        userId,
+        chainKey,
+        useTestnetBool,
+      );
       if (!from) {
-        throw new BadRequestException(`No address found for user ${userId} on chain ${chainKey}`);
+        throw new BadRequestException(
+          `No address found for user ${userId} on chain ${chainKey}`,
+        );
       }
 
       // Construct transaction
@@ -1186,18 +1250,29 @@ export class SubstrateTestController {
     @Query('transferMethod') transferMethod?: string,
   ) {
     if (!userId || !to || !amount || !chain) {
-      throw new BadRequestException('userId, to, amount, and chain parameters are required');
+      throw new BadRequestException(
+        'userId, to, amount, and chain parameters are required',
+      );
     }
 
     const chainKey = chain as SubstrateChainKey;
     const useTestnetBool = useTestnet === 'true';
-    const method = (transferMethod === 'transferKeepAlive' ? 'transferKeepAlive' : 'transferAllowDeath') as 'transferAllowDeath' | 'transferKeepAlive';
+    const method =
+      transferMethod === 'transferKeepAlive'
+        ? 'transferKeepAlive'
+        : 'transferAllowDeath';
 
     try {
       // Get sender address
-      const from = await this.addressManager.getAddressForChain(userId, chainKey, useTestnetBool);
+      const from = await this.addressManager.getAddressForChain(
+        userId,
+        chainKey,
+        useTestnetBool,
+      );
       if (!from) {
-        throw new BadRequestException(`No address found for user ${userId} on chain ${chainKey}`);
+        throw new BadRequestException(
+          `No address found for user ${userId} on chain ${chainKey}`,
+        );
       }
 
       // Send transfer
@@ -1226,11 +1301,12 @@ export class SubstrateTestController {
         status: result.status,
         blockHash: result.blockHash,
         error: result.error,
-        note: result.status === 'finalized' 
-          ? 'Transaction sent and finalized successfully'
-          : result.status === 'inBlock'
-          ? 'Transaction sent and included in block'
-          : 'Transaction sent (pending)',
+        note:
+          result.status === 'finalized'
+            ? 'Transaction sent and finalized successfully'
+            : result.status === 'inBlock'
+              ? 'Transaction sent and included in block'
+              : 'Transaction sent (pending)',
       };
     } catch (error) {
       return {
@@ -1257,7 +1333,9 @@ export class SubstrateTestController {
     @Query('cursor') cursor?: string,
   ) {
     if (!address || !chain) {
-      throw new BadRequestException('address and chain parameters are required');
+      throw new BadRequestException(
+        'address and chain parameters are required',
+      );
     }
 
     const chainKey = chain as SubstrateChainKey;
@@ -1311,7 +1389,7 @@ export class SubstrateTestController {
 
     try {
       const api = await this.rpcService.getConnection(chainKey, useTestnetBool);
-      
+
       // CRITICAL: Always await api.isReady before using .tx or .query
       await api.isReady;
 
@@ -1335,7 +1413,7 @@ export class SubstrateTestController {
       let transferAllowDeathAvailable = false;
       let transferKeepAliveAvailable = false;
       let transferAllAvailable = false;
-      
+
       if (palletName === 'balances' && palletInfo) {
         transferAvailable = !!palletInfo.transfer; // Deprecated in newer runtimes
         transferAllowDeathAvailable = !!palletInfo.transferAllowDeath; // Recommended default
@@ -1357,9 +1435,12 @@ export class SubstrateTestController {
         palletExists,
         // Transfer method availability (for balances pallet)
         transferAvailable: palletName === 'balances' ? transferAvailable : null, // Deprecated
-        transferAllowDeathAvailable: palletName === 'balances' ? transferAllowDeathAvailable : null, // Recommended
-        transferKeepAliveAvailable: palletName === 'balances' ? transferKeepAliveAvailable : null, // Safer
-        transferAllAvailable: palletName === 'balances' ? transferAllAvailable : null,
+        transferAllowDeathAvailable:
+          palletName === 'balances' ? transferAllowDeathAvailable : null, // Recommended
+        transferKeepAliveAvailable:
+          palletName === 'balances' ? transferKeepAliveAvailable : null, // Safer
+        transferAllAvailable:
+          palletName === 'balances' ? transferAllAvailable : null,
         availableMethods: availableMethods.length > 0 ? availableMethods : null,
         queryAvailable: queryExists,
         apiReady: api.isReady,
@@ -1384,4 +1465,3 @@ export class SubstrateTestController {
     }
   }
 }
-

@@ -16,4 +16,3 @@ export function extractUserId(context: ExecutionContext): string | null {
   const userId = request.query.userId as string | undefined;
   return userId || null;
 }
-

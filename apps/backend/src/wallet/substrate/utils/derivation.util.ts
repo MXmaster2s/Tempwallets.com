@@ -1,6 +1,6 @@
 /**
  * Derivation Path Utilities
- * 
+ *
  * Issue #10: Account Index Parameter
  * - Implements proper derivation path with account indexing
  * - Supports multiple accounts from same seed (HD wallet capability)
@@ -9,7 +9,7 @@
 /**
  * Build derivation path for Polkadot/Substrate
  * Standard path format: //44//354//{accountIndex}//0//0
- * 
+ *
  * @param accountIndex - Account index (default: 0)
  * @returns Derivation path string
  */
@@ -22,7 +22,7 @@ export function buildDerivationPath(accountIndex: number = 0): string {
 
 /**
  * Parse derivation path to extract account index
- * 
+ *
  * @param path - Derivation path string
  * @returns Account index or null if invalid
  */
@@ -37,7 +37,7 @@ export function parseDerivationPath(path: string): number | null {
 
 /**
  * Validate derivation path format
- * 
+ *
  * @param path - Derivation path string
  * @returns true if valid
  */
@@ -51,4 +51,3 @@ export function isValidDerivationPath(path: string): boolean {
 export function getDefaultDerivationPath(): string {
   return buildDerivationPath(0);
 }
-

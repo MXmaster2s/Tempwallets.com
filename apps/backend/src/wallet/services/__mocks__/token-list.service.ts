@@ -14,4 +14,3 @@ export class TokenListService {
     return [];
   }
 }
-

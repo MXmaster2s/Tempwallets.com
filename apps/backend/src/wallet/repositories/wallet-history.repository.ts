@@ -32,14 +32,14 @@ export class WalletHistoryRepository {
     label?: string,
   ): Promise<string> {
     const encrypted = this.encryptionService.encrypt(seedPhrase);
-    
+
     // Count existing wallets to generate default label
     const count = await this.prisma.walletHistory.count({
       where: { userId },
     });
-    
+
     const walletLabel = label || `Wallet ${count + 1}`;
-    
+
     const entry = await this.prisma.walletHistory.create({
       data: {
         userId,
@@ -50,7 +50,7 @@ export class WalletHistoryRepository {
         isActive: false,
       },
     });
-    
+
     this.logger.log(`Saved wallet to history for user ${userId}: ${entry.id}`);
     return entry.id;
   }
@@ -71,7 +71,7 @@ export class WalletHistoryRepository {
         createdAt: true,
       },
     });
-    
+
     return wallets;
   }
 
@@ -81,18 +81,21 @@ export class WalletHistoryRepository {
    * @param userId - The user ID (for security validation)
    * @returns The decrypted seed phrase
    */
-  async getSeedFromHistory(walletId: string, userId: string): Promise<string | null> {
+  async getSeedFromHistory(
+    walletId: string,
+    userId: string,
+  ): Promise<string | null> {
     const wallet = await this.prisma.walletHistory.findFirst({
       where: {
         id: walletId,
         userId, // Ensure user owns this wallet
       },
     });
-    
+
     if (!wallet) {
       return null;
     }
-    
+
     return this.encryptionService.decrypt({
       ciphertext: wallet.ciphertext,
       iv: wallet.iv,
@@ -119,7 +122,7 @@ export class WalletHistoryRepository {
         data: { isActive: true },
       }),
     ]);
-    
+
     this.logger.log(`Set wallet ${walletId} as active for user ${userId}`);
     return true;
   }
@@ -138,7 +141,7 @@ export class WalletHistoryRepository {
         createdAt: true,
       },
     });
-    
+
     return wallet;
   }
 
@@ -148,12 +151,16 @@ export class WalletHistoryRepository {
    * @param userId - The user ID
    * @param label - New label
    */
-  async updateLabel(walletId: string, userId: string, label: string): Promise<boolean> {
+  async updateLabel(
+    walletId: string,
+    userId: string,
+    label: string,
+  ): Promise<boolean> {
     const result = await this.prisma.walletHistory.updateMany({
       where: { id: walletId, userId },
       data: { label },
     });
-    
+
     return result.count > 0;
   }
 
@@ -166,7 +173,7 @@ export class WalletHistoryRepository {
     const result = await this.prisma.walletHistory.deleteMany({
       where: { id: walletId, userId },
     });
-    
+
     return result.count > 0;
   }
 }

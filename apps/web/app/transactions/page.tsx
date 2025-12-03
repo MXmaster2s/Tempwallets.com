@@ -26,6 +26,11 @@ const CHAIN_NAMES: Record<string, string> = {
   arbitrumErc4337: "Arbitrum (ERC-4337)",
   polygonErc4337: "Polygon (ERC-4337)",
   avalancheErc4337: "Avalanche (ERC-4337)",
+  // Aptos chains
+  aptos: "Aptos",
+  aptosMainnet: "Aptos Mainnet",
+  aptosTestnet: "Aptos Testnet",
+  aptosDevnet: "Aptos Devnet",
   // Polkadot EVM Compatible chains
   moonbeamTestnet: "Moonbeam Testnet",
   astarShibuya: "Astar Shibuya",
@@ -50,6 +55,11 @@ const NATIVE_TOKEN_SYMBOLS: Record<string, string> = {
   // Legacy/internal fallbacks
   tron: 'TRX',
   bitcoin: 'BTC',
+  // Aptos chains
+  aptos: 'APT',
+  aptosMainnet: 'APT',
+  aptosTestnet: 'APT',
+  aptosDevnet: 'APT',
   ethereumErc4337: 'ETH',
   baseErc4337: 'ETH',
   arbitrumErc4337: 'ETH',

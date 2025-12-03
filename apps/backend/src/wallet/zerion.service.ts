@@ -422,7 +422,11 @@ export class ZerionService {
   /**
    * Make request to Zerion API with retry logic
    */
-  private async makeRequest<T>(url: string, retries = 3, timeoutMs = 30000): Promise<T> {
+  private async makeRequest<T>(
+    url: string,
+    retries = 3,
+    timeoutMs = 30000,
+  ): Promise<T> {
     if (!this.apiKey) {
       throw new Error('Zerion API key not configured');
     }
@@ -449,7 +453,7 @@ export class ZerionService {
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
-          const response = await fetch(url, { 
+          const response = await fetch(url, {
             headers,
             signal: controller.signal,
           });
@@ -476,12 +480,12 @@ export class ZerionService {
           return (await response.json()) as T;
         } catch (fetchError) {
           clearTimeout(timeoutId);
-          
+
           // Check if it's a timeout/abort error
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
             throw new Error(`Request timeout after ${timeoutMs}ms`);
           }
-          
+
           throw fetchError;
         }
       } catch (error) {
@@ -510,7 +514,11 @@ export class ZerionService {
    */
   private getZerionChain(chain: string): string | null {
     // Skip Polkadot EVM chains - they use RPC instead of Zerion
-    const polkadotEvmChains = ['moonbeamTestnet', 'astarShibuya', 'paseoPassetHub'];
+    const polkadotEvmChains = [
+      'moonbeamTestnet',
+      'astarShibuya',
+      'paseoPassetHub',
+    ];
     if (polkadotEvmChains.includes(chain)) {
       return null;
     }

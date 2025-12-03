@@ -42,7 +42,10 @@ export type Erc4337Chain =
 /**
  * All chain types including ERC-4337 variants and Substrate chains
  */
-export type AllChainTypes = ChainType | `${Erc4337Chain}Erc4337` | SubstrateChain;
+export type AllChainTypes =
+  | ChainType
+  | `${Erc4337Chain}Erc4337`
+  | SubstrateChain;
 
 /**
  * Chain configuration for EVM chains

@@ -12,10 +12,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if route is marked as optional auth
-    const isOptional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isOptional = this.reflector.getAllAndOverride<boolean>(
+      OPTIONAL_AUTH_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (isOptional) {
       // Try to authenticate, but don't fail if no token
@@ -29,7 +29,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return this.resolveCanActivate(context);
   }
 
-  private async resolveCanActivate(context: ExecutionContext): Promise<boolean> {
+  private async resolveCanActivate(
+    context: ExecutionContext,
+  ): Promise<boolean> {
     const result = super.canActivate(context);
     if (typeof result === 'boolean') {
       return result;
@@ -38,7 +40,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return result;
     }
     // For Observable
-    return firstValueFrom(result as Observable<boolean>);
+    return firstValueFrom(result);
   }
 }
-

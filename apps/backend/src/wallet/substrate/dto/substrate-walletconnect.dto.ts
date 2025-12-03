@@ -41,4 +41,3 @@ export class SubstrateWalletConnectSignMessageDto {
   @IsOptional()
   useTestnet?: boolean;
 }
-

@@ -1,7 +1,10 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ApiPromise } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
-import { SubstrateChainKey, getChainConfig } from '../config/substrate-chain.config.js';
+import {
+  SubstrateChainKey,
+  getChainConfig,
+} from '../config/substrate-chain.config.js';
 import { SubstrateRpcService } from './substrate-rpc.service.js';
 import { SubstrateAccountFactory } from '../factories/substrate-account.factory.js';
 import { SubstrateAddressManager } from '../managers/substrate-address.manager.js';
@@ -22,7 +25,7 @@ import { SeedManager } from '../../managers/seed.manager.js';
 
 /**
  * Substrate Transaction Service
- * 
+ *
  * Issue #2: Missing Transaction Signing Implementation
  * - Transaction construction, signing, and broadcasting
  * - Fee estimation
@@ -42,12 +45,15 @@ export class SubstrateTransactionService {
 
   /**
    * Construct a transfer transaction
-   * 
+   *
    * @param params - Transfer parameters
    * @returns Unsigned transaction
    */
   async constructTransfer(params: TransferParams): Promise<any> {
-    const api = await this.rpcService.getConnection(params.chain, params.useTestnet);
+    const api = await this.rpcService.getConnection(
+      params.chain,
+      params.useTestnet,
+    );
     const chainConfig = getChainConfig(params.chain, params.useTestnet);
 
     try {
@@ -61,13 +67,17 @@ export class SubstrateTransactionService {
 
       // Determine which transfer method to use
       // Modern Substrate runtimes use transferAllowDeath or transferKeepAlive instead of transfer
-      const transferMethod: TransferMethod = params.transferMethod || 'transferAllowDeath';
-      
+      const transferMethod: TransferMethod =
+        params.transferMethod || 'transferAllowDeath';
+
       // Check if the requested method is available
       const balancesTx = api.tx.balances as any;
       if (!balancesTx[transferMethod]) {
         // Fallback: try transferKeepAlive if transferAllowDeath not available
-        if (transferMethod === 'transferAllowDeath' && balancesTx.transferKeepAlive) {
+        if (
+          transferMethod === 'transferAllowDeath' &&
+          balancesTx.transferKeepAlive
+        ) {
           this.logger.warn(
             `transferAllowDeath not available, falling back to transferKeepAlive on ${params.chain}`,
           );
@@ -76,7 +86,10 @@ export class SubstrateTransactionService {
           return balancesTx[fallbackMethod](params.to, amount.toString());
         }
         // Fallback: try transferAllowDeath if transferKeepAlive not available
-        if (transferMethod === 'transferKeepAlive' && balancesTx.transferAllowDeath) {
+        if (
+          transferMethod === 'transferKeepAlive' &&
+          balancesTx.transferAllowDeath
+        ) {
           this.logger.warn(
             `transferKeepAlive not available, falling back to transferAllowDeath on ${params.chain}`,
           );
@@ -85,7 +98,11 @@ export class SubstrateTransactionService {
           return balancesTx[fallbackMethod](params.to, amount.toString());
         }
         throw new Error(
-          `Transfer method ${transferMethod} not available on this chain. Available methods: ${Object.keys(balancesTx).filter(k => typeof balancesTx[k] === 'function').join(', ')}`,
+          `Transfer method ${transferMethod} not available on this chain. Available methods: ${Object.keys(
+            balancesTx,
+          )
+            .filter((k) => typeof balancesTx[k] === 'function')
+            .join(', ')}`,
         );
       }
 
@@ -113,12 +130,15 @@ export class SubstrateTransactionService {
 
   /**
    * Construct a transaction from method and args
-   * 
+   *
    * @param params - Transaction parameters
    * @returns Unsigned transaction
    */
   async constructTransaction(params: TransactionParams): Promise<any> {
-    const api = await this.rpcService.getConnection(params.chain, params.useTestnet);
+    const api = await this.rpcService.getConnection(
+      params.chain,
+      params.useTestnet,
+    );
 
     try {
       // CRITICAL: Always await api.isReady before using .tx or .query
@@ -127,7 +147,9 @@ export class SubstrateTransactionService {
       // Parse method (e.g., 'balances.transfer' -> ['balances', 'transfer'])
       const [pallet, method] = params.method.split('.');
       if (!pallet || !method) {
-        throw new Error(`Invalid method format: ${params.method}. Expected format: 'pallet.method'`);
+        throw new Error(
+          `Invalid method format: ${params.method}. Expected format: 'pallet.method'`,
+        );
       }
 
       // Check if pallet exists
@@ -158,7 +180,7 @@ export class SubstrateTransactionService {
 
   /**
    * Estimate transaction fee
-   * 
+   *
    * @param transaction - Unsigned transaction
    * @param from - Sender address
    * @param chain - Chain key
@@ -197,7 +219,7 @@ export class SubstrateTransactionService {
 
   /**
    * Sign a transaction
-   * 
+   *
    * @param userId - User ID
    * @param transaction - Unsigned transaction
    * @param chain - Chain key
@@ -248,7 +270,11 @@ export class SubstrateTransactionService {
       const address = pair.address;
 
       // Get nonce (with pending nonce management)
-      const nonce = await this.nonceManager.getNextNonce(address, chain, useTestnet);
+      const nonce = await this.nonceManager.getNextNonce(
+        address,
+        chain,
+        useTestnet,
+      );
 
       // Get API connection
       const api = await this.rpcService.getConnection(chain, useTestnet);
@@ -259,7 +285,7 @@ export class SubstrateTransactionService {
       // Get current block header for era calculation
       const currentHeader = await api.rpc.chain.getHeader();
       const mortalityPeriod = 64; // Blocks
-      
+
       // CRITICAL: Get current block hash - required for mortal era (non-immortal)
       // Polkadot.js v7+ requires blockHash when using a mortal era
       const blockHash = currentHeader.hash.toHex();
@@ -300,7 +326,7 @@ export class SubstrateTransactionService {
 
   /**
    * Broadcast a signed transaction
-   * 
+   *
    * @param signedTx - Signed transaction (hex string)
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -338,7 +364,9 @@ export class SubstrateTransactionService {
           }
 
           if (result.status.isInBlock) {
-            this.logger.log(`Transaction ${txHash} in block ${result.status.asInBlock.toHex()}`);
+            this.logger.log(
+              `Transaction ${txHash} in block ${result.status.asInBlock.toHex()}`,
+            );
             resolve({
               txHash,
               blockHash: result.status.asInBlock.toHex(),
@@ -348,7 +376,9 @@ export class SubstrateTransactionService {
           }
 
           if (result.status.isFinalized) {
-            this.logger.log(`Transaction ${txHash} finalized in block ${result.status.asFinalized.toHex()}`);
+            this.logger.log(
+              `Transaction ${txHash} finalized in block ${result.status.asFinalized.toHex()}`,
+            );
             resolve({
               txHash,
               blockHash: result.status.asFinalized.toHex(),
@@ -384,7 +414,7 @@ export class SubstrateTransactionService {
 
   /**
    * Send a transfer transaction (construct, sign, and broadcast)
-   * 
+   *
    * @param userId - User ID
    * @param params - Transfer parameters
    * @param accountIndex - Account index (default: 0)
@@ -439,7 +469,12 @@ export class SubstrateTransactionService {
 
       // Update nonce on success
       if (result.status === 'finalized' || result.status === 'inBlock') {
-        this.nonceManager.markNonceUsed(fromAddress, params.chain, signed.nonce, params.useTestnet);
+        this.nonceManager.markNonceUsed(
+          fromAddress,
+          params.chain,
+          signed.nonce,
+          params.useTestnet,
+        );
       }
 
       return result;
@@ -453,7 +488,7 @@ export class SubstrateTransactionService {
 
   /**
    * Get transaction history for an address
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -492,7 +527,13 @@ export class SubstrateTransactionService {
       const maxScanTime = 45000; // 45 seconds max scan time to leave buffer for response
 
       // Scan blocks backwards from startBlock
-      for (let blockNum = startBlock; blockNum > 0 && transactions.length < limit && blocksScanned < maxBlocksToScan; blockNum--) {
+      for (
+        let blockNum = startBlock;
+        blockNum > 0 &&
+        transactions.length < limit &&
+        blocksScanned < maxBlocksToScan;
+        blockNum--
+      ) {
         // Check if we've exceeded the max scan time
         if (Date.now() - startTime > maxScanTime) {
           this.logger.warn(
@@ -510,14 +551,20 @@ export class SubstrateTransactionService {
             const signer = extrinsic.signer?.toString();
             if (signer === address) {
               const txHash = extrinsic.hash.toHex();
-              const method = extrinsic.method.section + '.' + extrinsic.method.method;
-              const args = extrinsic.method.args.map((arg: any) => arg.toHuman());
+              const method =
+                extrinsic.method.section + '.' + extrinsic.method.method;
+              const args = extrinsic.method.args.map((arg: any) =>
+                arg.toHuman(),
+              );
 
               // Try to extract transfer info
               let to: string | undefined;
               let amount: string | undefined;
               if (method === 'balances.transfer' && args.length >= 2) {
-                to = typeof args[0] === 'object' && args[0]?.Id ? args[0].Id : args[0];
+                to =
+                  typeof args[0] === 'object' && args[0]?.Id
+                    ? args[0].Id
+                    : args[0];
                 amount = args[1];
               }
 
@@ -555,7 +602,10 @@ export class SubstrateTransactionService {
         page: 1,
         pageSize: limit,
         hasMore: startBlock - blocksScanned > 0,
-        nextCursor: startBlock - blocksScanned > 0 ? (startBlock - blocksScanned).toString() : undefined,
+        nextCursor:
+          startBlock - blocksScanned > 0
+            ? (startBlock - blocksScanned).toString()
+            : undefined,
       };
     } catch (error) {
       this.logger.error(
@@ -567,4 +617,3 @@ export class SubstrateTransactionService {
     }
   }
 }
-

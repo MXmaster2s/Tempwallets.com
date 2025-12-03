@@ -601,6 +601,70 @@ export const walletApi = {
       body: JSON.stringify(data),
     });
   },
+
+  /**
+   * Aptos API methods
+   */
+
+  /**
+   * Get Aptos address for a user
+   */
+  async getAptosAddress(
+    userId: string,
+    network: 'mainnet' | 'testnet' | 'devnet' = 'testnet',
+    accountIndex: number = 0,
+  ): Promise<{ address: string; network: string; accountIndex: number }> {
+    return fetchApi<{ address: string; network: string; accountIndex: number }>(
+      `/wallet/aptos/address?userId=${encodeURIComponent(userId)}&network=${network}&accountIndex=${accountIndex}`
+    );
+  },
+
+  /**
+   * Get Aptos balance for a user
+   */
+  async getAptosBalance(
+    userId: string,
+    network: 'mainnet' | 'testnet' | 'devnet' = 'testnet',
+  ): Promise<{ balance: string; network: string; currency: string }> {
+    return fetchApi<{ balance: string; network: string; currency: string }>(
+      `/wallet/aptos/balance?userId=${encodeURIComponent(userId)}&network=${network}`
+    );
+  },
+
+  /**
+   * Send APT transaction
+   */
+  async sendAptosTransaction(data: {
+    userId: string;
+    recipientAddress: string;
+    amount: number;
+    network: 'mainnet' | 'testnet' | 'devnet';
+  }): Promise<{ success: boolean; transactionHash: string; sequenceNumber: number }> {
+    return fetchApi<{ success: boolean; transactionHash: string; sequenceNumber: number }>(
+      '/wallet/aptos/send',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  /**
+   * Fund account from faucet (devnet only)
+   */
+  async fundAptosAccount(data: {
+    userId: string;
+    network: 'testnet' | 'devnet';
+    amount?: number;
+  }): Promise<{ success: boolean; message: string; transactionHash?: string; address: string }> {
+    return fetchApi<{ success: boolean; message: string; transactionHash?: string; address: string }>(
+      '/wallet/aptos/faucet',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
 };
 
 /**

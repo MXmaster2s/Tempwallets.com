@@ -18,16 +18,14 @@ import {
 
 /**
  * EVM WalletConnect Controller
- * 
+ *
  * Handles WalletConnect/Reown operations for EVM chains
  */
 @Controller('wallet/evm/walletconnect')
 export class EvmWalletConnectController {
   private readonly logger = new Logger(EvmWalletConnectController.name);
 
-  constructor(
-    private readonly walletConnectService: EvmWalletConnectService,
-  ) {}
+  constructor(private readonly walletConnectService: EvmWalletConnectService) {}
 
   /**
    * Get formatted EVM accounts for WalletConnect
@@ -147,4 +145,3 @@ export class EvmWalletConnectController {
     }
   }
 }
-

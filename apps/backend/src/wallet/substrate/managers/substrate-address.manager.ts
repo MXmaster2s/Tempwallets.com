@@ -11,7 +11,7 @@ import { ensureCryptoReady } from '../utils/crypto-init.util.js';
 
 /**
  * Substrate Address Manager
- * 
+ *
  * Issue #7: Missing Address Validation Before Storage
  * Issue #14: Missing Error Recovery for Failed Derivations
  * - Derive addresses for all supported Substrate chains from same seed
@@ -46,7 +46,7 @@ export class SubstrateAddressManager {
 
   /**
    * Get all Substrate addresses for a user
-   * 
+   *
    * @param userId - User ID
    * @param useTestnet - Whether to use testnet
    * @returns All Substrate addresses
@@ -58,7 +58,7 @@ export class SubstrateAddressManager {
     // Check cache first
     const cacheKey = `${userId}:${useTestnet ? 'testnet' : 'mainnet'}`;
     const cached = this.addressCache.get(cacheKey);
-    
+
     if (cached && Date.now() - cached.timestamp < this.ADDRESS_CACHE_TTL) {
       return cached.addresses;
     }
@@ -116,7 +116,7 @@ export class SubstrateAddressManager {
 
   /**
    * Get address for a specific chain
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -133,7 +133,7 @@ export class SubstrateAddressManager {
 
   /**
    * Derive and validate address with retry logic
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -166,12 +166,14 @@ export class SubstrateAddressManager {
       }
     }
 
-    throw new Error(`Failed to derive address for ${chain} after ${maxRetries} attempts`);
+    throw new Error(
+      `Failed to derive address for ${chain} after ${maxRetries} attempts`,
+    );
   }
 
   /**
    * Derive and validate address
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -217,7 +219,7 @@ export class SubstrateAddressManager {
 
   /**
    * Clear address cache for a user
-   * 
+   *
    * @param userId - User ID
    */
   clearCache(userId: string): void {
@@ -239,4 +241,3 @@ export class SubstrateAddressManager {
     this.logger.debug('Cleared all address cache');
   }
 }
-

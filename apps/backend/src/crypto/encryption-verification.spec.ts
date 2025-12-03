@@ -36,7 +36,8 @@ describe('Encryption Service Verification', () => {
   });
 
   it('should encrypt and decrypt correctly', () => {
-    const plaintext = 'test seed phrase word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12';
+    const plaintext =
+      'test seed phrase word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12';
     const encrypted = encryptionService.encrypt(plaintext);
     const decrypted = encryptionService.decrypt(encrypted);
 
@@ -69,4 +70,3 @@ describe('Encryption Service Verification', () => {
     }).toThrow();
   });
 });
-

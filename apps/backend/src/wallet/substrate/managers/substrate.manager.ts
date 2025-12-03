@@ -1,8 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SubstrateAddressManager, SubstrateAddresses } from './substrate-address.manager.js';
+import {
+  SubstrateAddressManager,
+  SubstrateAddresses,
+} from './substrate-address.manager.js';
 import { SubstrateRpcService } from '../services/substrate-rpc.service.js';
 import { SubstrateTransactionService } from '../services/substrate-transaction.service.js';
-import { SubstrateChainKey, getEnabledChains, getChainConfig } from '../config/substrate-chain.config.js';
+import {
+  SubstrateChainKey,
+  getEnabledChains,
+  getChainConfig,
+} from '../config/substrate-chain.config.js';
 import {
   TransferParams,
   TransactionResult,
@@ -11,7 +18,7 @@ import {
 
 /**
  * Substrate Manager
- * 
+ *
  * Main facade/coordinator for all Substrate operations.
  * Provides a clean interface for wallet integration without exposing internal complexity.
  */
@@ -27,7 +34,7 @@ export class SubstrateManager {
 
   /**
    * Get all Substrate addresses for a user
-   * 
+   *
    * @param userId - User ID
    * @param useTestnet - Whether to use testnet
    * @returns All Substrate addresses
@@ -41,7 +48,7 @@ export class SubstrateManager {
 
   /**
    * Get address for a specific chain
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -57,7 +64,7 @@ export class SubstrateManager {
 
   /**
    * Get balance for an address on a chain
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -73,7 +80,7 @@ export class SubstrateManager {
 
   /**
    * Get balances for all Substrate chains for a user
-   * 
+   *
    * @param userId - User ID
    * @param useTestnet - Whether to use testnet
    * @returns Map of chain -> balance
@@ -81,58 +88,81 @@ export class SubstrateManager {
   async getBalances(
     userId: string,
     useTestnet?: boolean,
-  ): Promise<Record<SubstrateChainKey, { balance: string; address: string | null }>> {
+  ): Promise<
+    Record<SubstrateChainKey, { balance: string; address: string | null }>
+  > {
     const addresses = await this.getAddresses(userId, useTestnet);
-    const balances: Record<string, { balance: string; address: string | null }> = {};
+    const balances: Record<
+      string,
+      { balance: string; address: string | null }
+    > = {};
 
     // Get balances in parallel with individual timeouts to prevent one slow chain from blocking all
-    const balancePromises = Object.entries(addresses).map(async ([chain, address]) => {
-      if (!address) {
-        return { chain, balance: '0', address: null };
-      }
+    const balancePromises = Object.entries(addresses).map(
+      async ([chain, address]) => {
+        if (!address) {
+          return { chain, balance: '0', address: null };
+        }
 
-      try {
-        // Add per-chain timeout (20 seconds) to prevent hanging
-        const balancePromise = this.getBalance(
-          address,
-          chain as SubstrateChainKey,
-          useTestnet,
-        );
-        
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Balance fetch timeout for ${chain} after 20s`)), 20000)
-        );
-        
-        const balance = await Promise.race([balancePromise, timeoutPromise]);
-        return { chain, balance, address };
-      } catch (error) {
-        this.logger.warn(
-          `Failed to get balance for ${chain}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
-        // Return zero balance instead of failing - allows other chains to succeed
-        return { chain, balance: '0', address };
-      }
-    });
+        try {
+          // Add per-chain timeout (20 seconds) to prevent hanging
+          const balancePromise = this.getBalance(
+            address,
+            chain as SubstrateChainKey,
+            useTestnet,
+          );
+
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(`Balance fetch timeout for ${chain} after 20s`),
+                ),
+              20000,
+            ),
+          );
+
+          const balance = await Promise.race([balancePromise, timeoutPromise]);
+          return { chain, balance, address };
+        } catch (error) {
+          this.logger.warn(
+            `Failed to get balance for ${chain}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          // Return zero balance instead of failing - allows other chains to succeed
+          return { chain, balance: '0', address };
+        }
+      },
+    );
 
     // Use Promise.allSettled to get results even if some chains fail
     const results = await Promise.allSettled(balancePromises);
     results.forEach((result, index) => {
       const chain = Object.keys(addresses)[index] as SubstrateChainKey;
       if (result.status === 'fulfilled') {
-        balances[chain] = { balance: result.value.balance, address: result.value.address };
+        balances[chain] = {
+          balance: result.value.balance,
+          address: result.value.address,
+        };
       } else {
-        this.logger.warn(`Balance fetch failed for ${chain}, using zero balance`);
+        this.logger.warn(
+          `Balance fetch failed for ${chain}, using zero balance`,
+        );
         balances[chain] = { balance: '0', address: addresses[chain] };
       }
     });
 
-    this.logger.log(`Retrieved balances for ${Object.keys(balances).length} Substrate chains`);
-    return balances as Record<SubstrateChainKey, { balance: string; address: string | null }>;
+    this.logger.log(
+      `Retrieved balances for ${Object.keys(balances).length} Substrate chains`,
+    );
+    return balances as Record<
+      SubstrateChainKey,
+      { balance: string; address: string | null }
+    >;
   }
 
   /**
    * Send a transfer transaction
-   * 
+   *
    * @param userId - User ID
    * @param params - Transfer parameters
    * @param accountIndex - Account index (default: 0)
@@ -148,7 +178,7 @@ export class SubstrateManager {
 
   /**
    * Get transaction history for an address
-   * 
+   *
    * @param address - SS58 address
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -174,7 +204,7 @@ export class SubstrateManager {
 
   /**
    * Get transaction history for a user on a specific chain
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -200,12 +230,18 @@ export class SubstrateManager {
       };
     }
 
-    return this.getTransactionHistory(address, chain, useTestnet, limit, cursor);
+    return this.getTransactionHistory(
+      address,
+      chain,
+      useTestnet,
+      limit,
+      cursor,
+    );
   }
 
   /**
    * Get enabled chains
-   * 
+   *
    * @returns Array of enabled chain keys
    */
   getEnabledChains(): SubstrateChainKey[] {
@@ -214,7 +250,7 @@ export class SubstrateManager {
 
   /**
    * Check if a chain is enabled
-   * 
+   *
    * @param chain - Chain key
    * @returns true if enabled
    */
@@ -224,7 +260,7 @@ export class SubstrateManager {
 
   /**
    * Get chain configuration
-   * 
+   *
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
    * @returns Chain configuration
@@ -235,11 +271,10 @@ export class SubstrateManager {
 
   /**
    * Clear address cache for a user
-   * 
+   *
    * @param userId - User ID
    */
   clearCache(userId: string): void {
     this.addressManager.clearCache(userId);
   }
 }
-

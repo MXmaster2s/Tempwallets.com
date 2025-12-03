@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createWalletClient, http, type TransactionRequest, type Hex } from 'viem';
+import {
+  createWalletClient,
+  http,
+  type TransactionRequest,
+  type Hex,
+} from 'viem';
 import * as chains from 'viem/chains';
 import { AddressManager } from '../../managers/address.manager.js';
 import { SeedManager } from '../../managers/seed.manager.js';
@@ -11,7 +16,7 @@ import { EvmTypedData } from '../dto/evm-walletconnect.dto.js';
 
 /**
  * EVM WalletConnect Service
- * 
+ *
  * Handles WalletConnect/Reown operations for EVM chains:
  * - Transaction signing
  * - Message signing (personal_sign)
@@ -70,7 +75,9 @@ export class EvmWalletConnectService {
   /**
    * Parse CAIP-10 account ID to extract chain ID and address
    */
-  parseAccountId(accountId: string): { chainId: number; address: string; chainName: string | null } | null {
+  parseAccountId(
+    accountId: string,
+  ): { chainId: number; address: string; chainName: string | null } | null {
     // Format: eip155:<chain_id>:<address>
     const parts = accountId.split(':');
     if (parts.length !== 3 || parts[0] !== 'eip155') {
@@ -90,16 +97,17 @@ export class EvmWalletConnectService {
     }
 
     // Find chain name by chain ID
-    const chainName = Object.entries(this.CHAIN_ID_MAP).find(
-      ([_, id]) => id === chainId
-    )?.[0] || null;
+    const chainName =
+      Object.entries(this.CHAIN_ID_MAP).find(
+        ([_, id]) => id === chainId,
+      )?.[0] || null;
 
     return { chainId, address, chainName };
   }
 
   /**
    * Sign an EVM transaction for WalletConnect
-   * 
+   *
    * @param userId - User ID
    * @param accountId - CAIP-10 account ID (eip155:<chain_id>:<address>)
    * @param transaction - Transaction parameters
@@ -112,7 +120,9 @@ export class EvmWalletConnectService {
     transaction: TransactionRequest,
     useTestnet: boolean = false,
   ): Promise<{ signature: string }> {
-    this.logger.log(`Signing EVM transaction for user ${userId}, account ${accountId}`);
+    this.logger.log(
+      `Signing EVM transaction for user ${userId}, account ${accountId}`,
+    );
 
     const parsed = this.parseAccountId(accountId);
     if (!parsed || !parsed.chainName) {
@@ -122,14 +132,17 @@ export class EvmWalletConnectService {
     const { chainId, address, chainName } = parsed;
 
     // Verify the address belongs to the user
-    const userAddress = await this.addressManager.getAddressForChain(userId, chainName as any);
+    const userAddress = await this.addressManager.getAddressForChain(
+      userId,
+      chainName as any,
+    );
     if (userAddress.toLowerCase() !== address.toLowerCase()) {
       throw new Error(`Address ${address} does not belong to user ${userId}`);
     }
 
     // Get seed phrase and derive account
     const seedPhrase = await this.seedManager.getSeed(userId);
-    
+
     try {
       // Derive account from seed phrase
       const account = mnemonicToAccount(seedPhrase, {
@@ -138,7 +151,7 @@ export class EvmWalletConnectService {
 
       // Get chain configuration
       const viemChain = this.getViemChain(chainName);
-      
+
       // Create wallet client
       const walletClient = createWalletClient({
         account,
@@ -162,7 +175,7 @@ export class EvmWalletConnectService {
 
   /**
    * Sign a message using personal_sign
-   * 
+   *
    * @param userId - User ID
    * @param accountId - CAIP-10 account ID (eip155:<chain_id>:<address>)
    * @param message - Message to sign (hex-encoded or plain text)
@@ -175,7 +188,9 @@ export class EvmWalletConnectService {
     message: string,
     useTestnet: boolean = false,
   ): Promise<{ signature: string }> {
-    this.logger.log(`Signing EVM message for user ${userId}, account ${accountId}`);
+    this.logger.log(
+      `Signing EVM message for user ${userId}, account ${accountId}`,
+    );
 
     const parsed = this.parseAccountId(accountId);
     if (!parsed || !parsed.chainName) {
@@ -185,14 +200,17 @@ export class EvmWalletConnectService {
     const { address, chainName } = parsed;
 
     // Verify the address belongs to the user
-    const userAddress = await this.addressManager.getAddressForChain(userId, chainName as any);
+    const userAddress = await this.addressManager.getAddressForChain(
+      userId,
+      chainName as any,
+    );
     if (userAddress.toLowerCase() !== address.toLowerCase()) {
       throw new Error(`Address ${address} does not belong to user ${userId}`);
     }
 
     // Get seed phrase and derive account
     const seedPhrase = await this.seedManager.getSeed(userId);
-    
+
     try {
       // Derive account from seed phrase
       const account = mnemonicToAccount(seedPhrase, {
@@ -213,7 +231,7 @@ export class EvmWalletConnectService {
 
   /**
    * Sign typed data using EIP-712
-   * 
+   *
    * @param userId - User ID
    * @param accountId - CAIP-10 account ID (eip155:<chain_id>:<address>)
    * @param typedData - EIP-712 typed data structure
@@ -226,7 +244,9 @@ export class EvmWalletConnectService {
     typedData: EvmTypedData,
     useTestnet: boolean = false,
   ): Promise<{ signature: string }> {
-    this.logger.log(`Signing EVM typed data for user ${userId}, account ${accountId}`);
+    this.logger.log(
+      `Signing EVM typed data for user ${userId}, account ${accountId}`,
+    );
 
     const parsed = this.parseAccountId(accountId);
     if (!parsed || !parsed.chainName) {
@@ -236,14 +256,17 @@ export class EvmWalletConnectService {
     const { address, chainName } = parsed;
 
     // Verify the address belongs to the user
-    const userAddress = await this.addressManager.getAddressForChain(userId, chainName as any);
+    const userAddress = await this.addressManager.getAddressForChain(
+      userId,
+      chainName as any,
+    );
     if (userAddress.toLowerCase() !== address.toLowerCase()) {
       throw new Error(`Address ${address} does not belong to user ${userId}`);
     }
 
     // Get seed phrase and derive account
     const seedPhrase = await this.seedManager.getSeed(userId);
-    
+
     try {
       // Derive account from seed phrase
       const account = mnemonicToAccount(seedPhrase, {
@@ -267,8 +290,8 @@ export class EvmWalletConnectService {
 
   /**
    * Get all EVM accounts formatted as CAIP-10 for WalletConnect
-   * 
-   * NOTE: For ERC-4337 smart accounts, we return the EOA (Externally Owned Account) 
+   *
+   * NOTE: For ERC-4337 smart accounts, we return the EOA (Externally Owned Account)
    * addresses because:
    * 1. Smart accounts don't have private keys - they're controlled by EOAs
    * 2. WalletConnect requires signing, which is done by the EOA
@@ -279,9 +302,21 @@ export class EvmWalletConnectService {
   async getFormattedAccounts(
     userId: string,
     useTestnet: boolean = false,
-  ): Promise<Array<{ accountId: string; chainId: string; address: string; chainName: string }>> {
+  ): Promise<
+    Array<{
+      accountId: string;
+      chainId: string;
+      address: string;
+      chainName: string;
+    }>
+  > {
     const addresses = await this.addressManager.getAddresses(userId);
-    const accounts: Array<{ accountId: string; chainId: string; address: string; chainName: string }> = [];
+    const accounts: Array<{
+      accountId: string;
+      chainId: string;
+      address: string;
+      chainName: string;
+    }> = [];
 
     // Define supported EVM chains for WalletConnect
     // Using EOA addresses as they control the smart accounts
@@ -306,9 +341,9 @@ export class EvmWalletConnectService {
       if (!address || typeof address !== 'string') {
         continue;
       }
-      
+
       const accountId = this.formatAccountId(name, address);
-      
+
       accounts.push({
         accountId,
         chainId: chainId.toString(),
@@ -317,7 +352,9 @@ export class EvmWalletConnectService {
       });
     }
 
-    this.logger.log(`Returning ${accounts.length} EVM accounts for WalletConnect`);
+    this.logger.log(
+      `Returning ${accounts.length} EVM accounts for WalletConnect`,
+    );
     return accounts;
   }
 
@@ -332,12 +369,12 @@ export class EvmWalletConnectService {
 
     // For custom chains, create a chain object from ChainConfigService
     const config = this.chainConfigService.getEvmChainConfig(chainName as any);
-    
+
     // Ensure chainId is defined
     if (!config || config.chainId === undefined) {
       throw new Error(`Cannot get chain configuration for ${chainName}`);
     }
-    
+
     return {
       id: config.chainId,
       name: config.name,
@@ -362,4 +399,3 @@ export class EvmWalletConnectService {
     };
   }
 }
-

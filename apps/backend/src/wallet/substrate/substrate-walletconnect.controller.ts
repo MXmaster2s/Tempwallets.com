@@ -17,7 +17,7 @@ import {
 
 /**
  * Substrate WalletConnect Controller
- * 
+ *
  * Handles WalletConnect/Reown operations for Substrate chains
  */
 @Controller('wallet/substrate/walletconnect')
@@ -118,4 +118,3 @@ export class SubstrateWalletConnectController {
     }
   }
 }
-

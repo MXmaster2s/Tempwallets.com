@@ -49,13 +49,15 @@ describe('EncryptionService', () => {
             },
           ],
         }).compile();
-        
+
         // If we get here, the service was created, which shouldn't happen
         module.get<EncryptionService>(EncryptionService);
         fail('Expected EncryptionService to throw an error');
       } catch (error) {
         expect(error).toBeDefined();
-        expect((error as Error).message).toContain('WALLET_ENC_KEY environment variable is required');
+        expect((error as Error).message).toContain(
+          'WALLET_ENC_KEY environment variable is required',
+        );
       }
     });
 
@@ -79,13 +81,15 @@ describe('EncryptionService', () => {
             },
           ],
         }).compile();
-        
+
         // If we get here, the service was created, which shouldn't happen
         module.get<EncryptionService>(EncryptionService);
         fail('Expected EncryptionService to throw an error');
       } catch (error) {
         expect(error).toBeDefined();
-        expect((error as Error).message).toContain('WALLET_ENC_KEY must be a 32-byte base64 encoded string');
+        expect((error as Error).message).toContain(
+          'WALLET_ENC_KEY must be a 32-byte base64 encoded string',
+        );
       }
     });
   });
@@ -258,4 +262,3 @@ describe('EncryptionService', () => {
     });
   });
 });
-

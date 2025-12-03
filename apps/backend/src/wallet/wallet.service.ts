@@ -93,10 +93,16 @@ export class WalletService {
     'bifrost',
     'bifrostTestnet',
   ];
-  private readonly NON_EVM_CHAIN_KEYS: Array<'tron' | 'bitcoin' | 'solana'> = [
+  private readonly NON_EVM_CHAIN_KEYS: Array<
+    'tron' | 'bitcoin' | 'solana' | 'aptos' | 'aptosMainnet' | 'aptosTestnet' | 'aptosDevnet'
+  > = [
     'tron',
     'bitcoin',
     'solana',
+    'aptos',
+    'aptosMainnet',
+    'aptosTestnet',
+    'aptosDevnet',
   ];
   private readonly UI_SMART_ACCOUNT_LABEL = 'EVM Smart Account';
   private readonly WALLETCONNECT_CHAIN_CONFIG = [
@@ -162,7 +168,7 @@ export class WalletService {
   ): Promise<void> {
     // For authenticated users (non-temp IDs), save current wallet to history
     const isAuthenticatedUser = !userId.startsWith('temp-');
-    
+
     if (saveHistory && isAuthenticatedUser) {
       try {
         // Check if user has an existing seed to save
@@ -173,15 +179,17 @@ export class WalletService {
           this.logger.log(`Saved current wallet to history for user ${userId}`);
         }
       } catch (error) {
-        this.logger.warn(`Failed to save wallet history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.logger.warn(
+          `Failed to save wallet history: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        );
         // Continue even if history save fails
       }
     }
-    
+
     // Clear any cached addresses since a new seed means new addresses
     await this.addressManager.clearAddressCache(userId);
     this.logger.log(`Cleared address cache for user ${userId}`);
-    
+
     // Use the SeedManager for all seed operations
     return this.seedManager.createOrImportSeed(userId, mode, mnemonic);
   }
@@ -212,13 +220,16 @@ export class WalletService {
    */
   async switchWallet(userId: string, walletId: string): Promise<boolean> {
     // Get the seed from history
-    const seedPhrase = await this.walletHistoryRepository.getSeedFromHistory(walletId, userId);
-    
+    const seedPhrase = await this.walletHistoryRepository.getSeedFromHistory(
+      walletId,
+      userId,
+    );
+
     if (!seedPhrase) {
       this.logger.error(`Wallet ${walletId} not found for user ${userId}`);
       return false;
     }
-    
+
     // Save current wallet to history first (don't save again if switching)
     const hasSeed = await this.seedManager.hasSeed(userId);
     if (hasSeed) {
@@ -228,16 +239,16 @@ export class WalletService {
         await this.walletHistoryRepository.saveToHistory(userId, currentSeed);
       }
     }
-    
+
     // Clear address cache
     await this.addressManager.clearAddressCache(userId);
-    
+
     // Import the selected wallet's seed
     await this.seedManager.createOrImportSeed(userId, 'mnemonic', seedPhrase);
-    
+
     // Set this wallet as active
     await this.walletHistoryRepository.setActiveWallet(walletId, userId);
-    
+
     this.logger.log(`User ${userId} switched to wallet ${walletId}`);
     return true;
   }
@@ -247,7 +258,10 @@ export class WalletService {
    * @param userId - The user ID
    * @param walletId - The wallet history entry ID to delete
    */
-  async deleteWalletHistory(userId: string, walletId: string): Promise<boolean> {
+  async deleteWalletHistory(
+    userId: string,
+    walletId: string,
+  ): Promise<boolean> {
     return this.walletHistoryRepository.deleteWallet(walletId, userId);
   }
 
@@ -302,9 +316,12 @@ export class WalletService {
 
     // Polkadot namespace (Substrate chains) - with error isolation
     try {
-      const substrateAddresses = await this.substrateManager.getAddresses(userId, false);
+      const substrateAddresses = await this.substrateManager.getAddresses(
+        userId,
+        false,
+      );
       const enabledChains = this.substrateManager.getEnabledChains();
-      
+
       const polkadotNamespace: WalletConnectNamespacePayload = {
         namespace: 'polkadot',
         chains: [],
@@ -347,7 +364,7 @@ export class WalletService {
     // Return first namespace for backward compatibility, but log that multiple namespaces are available
     if (namespaces.length > 1) {
       this.logger.debug(
-        `Multiple WalletConnect namespaces available: ${namespaces.map(n => n.namespace).join(', ')}`,
+        `Multiple WalletConnect namespaces available: ${namespaces.map((n) => n.namespace).join(', ')}`,
       );
     }
 
@@ -477,15 +494,24 @@ export class WalletService {
       }
     });
 
-    // Non-EVM chains
+    // Non-EVM chains (including Aptos)
     this.NON_EVM_CHAIN_KEYS.forEach((chain) => {
       const entry = metadata[chain];
       if (entry?.visible && entry.address) {
+        // Determine category based on chain
+        let category: string | undefined;
+        if (chain.startsWith('aptos')) {
+          category = 'aptos';
+        } else if (chain === 'tron' || chain === 'bitcoin' || chain === 'solana') {
+          category = 'non-evm';
+        }
+
         entries.push({
           key: chain,
           label: entry.label,
           chain,
           address: entry.address,
+          category,
         });
       }
     });
@@ -526,7 +552,7 @@ export class WalletService {
         ].includes(chain),
     );
     standardEoaChains.forEach((chain) => assign(chain, 'eoa', false));
-    
+
     // Polkadot EVM chains (visible)
     const polkadotEvmChains: WalletAddressKey[] = [
       'moonbeamTestnet',
@@ -542,7 +568,7 @@ export class WalletService {
       assign(chain, 'erc4337', true),
     );
     this.NON_EVM_CHAIN_KEYS.forEach((chain) => assign(chain, 'nonEvm', true));
-    
+
     // Substrate chains (visible)
     const substrateChains: WalletAddressKey[] = [
       'polkadot',
@@ -611,18 +637,12 @@ export class WalletService {
       'paseo',
       'paseoAssethub',
     ];
-    
+
     // Polkadot EVM chains
     const POLKADOT_EVM_CHAIN_KEYS: Array<
-      | 'moonbeamTestnet'
-      | 'astarShibuya'
-      | 'paseoPassetHub'
-    > = [
-      'moonbeamTestnet',
-      'astarShibuya',
-      'paseoPassetHub',
-    ];
-    
+      'moonbeamTestnet' | 'astarShibuya' | 'paseoPassetHub'
+    > = ['moonbeamTestnet', 'astarShibuya', 'paseoPassetHub'];
+
     return (
       this.SMART_ACCOUNT_CHAIN_KEYS.includes(
         chain as (typeof this.SMART_ACCOUNT_CHAIN_KEYS)[number],
@@ -685,7 +705,7 @@ export class WalletService {
       erc4337Address,
       addresses.solana,
     ].filter(Boolean) as string[];
-    
+
     // Polkadot EVM chains use the same EOA address as ethereum
     const polkadotEvmAddress = addresses.ethereum;
 
@@ -693,7 +713,14 @@ export class WalletService {
     if (forceRefresh) {
       for (const addr of targetAddresses) {
         // Invalidate for common chains that Zerion supports
-        const chains = ['ethereum', 'base', 'arbitrum', 'polygon', 'avalanche', 'solana'];
+        const chains = [
+          'ethereum',
+          'base',
+          'arbitrum',
+          'polygon',
+          'avalanche',
+          'solana',
+        ];
         for (const chain of chains) {
           this.zerionService.invalidateCache(addr, chain);
         }
@@ -701,16 +728,21 @@ export class WalletService {
     }
 
     // Fetch positions for each address in parallel (Zerion)
-    const zerionResults = targetAddresses.length > 0
-      ? await Promise.all(
-          targetAddresses.map((addr) =>
-            this.zerionService.getPositionsAnyChain(addr),
-          ),
-        )
-      : [];
+    const zerionResults =
+      targetAddresses.length > 0
+        ? await Promise.all(
+            targetAddresses.map((addr) =>
+              this.zerionService.getPositionsAnyChain(addr),
+            ),
+          )
+        : [];
 
     // Fetch Polkadot EVM chain assets using RPC
-    const polkadotEvmChains = ['moonbeamTestnet', 'astarShibuya', 'paseoPassetHub'];
+    const polkadotEvmChains = [
+      'moonbeamTestnet',
+      'astarShibuya',
+      'paseoPassetHub',
+    ];
     const polkadotResults: Array<{
       chain: string;
       address: string | null;
@@ -863,33 +895,48 @@ export class WalletService {
       erc4337Address,
       addresses.solana,
     ].filter(Boolean) as string[];
-    
+
     // Polkadot EVM chains use the same EOA address as ethereum
     const polkadotEvmAddress = addresses.ethereum;
 
     // Fetch transactions from Zerion with timeout protection
-    const zerionPerAddr = targetAddresses.length > 0
-      ? await Promise.allSettled(
-          targetAddresses.map((addr) =>
-            Promise.race([
-              this.zerionService.getTransactionsAnyChain(addr, limit),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Transaction fetch timeout for ${addr} after 30s`)), 30000)
-              ),
-            ]).catch((error) => {
-              this.logger.warn(
-                `Failed to fetch transactions for ${addr}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              );
-              return []; // Return empty array on error/timeout
-            }),
-          ),
-        ).then((results) =>
-          results.map((result) => (result.status === 'fulfilled' ? result.value : [])),
-        )
-      : [];
+    const zerionPerAddr =
+      targetAddresses.length > 0
+        ? await Promise.allSettled(
+            targetAddresses.map((addr) =>
+              Promise.race([
+                this.zerionService.getTransactionsAnyChain(addr, limit),
+                new Promise<never>((_, reject) =>
+                  setTimeout(
+                    () =>
+                      reject(
+                        new Error(
+                          `Transaction fetch timeout for ${addr} after 30s`,
+                        ),
+                      ),
+                    30000,
+                  ),
+                ),
+              ]).catch((error) => {
+                this.logger.warn(
+                  `Failed to fetch transactions for ${addr}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                );
+                return []; // Return empty array on error/timeout
+              }),
+            ),
+          ).then((results) =>
+            results.map((result) =>
+              result.status === 'fulfilled' ? result.value : [],
+            ),
+          )
+        : [];
 
     // Fetch Polkadot EVM chain transactions using RPC
-    const polkadotEvmChains = ['moonbeamTestnet', 'astarShibuya', 'paseoPassetHub'];
+    const polkadotEvmChains = [
+      'moonbeamTestnet',
+      'astarShibuya',
+      'paseoPassetHub',
+    ];
     const polkadotTransactions: Array<{
       txHash: string;
       from: string;
@@ -915,7 +962,10 @@ export class WalletService {
                 limit,
               ),
               new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`RPC timeout for ${chain} after 20s`)), 20000)
+                setTimeout(
+                  () => reject(new Error(`RPC timeout for ${chain} after 20s`)),
+                  20000,
+                ),
               ),
             ]);
             return txs.map((tx) => ({
@@ -1160,12 +1210,19 @@ export class WalletService {
 
     // Fast path: Check database cache first (unless force refresh)
     if (!forceRefresh) {
-      const cachedBalances = await this.balanceCacheRepository.getCachedBalances(userId);
+      const cachedBalances =
+        await this.balanceCacheRepository.getCachedBalances(userId);
       if (cachedBalances) {
-        this.logger.debug(`Returning cached balances from DB for user ${userId}`);
+        this.logger.debug(
+          `Returning cached balances from DB for user ${userId}`,
+        );
         // Convert cached format to response format, excluding Substrate chains
         return Object.entries(cachedBalances)
-          .filter(([chain]) => !substrateChains.includes(chain) && !chain.startsWith('substrate_'))
+          .filter(
+            ([chain]) =>
+              !substrateChains.includes(chain) &&
+              !chain.startsWith('substrate_'),
+          )
           .map(([chain, data]) => ({
             chain,
             balance: data.balance,
@@ -1186,7 +1243,10 @@ export class WalletService {
     const addresses = await this.getAddresses(userId);
 
     const balances: Array<{ chain: string; balance: string }> = [];
-    const balancesToCache: Record<string, { balance: string; lastUpdated: number }> = {};
+    const balancesToCache: Record<
+      string,
+      { balance: string; lastUpdated: number }
+    > = {};
 
     // For each chain, get balance from Zerion
     for (const [chain, address] of Object.entries(addresses)) {
@@ -1248,7 +1308,10 @@ export class WalletService {
     }
 
     // Save to cache
-    await this.balanceCacheRepository.updateCachedBalances(userId, balancesToCache);
+    await this.balanceCacheRepository.updateCachedBalances(
+      userId,
+      balancesToCache,
+    );
 
     return balances;
   }
@@ -1363,13 +1426,7 @@ export class WalletService {
     base: ['base', 'eip155:8453', 'base-mainnet', '8453'],
     arbitrum: ['arbitrum', 'arbitrum-one', 'eip155:42161', '42161'],
     polygon: ['polygon', 'matic', 'eip155:137', 'polygon-mainnet', '137'],
-    avalanche: [
-      'avalanche',
-      'avax',
-      'eip155:43114',
-      '43114',
-      'avalanche-c',
-    ],
+    avalanche: ['avalanche', 'avax', 'eip155:43114', '43114', 'avalanche-c'],
     moonbeamTestnet: [
       'moonbeamTestnet',
       'moonbase',
@@ -3418,7 +3475,7 @@ export class WalletService {
 
   /**
    * Get Substrate balances for all chains for a user
-   * 
+   *
    * @param userId - User ID
    * @param useTestnet - Whether to use testnet
    * @returns Map of chain -> balance information
@@ -3427,35 +3484,69 @@ export class WalletService {
     userId: string,
     useTestnet: boolean = false,
     forceRefresh: boolean = false,
-  ): Promise<Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>> {
+  ): Promise<
+    Record<
+      SubstrateChainKey,
+      {
+        balance: string;
+        address: string | null;
+        token: string;
+        decimals: number;
+      }
+    >
+  > {
     // Fast path: Check database cache first (unless force refresh)
     const cacheKey = `substrate_${useTestnet ? 'testnet' : 'mainnet'}`;
-    
+
     if (!forceRefresh) {
-      const cachedBalances = await this.balanceCacheRepository.getCachedBalances(userId);
+      const cachedBalances =
+        await this.balanceCacheRepository.getCachedBalances(userId);
       if (cachedBalances) {
         // Check if we have substrate balances cached
-        const substrateChains: SubstrateChainKey[] = ['polkadot', 'hydration', 'bifrost', 'unique', 'paseo', 'paseoAssethub'];
-        const hasSubstrateCache = substrateChains.some(chain => {
+        const substrateChains: SubstrateChainKey[] = [
+          'polkadot',
+          'hydration',
+          'bifrost',
+          'unique',
+          'paseo',
+          'paseoAssethub',
+        ];
+        const hasSubstrateCache = substrateChains.some((chain) => {
           const key = `${cacheKey}_${chain}`;
           return cachedBalances[key] !== undefined;
         });
 
         if (hasSubstrateCache) {
-          this.logger.debug(`Returning cached Substrate balances from DB for user ${userId}`);
-          const result: Record<string, { balance: string; address: string | null; token: string; decimals: number }> = {};
-          
+          this.logger.debug(
+            `Returning cached Substrate balances from DB for user ${userId}`,
+          );
+          const result: Record<
+            string,
+            {
+              balance: string;
+              address: string | null;
+              token: string;
+              decimals: number;
+            }
+          > = {};
+
           for (const chain of substrateChains) {
             const key = `${cacheKey}_${chain}`;
             const cached = cachedBalances[key];
             if (cached) {
-              const chainConfig = this.substrateManager.getChainConfig(chain, useTestnet);
+              const chainConfig = this.substrateManager.getChainConfig(
+                chain,
+                useTestnet,
+              );
               // We need to get the address separately since it's not in cache
               const addresses = await this.addressManager.getAddresses(userId);
               let address: string | null = null;
-              
+
               // Map chain to address key
-              const addressMap: Record<SubstrateChainKey, keyof WalletAddresses> = {
+              const addressMap: Record<
+                SubstrateChainKey,
+                keyof WalletAddresses
+              > = {
                 polkadot: 'polkadot',
                 hydration: 'hydrationSubstrate',
                 bifrost: 'bifrostSubstrate',
@@ -3463,9 +3554,9 @@ export class WalletService {
                 paseo: 'paseo',
                 paseoAssethub: 'paseoAssethub',
               };
-              
+
               address = addresses[addressMap[chain]] ?? null;
-              
+
               result[chain] = {
                 balance: cached.balance,
                 address,
@@ -3474,52 +3565,94 @@ export class WalletService {
               };
             }
           }
-          
+
           if (Object.keys(result).length > 0) {
-            return result as Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>;
+            return result as Record<
+              SubstrateChainKey,
+              {
+                balance: string;
+                address: string | null;
+                token: string;
+                decimals: number;
+              }
+            >;
           }
         }
       }
     }
 
-    this.logger.log(`[WalletService] Getting Substrate balances for user ${userId} (testnet: ${useTestnet})`);
-    const balances = await this.substrateManager.getBalances(userId, useTestnet);
-    this.logger.log(`[WalletService] Received ${Object.keys(balances).length} Substrate chain balances`);
-    
-    const result: Record<string, { balance: string; address: string | null; token: string; decimals: number }> = {};
-    const balancesToCache: Record<string, { balance: string; lastUpdated: number }> = {};
+    this.logger.log(
+      `[WalletService] Getting Substrate balances for user ${userId} (testnet: ${useTestnet})`,
+    );
+    const balances = await this.substrateManager.getBalances(
+      userId,
+      useTestnet,
+    );
+    this.logger.log(
+      `[WalletService] Received ${Object.keys(balances).length} Substrate chain balances`,
+    );
+
+    const result: Record<
+      string,
+      {
+        balance: string;
+        address: string | null;
+        token: string;
+        decimals: number;
+      }
+    > = {};
+    const balancesToCache: Record<
+      string,
+      { balance: string; lastUpdated: number }
+    > = {};
 
     for (const [chain, data] of Object.entries(balances)) {
-      const chainConfig = this.substrateManager.getChainConfig(chain as SubstrateChainKey, useTestnet);
+      const chainConfig = this.substrateManager.getChainConfig(
+        chain as SubstrateChainKey,
+        useTestnet,
+      );
       result[chain] = {
         balance: data.balance,
         address: data.address,
         token: chainConfig.token.symbol,
         decimals: chainConfig.token.decimals,
       };
-      
+
       // Cache with a key that includes testnet/mainnet distinction
       const cacheKeyForChain = `${cacheKey}_${chain}`;
       balancesToCache[cacheKeyForChain] = {
         balance: data.balance,
         lastUpdated: Date.now(),
       };
-      
-      this.logger.debug(`[WalletService] ${chain}: ${data.balance} ${chainConfig.token.symbol} (address: ${data.address ? 'present' : 'null'})`);
+
+      this.logger.debug(
+        `[WalletService] ${chain}: ${data.balance} ${chainConfig.token.symbol} (address: ${data.address ? 'present' : 'null'})`,
+      );
     }
 
     // Update cache with substrate balances (merge with existing cache)
-    const existingCache = await this.balanceCacheRepository.getCachedBalances(userId) || {};
+    const existingCache =
+      (await this.balanceCacheRepository.getCachedBalances(userId)) || {};
     const mergedCache = { ...existingCache, ...balancesToCache };
     await this.balanceCacheRepository.updateCachedBalances(userId, mergedCache);
 
-    this.logger.log(`[WalletService] Returning ${Object.keys(result).length} Substrate balances`);
-    return result as Record<SubstrateChainKey, { balance: string; address: string | null; token: string; decimals: number }>;
+    this.logger.log(
+      `[WalletService] Returning ${Object.keys(result).length} Substrate balances`,
+    );
+    return result as Record<
+      SubstrateChainKey,
+      {
+        balance: string;
+        address: string | null;
+        token: string;
+        decimals: number;
+      }
+    >;
   }
 
   /**
    * Get Substrate transaction history for a user
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param useTestnet - Whether to use testnet
@@ -3545,21 +3678,18 @@ export class WalletService {
 
   /**
    * Get Substrate addresses for a user
-   * 
+   *
    * @param userId - User ID
    * @param useTestnet - Whether to use testnet
    * @returns Substrate addresses
    */
-  async getSubstrateAddresses(
-    userId: string,
-    useTestnet: boolean = false,
-  ) {
+  async getSubstrateAddresses(userId: string, useTestnet: boolean = false) {
     return this.substrateManager.getAddresses(userId, useTestnet);
   }
 
   /**
    * Send Substrate transfer
-   * 
+   *
    * @param userId - User ID
    * @param chain - Chain key
    * @param to - Recipient address

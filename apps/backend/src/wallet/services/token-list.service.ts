@@ -53,10 +53,7 @@ export class TokenListService {
       const currentFilePath = fileURLToPath(currentFileUrl);
       const currentDir = path.dirname(currentFilePath); // e.g., /path/to/wallet/services
       const tokensDir = path.join(currentDir, '..', 'tokens');
-      const polkadotEvmPath = path.join(
-        tokensDir,
-        'polkadot-evm-tokens.json',
-      );
+      const polkadotEvmPath = path.join(tokensDir, 'polkadot-evm-tokens.json');
       if (fs.existsSync(polkadotEvmPath)) {
         const fileContent = fs.readFileSync(polkadotEvmPath, 'utf-8');
         const data: TokenListFile = JSON.parse(fileContent);
@@ -65,9 +62,7 @@ export class TokenListService {
           `Loaded ${this.polkadotEvmTokens.length} tokens from polkadot-evm-tokens.json`,
         );
       } else {
-        this.logger.warn(
-          `Token list file not found: ${polkadotEvmPath}`,
-        );
+        this.logger.warn(`Token list file not found: ${polkadotEvmPath}`);
       }
 
       // Load all-tokens.json (as fallback)
@@ -120,9 +115,7 @@ export class TokenListService {
   getTokensForChain(internalChainName: string): TokenEntry[] {
     const chainVariants = this.chainMapping[internalChainName];
     if (!chainVariants) {
-      this.logger.debug(
-        `No chain mapping found for: ${internalChainName}`,
-      );
+      this.logger.debug(`No chain mapping found for: ${internalChainName}`);
       return [];
     }
 
@@ -159,9 +152,8 @@ export class TokenListService {
     const addressLower = tokenAddress.toLowerCase();
 
     return (
-      tokens.find(
-        (token) => token.address.toLowerCase() === addressLower,
-      ) || null
+      tokens.find((token) => token.address.toLowerCase() === addressLower) ||
+      null
     );
   }
 
@@ -172,4 +164,3 @@ export class TokenListService {
     return internalChainName in this.chainMapping;
   }
 }
-
