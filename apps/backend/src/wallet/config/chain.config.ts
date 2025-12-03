@@ -97,7 +97,7 @@ export class ChainConfigService {
       moonbeamTestnet: {
         chainId: 420420422,
         name: 'Moonbeam Testnet',
-        rpcUrl: 'https://rpc.api.moonbase.moonbeam.network',
+        rpcUrl: 'https://moonbase-alpha.public.blastapi.io',
         nativeCurrency: {
           name: 'DEV',
           symbol: 'DEV',
@@ -108,7 +108,7 @@ export class ChainConfigService {
       astarShibuya: {
         chainId: 81,
         name: 'Astar Shibuya',
-        rpcUrl: 'https://evm.shibuya.astar.network',
+        rpcUrl: 'https://shibuya.public.blastapi.io',
         nativeCurrency: {
           name: 'SBY',
           symbol: 'SBY',
@@ -152,7 +152,7 @@ export class ChainConfigService {
       bifrost: {
         chainId: 3068,
         name: 'Bifrost Mainnet',
-        rpcUrl: 'https://public-02.mainnet.bifrostnetwork.com/rpc',
+        rpcUrl: 'https://bifrost-rpc.liebi.com/rpc',
         nativeCurrency: {
           name: 'BFC',
           symbol: 'BFC',
