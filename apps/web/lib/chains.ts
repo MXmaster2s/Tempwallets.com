@@ -7,6 +7,7 @@ import Polygon from '@thirdweb-dev/chain-icons/dist/polygon';
 import Avalanche from '@thirdweb-dev/chain-icons/dist/avalanche';
 import Tron from '@thirdweb-dev/chain-icons/dist/tron';
 import Arbitrum from '@thirdweb-dev/chain-icons/dist/arbitrum';
+import Optimism from '@thirdweb-dev/chain-icons/dist/optimism';
 // Base uses Ethereum icon as fallback since Base icon is not available in the package
 const Base = Ethereum;
 
@@ -153,6 +154,99 @@ export const chains: Chain[] = [
     category: 'layer2',
     chainId: 42161,
   },
+  {
+    id: 'optimism',
+    name: 'Optimism',
+    symbol: 'OP',
+    icon: Optimism,
+    type: 'evm',
+    hasWalletConnect: true,
+    isTestnet: false,
+    category: 'layer2',
+    chainId: 10,
+  },
+
+  // EIP-7702 Gasless chains (Mainnet)
+  {
+    id: 'ethereumGasless',
+    name: 'Ethereum (Gasless)',
+    symbol: 'ETH',
+    icon: Ethereum,
+    type: 'evm',
+    hasWalletConnect: false, // Gasless wallets are custodial-like
+    isTestnet: false,
+    category: 'layer1',
+    chainId: 1,
+    featured: true,
+  },
+  {
+    id: 'baseGasless',
+    name: 'Base (Gasless)',
+    symbol: 'ETH',
+    icon: Base,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: false,
+    category: 'layer2',
+    chainId: 8453,
+  },
+  {
+    id: 'arbitrumGasless',
+    name: 'Arbitrum (Gasless)',
+    symbol: 'ETH',
+    icon: Arbitrum,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: false,
+    category: 'layer2',
+    chainId: 42161,
+  },
+  {
+    id: 'optimismGasless',
+    name: 'Optimism (Gasless)',
+    symbol: 'ETH',
+    icon: Optimism,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: false,
+    category: 'layer2',
+    chainId: 10,
+  },
+  {
+    id: 'polygonGasless',
+    name: 'Polygon (Gasless)',
+    symbol: 'MATIC',
+    icon: Polygon,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: false,
+    category: 'sidechain',
+    chainId: 137,
+  },
+
+  // EIP-7702 Gasless chains (Testnet)
+  {
+    id: 'sepoliaGasless',
+    name: 'Sepolia (Gasless)',
+    symbol: 'ETH',
+    icon: Ethereum,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: true,
+    category: 'layer1',
+    chainId: 11155111,
+  },
+  {
+    id: 'baseSepoliaGasless',
+    name: 'Base Sepolia (Gasless)',
+    symbol: 'ETH',
+    icon: Base,
+    type: 'evm',
+    hasWalletConnect: false,
+    isTestnet: true,
+    category: 'layer2',
+    chainId: 84532,
+  },
 ];
 
 /**
@@ -231,4 +325,46 @@ export const DEFAULT_CHAIN: Chain = {
   category: 'layer1',
   chainId: 1,
   featured: true,
+};
+
+/**
+ * Get EIP-7702 gasless chains
+ */
+export const gaslessChains = chains.filter((chain) => chain.id.endsWith('Gasless'));
+
+/**
+ * Get mainnet gasless chains only
+ */
+export const mainnetGaslessChains = gaslessChains.filter((chain) => !chain.isTestnet);
+
+/**
+ * Get testnet gasless chains only
+ */
+export const testnetGaslessChains = gaslessChains.filter((chain) => chain.isTestnet);
+
+/**
+ * Check if a chain supports EIP-7702 gasless transactions
+ */
+export const isGaslessChain = (chainId: string): boolean => {
+  return chainId.endsWith('Gasless');
+};
+
+/**
+ * Map gasless chain ID to EVM chain ID
+ */
+export const gaslessChainIdMap: Record<string, number> = {
+  ethereumGasless: 1,
+  baseGasless: 8453,
+  arbitrumGasless: 42161,
+  optimismGasless: 10,
+  polygonGasless: 137,
+  sepoliaGasless: 11155111,
+  baseSepoliaGasless: 84532,
+};
+
+/**
+ * Get EVM chain ID for a gasless chain
+ */
+export const getGaslessChainId = (chainId: string): number | undefined => {
+  return gaslessChainIdMap[chainId];
 };

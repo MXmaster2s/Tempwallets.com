@@ -683,6 +683,224 @@ export const walletApi = {
       body: JSON.stringify(data),
     });
   },
+
+  /**
+   * EIP-7702 Gasless Wallet API methods
+   */
+
+  /**
+   * Get EIP-7702 EOA address
+   */
+  async getEip7702Address(userId: string, chainId?: number): Promise<{
+    address: string;
+    chainId?: number;
+  }> {
+    const params = new URLSearchParams({ userId });
+    if (chainId) params.append('chainId', chainId.toString());
+    return fetchApi<{ address: string; chainId?: number }>(
+      `/wallet/eip7702/address?${params.toString()}`
+    );
+  },
+
+  /**
+   * Get delegation status for EIP-7702
+   */
+  async getEip7702DelegationStatus(userId: string, chainId: number): Promise<{
+    userId: string;
+    chainId: number;
+    address: string;
+    isDelegated: boolean;
+    delegationAddress?: string;
+    authorizedAt?: string;
+  }> {
+    return fetchApi<{
+      userId: string;
+      chainId: number;
+      address: string;
+      isDelegated: boolean;
+      delegationAddress?: string;
+      authorizedAt?: string;
+    }>(`/wallet/eip7702/delegation-status?userId=${encodeURIComponent(userId)}&chainId=${chainId}`);
+  },
+
+  /**
+   * Get supported chains for EIP-7702 gasless transactions
+   */
+  async getEip7702SupportedChains(): Promise<Array<{
+    chainId: number;
+    name: string;
+    supportsEip7702: boolean;
+    isTestnet: boolean;
+  }>> {
+    return fetchApi<Array<{
+      chainId: number;
+      name: string;
+      supportsEip7702: boolean;
+      isTestnet: boolean;
+    }>>('/wallet/eip7702/supported-chains');
+  },
+
+  /**
+   * Check if paymaster is available for a chain
+   */
+  async getEip7702PaymasterStatus(chainId: number): Promise<{
+    chainId: number;
+    isAvailable: boolean;
+  }> {
+    return fetchApi<{ chainId: number; isAvailable: boolean }>(
+      `/wallet/eip7702/paymaster-status?chainId=${chainId}`
+    );
+  },
+
+  /**
+   * Get remaining sponsorship allowance for user
+   */
+  async getEip7702Allowance(userId: string): Promise<{
+    dailyRemaining: string;
+    monthlyRemaining: string;
+    transactionsRemaining: number;
+  }> {
+    return fetchApi<{
+      dailyRemaining: string;
+      monthlyRemaining: string;
+      transactionsRemaining: number;
+    }>(`/wallet/eip7702/allowance?userId=${encodeURIComponent(userId)}`);
+  },
+
+  /**
+   * Send gasless transaction via EIP-7702
+   */
+  async sendEip7702Gasless(data: {
+    userId: string;
+    chainId: number;
+    recipientAddress: string;
+    amount: string;
+    tokenAddress?: string;
+    tokenDecimals?: number;
+  }): Promise<{
+    success: boolean;
+    userOpHash: string;
+    transactionHash?: string;
+    isFirstTransaction: boolean;
+    explorerUrl?: string;
+  }> {
+    return fetchApi<{
+      success: boolean;
+      userOpHash: string;
+      transactionHash?: string;
+      isFirstTransaction: boolean;
+      explorerUrl?: string;
+    }>('/wallet/eip7702/send', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Send batch of gasless transactions via EIP-7702
+   */
+  async sendEip7702Batch(data: {
+    userId: string;
+    chainId: number;
+    calls: Array<{
+      to: string;
+      value?: string;
+      data?: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    userOpHash: string;
+    transactionHash?: string;
+    isFirstTransaction: boolean;
+    explorerUrl?: string;
+  }> {
+    return fetchApi<{
+      success: boolean;
+      userOpHash: string;
+      transactionHash?: string;
+      isFirstTransaction: boolean;
+      explorerUrl?: string;
+    }>('/wallet/eip7702/send-batch', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Get EIP-7702 UserOperation receipt
+   */
+  async getEip7702Receipt(chainId: number, userOpHash: string): Promise<{
+    found: boolean;
+    userOpHash?: string;
+    transactionHash?: string;
+    success?: boolean;
+    blockNumber?: string;
+    gasUsed?: string;
+    gasCost?: string;
+    reason?: string;
+    explorerUrl?: string;
+    message?: string;
+  }> {
+    return fetchApi<{
+      found: boolean;
+      userOpHash?: string;
+      transactionHash?: string;
+      success?: boolean;
+      blockNumber?: string;
+      gasUsed?: string;
+      gasCost?: string;
+      reason?: string;
+      explorerUrl?: string;
+      message?: string;
+    }>(`/wallet/eip7702/receipt?chainId=${chainId}&userOpHash=${encodeURIComponent(userOpHash)}`);
+  },
+
+  /**
+   * Wait for EIP-7702 UserOperation confirmation
+   */
+  async waitEip7702Confirmation(data: {
+    chainId: number;
+    userOpHash: string;
+    timeoutMs?: number;
+  }): Promise<{
+    success: boolean;
+    userOpHash: string;
+    transactionHash: string;
+    executionSuccess: boolean;
+    blockNumber: string;
+    gasUsed: string;
+    gasCost: string;
+    reason?: string;
+    explorerUrl: string;
+  }> {
+    return fetchApi<{
+      success: boolean;
+      userOpHash: string;
+      transactionHash: string;
+      executionSuccess: boolean;
+      blockNumber: string;
+      gasUsed: string;
+      gasCost: string;
+      reason?: string;
+      explorerUrl: string;
+    }>('/wallet/eip7702/wait-for-confirmation', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeout: data.timeoutMs ? data.timeoutMs + 10000 : 130000, // Add buffer
+    });
+  },
+
+  /**
+   * Get EIP-7702 native balance
+   */
+  async getEip7702Balance(userId: string, chainId: number): Promise<{
+    balance: string;
+    chainId: number;
+  }> {
+    return fetchApi<{ balance: string; chainId: number }>(
+      `/wallet/eip7702/balance?userId=${encodeURIComponent(userId)}&chainId=${chainId}`
+    );
+  },
 };
 
 /**

@@ -99,6 +99,20 @@ CREATE TABLE "aptos_account" (
     CONSTRAINT "aptos_account_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "eip7702_delegation" (
+    "id" TEXT NOT NULL,
+    "walletId" TEXT NOT NULL,
+    "address" TEXT NOT NULL,
+    "chainId" INTEGER NOT NULL,
+    "delegationAddress" TEXT NOT NULL,
+    "authorizedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "eip7702_delegation_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -164,6 +178,15 @@ CREATE UNIQUE INDEX "aptos_account_walletId_network_key" ON "aptos_account"("wal
 
 -- CreateIndex
 CREATE UNIQUE INDEX "aptos_account_address_network_key" ON "aptos_account"("address", "network");
+
+-- CreateIndex
+CREATE INDEX "eip7702_delegation_address_chainId_idx" ON "eip7702_delegation"("address", "chainId");
+
+-- CreateIndex
+CREATE INDEX "eip7702_delegation_walletId_idx" ON "eip7702_delegation"("walletId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "eip7702_delegation_walletId_chainId_key" ON "eip7702_delegation"("walletId", "chainId");
 
 -- AddForeignKey
 ALTER TABLE "Wallet" ADD CONSTRAINT "Wallet_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

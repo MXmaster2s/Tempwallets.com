@@ -24,6 +24,8 @@ import { SubstrateModule } from './substrate/substrate.module.js';
 import { EvmModule } from './evm/evm.module.js';
 // Import Aptos module
 import { AptosModule } from './aptos/aptos.module.js';
+// Import EIP-7702 Gasless module
+import { Eip7702Module } from './eip7702/eip7702.module.js';
 // Import cache repositories
 import { AddressCacheRepository } from './repositories/address-cache.repository.js';
 import { BalanceCacheRepository } from './repositories/balance-cache.repository.js';
@@ -38,7 +40,7 @@ import { AptosTransactionService } from './aptos/services/aptos-transaction.serv
 import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
 
 @Module({
-  imports: [PrismaModule, CryptoModule, SubstrateModule, EvmModule, AptosModule],
+  imports: [PrismaModule, CryptoModule, SubstrateModule, EvmModule, AptosModule, Eip7702Module],
   controllers: [WalletController],
   providers: [
     WalletService,

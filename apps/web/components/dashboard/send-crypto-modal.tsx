@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { Label } from "@repo/ui/components/ui/label";
-import { Loader2, AlertCircle, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Zap } from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
 
 interface SendCryptoModalProps {
@@ -58,6 +58,30 @@ const CHAIN_NAMES: Record<string, string> = {
   // Aptos chains
   aptos: "Aptos",
   aptosTestnet: "Aptos Testnet",
+  // EIP-7702 Gasless chains
+  ethereumGasless: "Ethereum (Gasless)",
+  baseGasless: "Base (Gasless)",
+  arbitrumGasless: "Arbitrum (Gasless)",
+  optimismGasless: "Optimism (Gasless)",
+  polygonGasless: "Polygon (Gasless)",
+  sepoliaGasless: "Sepolia (Gasless)",
+  baseSepoliaGasless: "Base Sepolia (Gasless)",
+};
+
+// EIP-7702 chain ID mapping
+const EIP7702_CHAIN_IDS: Record<string, number> = {
+  ethereumGasless: 1,
+  baseGasless: 8453,
+  arbitrumGasless: 42161,
+  optimismGasless: 10,
+  polygonGasless: 137,
+  sepoliaGasless: 11155111,
+  baseSepoliaGasless: 84532,
+};
+
+// Check if chain uses EIP-7702 gasless transactions
+const isEip7702Chain = (chain: string): boolean => {
+  return chain.endsWith('Gasless') && chain in EIP7702_CHAIN_IDS;
 };
 
 // Address validation per chain type
@@ -68,8 +92,14 @@ const validateAddress = (address: string, chain: string): string | null => {
 
   const trimmed = address.trim();
 
-  // EVM chains (Ethereum, ERC-4337 chains, Base/Arbitrum/Polygon EOAs)
-  if (["ethereum", "ethereumErc4337", "base", "baseErc4337", "arbitrum", "arbitrumErc4337", "polygon", "polygonErc4337", "avalanche", "avalancheErc4337"].includes(chain)) {
+  // EVM chains (Ethereum, ERC-4337 chains, Base/Arbitrum/Polygon EOAs, Gasless chains)
+  const evmChains = [
+    "ethereum", "ethereumErc4337", "base", "baseErc4337", "arbitrum", "arbitrumErc4337", 
+    "polygon", "polygonErc4337", "avalanche", "avalancheErc4337",
+    "ethereumGasless", "baseGasless", "arbitrumGasless", "optimismGasless", "polygonGasless",
+    "sepoliaGasless", "baseSepoliaGasless"
+  ];
+  if (evmChains.includes(chain)) {
     if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
       return "Invalid Ethereum address format (must start with 0x and be 42 characters)";
     }
@@ -213,12 +243,19 @@ const mapToZerionChain = (chain: string): string => {
   const m: Record<string, string> = {
     ethereum: 'ethereum',
     ethereumErc4337: 'ethereum',
+    ethereumGasless: 'ethereum',
+    sepoliaGasless: 'ethereum', // Sepolia testnet - fallback to ethereum for now
     base: 'base',
     baseErc4337: 'base',
+    baseGasless: 'base',
+    baseSepoliaGasless: 'base', // Base Sepolia testnet
     arbitrum: 'arbitrum',
     arbitrumErc4337: 'arbitrum',
+    arbitrumGasless: 'arbitrum',
+    optimismGasless: 'optimism',
     polygon: 'polygon',
     polygonErc4337: 'polygon',
+    polygonGasless: 'polygon',
     solana: 'solana',
     avalanche: 'avalanche',
     avalancheErc4337: 'avalanche',
@@ -388,9 +425,51 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       const APTOS_CHAINS = ["aptos", "aptosTestnet"];
       const isAptos = APTOS_CHAINS.includes(chain);
 
-      let result: { txHash: string };
+      // Check if this is an EIP-7702 gasless chain
+      const isGasless = isEip7702Chain(chain);
 
-      if (isSubstrate) {
+      let result: { txHash: string; userOpHash?: string; explorerUrl?: string; isFirstTransaction?: boolean };
+
+      if (isGasless) {
+        // Use EIP-7702 gasless endpoint
+        const chainId = EIP7702_CHAIN_IDS[chain];
+        if (!chainId) {
+          throw new Error(`Chain ID not found for ${chain}`);
+        }
+
+        const gaslessResult = await walletApi.sendEip7702Gasless({
+          userId,
+          chainId,
+          recipientAddress: recipientAddress.trim(),
+          amount: amount, // Human-readable amount
+          tokenAddress: selectedToken.address || undefined,
+          tokenDecimals: selectedToken.address ? selectedToken.decimals : undefined,
+        });
+
+        // Use transactionHash if available, otherwise use userOpHash
+        result = { 
+          txHash: gaslessResult.transactionHash || gaslessResult.userOpHash,
+          userOpHash: gaslessResult.userOpHash,
+          explorerUrl: gaslessResult.explorerUrl,
+          isFirstTransaction: gaslessResult.isFirstTransaction,
+        };
+
+        // If we only have userOpHash, wait for confirmation to get txHash
+        if (!gaslessResult.transactionHash && gaslessResult.userOpHash) {
+          try {
+            const confirmResult = await walletApi.waitEip7702Confirmation({
+              chainId,
+              userOpHash: gaslessResult.userOpHash,
+              timeoutMs: 60000,
+            });
+            result.txHash = confirmResult.transactionHash;
+            result.explorerUrl = confirmResult.explorerUrl;
+          } catch (waitError) {
+            // Even if waiting fails, show the userOpHash
+            console.warn('Failed to wait for confirmation:', waitError);
+          }
+        }
+      } else if (isSubstrate) {
         // Convert human-readable amount to smallest units for Substrate
         const amountInSmallestUnits = (parseFloat(amount) * Math.pow(10, selectedToken.decimals)).toString();
         
@@ -417,7 +496,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         result = { txHash: aptosResult.transactionHash };
       } else {
         // Use regular EVM/other chain send endpoint
-        result = await walletApi.sendCrypto({
+        const sendResult = await walletApi.sendCrypto({
           userId,
           chain,
           tokenAddress: selectedToken.address || undefined,
@@ -425,6 +504,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           amount: amount, // human-readable amount; server converts using ERC-20 decimals / Zerion
           recipientAddress: recipientAddress.trim(),
         });
+        result = { txHash: sendResult.txHash };
       }
 
       setTxHash(result.txHash);
@@ -485,9 +565,19 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-white/10 bg-black/90 text-white shadow-2xl backdrop-blur sm:max-w-[300px] p-0 rounded-2xl">
         <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl font-semibold">Send {chainName}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+            Send {chainName}
+            {isEip7702Chain(chain) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                <Zap className="h-3 w-3" />
+                Sponsored
+              </span>
+            )}
+          </DialogTitle>
           <DialogDescription className="text-sm text-white/60">
-            Transfer to recipient address
+            {isEip7702Chain(chain) 
+              ? "Gas-free transfer - fees are sponsored" 
+              : "Transfer to recipient address"}
           </DialogDescription>
         </DialogHeader>
 

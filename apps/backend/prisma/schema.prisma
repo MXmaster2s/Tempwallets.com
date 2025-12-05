@@ -120,3 +120,21 @@ model AptosAccount {
   @@index([address])
   @@map("aptos_account")
 }
+
+// EIP-7702 Delegation tracking
+// Records when an EOA has signed authorization for gasless transactions
+model Eip7702Delegation {
+  id                String   @id @default(cuid())
+  walletId          String   // User's wallet ID (from Wallet or fingerprint)
+  address           String   // EOA address (lowercase, 0x + 40 hex chars)
+  chainId           Int      // EVM chain ID
+  delegationAddress String   // Smart account implementation address
+  authorizedAt      DateTime @default(now()) // When authorization was signed
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([walletId, chainId])
+  @@index([address, chainId])
+  @@index([walletId])
+  @@map("eip7702_delegation")
+}
