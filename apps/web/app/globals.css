@@ -5,3 +5,62 @@
 /* Additional helper: use the class alongside existing Tailwind classes. */
 
 /* Add any app-specific styles below */
+
+/* Casino-style XP Counter Animations */
+@keyframes casino-spin {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(-5px) scale(1.05);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(0) scale(1.1);
+    opacity: 1;
+  }
+  75% {
+    transform: translateY(5px) scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes casino-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.2),
+                0 0 20px rgba(234, 179, 8, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.6),
+                0 0 40px rgba(234, 179, 8, 0.3),
+                0 0 60px rgba(234, 179, 8, 0.1);
+  }
+}
+
+@keyframes casino-sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+.animate-casino-spin {
+  animation: casino-spin 0.3s ease-in-out infinite;
+}
+
+.animate-casino-glow {
+  animation: casino-glow 1s ease-in-out infinite;
+}
+
+.animate-casino-sparkle {
+  animation: casino-sparkle 0.6s ease-in-out;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import DashboardNavbar from "@/components/dashboard/navbar";
+// DashboardNavbar removed - MVP only shows Wallet section
 import UpperBar from "@/components/dashboard/upper-bar";
 import WalletInfo from "@/components/dashboard/wallet-info";
 import { BalanceTransactionsToggle } from "@/components/dashboard/balance-transactions-toggle";
@@ -9,7 +9,6 @@ import { DashboardTracker } from "@/components/analytics/dashboard-tracker";
 export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white">
-      <DashboardNavbar />
       <main className="mx-auto max-w-7xl py-8">
         <div className="min-h-screen">
           <DashboardTracker />

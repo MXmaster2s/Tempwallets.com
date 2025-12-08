@@ -1,3 +1,11 @@
+/**
+ * COMMENTED OUT - REDUNDANT CODE
+ * This is an example/demo component that is not used in the actual application.
+ * Keeping this commented out for reference in case it's needed later.
+ * Date: 2025-12-08
+ */
+
+/*
 'use client';
 
 import React from 'react';
@@ -15,7 +23,7 @@ import Arbitrum from '@thirdweb-dev/chain-icons/dist/arbitrum';
 /**
  * Example component demonstrating how to use chain icons
  * You can use this as a reference and adapt it to your needs
- */
+ *\/
 export function CryptoIconsExample() {
   return (
     <div className="p-6 space-y-6">
@@ -92,3 +100,4 @@ export function CryptoIconsExample() {
     </div>
   );
 }
+*/
