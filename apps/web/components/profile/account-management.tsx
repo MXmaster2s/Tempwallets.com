@@ -16,7 +16,7 @@ import {
 } from "@repo/ui/components/ui/alert-dialog";
 import { Input } from "@repo/ui/components/ui/input";
 import { Label } from "@repo/ui/components/ui/label";
-import { Trash2, Download, AlertTriangle, LogOut } from "lucide-react";
+import { Trash2, Download, AlertTriangle } from "lucide-react";
 import { userApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";

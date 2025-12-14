@@ -359,6 +359,7 @@ export const WALLET_CONFIGS: WalletConfig[] = [
       transactionHistory: false, // TODO: Add transaction history support
       nativeToken: true,
       tokenTransfers: false, // TODO: Add token transfer support
+      lightningNodes: false,
     },
     features: {
       showInSelector: true,
