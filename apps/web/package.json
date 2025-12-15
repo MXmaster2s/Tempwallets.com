@@ -22,13 +22,12 @@
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.468.0",
     "mixpanel-browser": "^2.51.0",
-    "next": "^15.5.9",
+    "next": "15.5.9",
     "qrcode.react": "^3.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
-    "react-tweet": "^3.2.2",
-    "sonner": "^2.0.7"
+    "react-tweet": "^3.2.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

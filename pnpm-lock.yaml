@@ -235,7 +235,7 @@ importers:
         specifier: ^2.51.0
         version: 2.72.0(@mixpanel/rrweb-utils@2.0.0-alpha.18.2)
       next:
-        specifier: ^15.5.9
+        specifier: 15.5.9
         version: 15.5.9(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       qrcode.react:
         specifier: ^3.1.0
@@ -13855,7 +13855,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 15.5.7
       '@next/swc-win32-arm64-msvc': 15.5.7
       '@next/swc-win32-x64-msvc': 15.5.7
-      sharp: 0.34.5
+      sharp: 0.34.4
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
