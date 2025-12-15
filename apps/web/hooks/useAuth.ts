@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useBrowserFingerprint } from './useBrowserFingerprint';
+import { trackAuth, identifyUser, aliasUser, resetMixpanel } from '@/lib/tempwallets-analytics';
 
 export interface User {
   id: string;
@@ -42,6 +43,9 @@ export function useAuth() {
       return;
     }
 
+    // Track sign-in button click
+    trackAuth.signinClicked();
+
     const width = 500;
     const height = 600;
     const left = window.screen.width / 2 - width / 2;
@@ -78,6 +82,17 @@ export function useAuth() {
 
       setToken(newToken);
       setUser(userData);
+
+      // Track successful login
+      trackAuth.signinSuccess(userData.id, 'google');
+      
+      // Identify user in Mixpanel
+      aliasUser(userData.id);
+      identifyUser(userData.id, {
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+      });
 
       // Clean up marker
       localStorage.removeItem('auth_popup_open');
@@ -184,6 +199,12 @@ export function useAuth() {
   }, [fingerprint]);
 
   const logout = useCallback(async () => {
+    // Track logout event
+    trackAuth.logout();
+    
+    // Reset Mixpanel on logout
+    resetMixpanel();
+
     if (token) {
       try {
         await fetch(`${API_URL}/auth/logout`, {

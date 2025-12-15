@@ -22,6 +22,7 @@ import { Label } from "@repo/ui/components/ui/label";
 import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Zap, Clipboard } from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
 import { useTokenIcon } from "@/lib/token-icons";
+import { trackTransaction } from "@/lib/tempwallets-analytics";
 
 interface SendCryptoModalProps {
   open: boolean;
@@ -434,6 +435,9 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       return;
     }
 
+    // Track send button click (already tracked in wallet-info, but track here too for modal context)
+    trackTransaction.sendClicked();
+
     setLoading(true);
     setError(null);
 
@@ -531,6 +535,14 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       setTxHash(result.txHash);
       setSuccess(true);
 
+      // Track successful send transaction
+      trackTransaction.sendCompleted(
+        result.txHash,
+        amount,
+        selectedToken.symbol,
+        chain,
+      );
+
       // Call onSuccess callback after a short delay
       setTimeout(() => {
         if (onSuccess) {
@@ -543,9 +555,11 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       }, 1000);
     } catch (err) {
       let errorMessage = "Failed to send transaction. Please try again.";
+      let errorCode: string | number | undefined;
       
       if (err instanceof ApiError) {
         errorMessage = err.message;
+        errorCode = err.status;
         
         // Parse specific error codes
         if (err.status === 422) {
@@ -571,6 +585,12 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           errorMessage = "Network error. Please check your connection and try again.";
         }
       }
+
+      // Track failed send transaction
+      trackTransaction.sendFailed(
+        errorMessage,
+        errorCode,
+      );
 
       if (errorMessage) {
         setError(errorMessage);

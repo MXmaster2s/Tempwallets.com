@@ -25,7 +25,12 @@ import { WalletCard } from "./wallet-card";
 import { ChainSelector } from "./chain-selector";
 import { DEFAULT_CHAIN, getChainById } from "@/lib/chains";
 import { useWalletConfig } from "@/hooks/useWalletConfig";
-import { trackMixpanelEvent } from "@/lib/mixpanel";
+import {
+  trackButtonClick,
+  trackChangeButton,
+  trackWalletGeneration,
+  trackUserJourney,
+} from "@/lib/tempwallets-analytics";
 
 const WalletInfo = () => {
   const router = useRouter();
@@ -49,14 +54,7 @@ const WalletInfo = () => {
   const handleChainChange = (chainId: string) => {
     const previousChainId = selectedChainId;
     setSelectedChainId(chainId);
-    
-    trackMixpanelEvent("V2-Dashboard", {
-      action: "chain_changed",
-      previousChainId,
-      newChainId: chainId,
-      timestamp: new Date().toISOString(),
-      source: "web-app",
-    });
+    // Chain change is tracked via the change button click
   };
   
   // Use browser fingerprint as unique user ID (fallback when not authenticated)
@@ -80,18 +78,9 @@ const WalletInfo = () => {
   // Track wallet display in Mixpanel
   useEffect(() => {
     if (currentWallet && !loading && !error) {
-      trackMixpanelEvent("V2-Dashboard", {
-        action: "wallet_displayed",
-        chainId: selectedChainId,
-        chainName: selectedChain.name,
-        chainType: selectedChain.type,
-        walletAddress: currentWallet.address,
-        isSmartAccount: selectedChainConfig?.isSmartAccount || false,
-        timestamp: new Date().toISOString(),
-        source: "web-app",
-      });
+      trackUserJourney.walletViewed(selectedChainId);
     }
-  }, [currentWallet, loading, error, selectedChainId, selectedChain, selectedChainConfig]);
+  }, [currentWallet, loading, error, selectedChainId]);
 
   // Track loading state to prevent duplicate calls
   const loadingRef = useRef(false);
@@ -168,6 +157,9 @@ const WalletInfo = () => {
 
   const handleActionClick = async (action: string) => {
     if (action === 'change') {
+      // Track change button click
+      trackChangeButton.clicked();
+      
       // Get the current values at click time
       const currentUserId = userId;
       const currentIsAuthenticated = isAuthenticated;
@@ -175,15 +167,10 @@ const WalletInfo = () => {
       // When authenticated with Google, "Change" creates a new wallet under the same Google account
       // When not authenticated, it generates a new fingerprint
       if (currentUserId) {
+        // Track wallet generation initiation
+        trackWalletGeneration.initiated();
         
-        // Track wallet change action
-        trackMixpanelEvent("V2-Dashboard", {
-          action: "wallet_change_initiated",
-          previousChainId: selectedChainId,
-          isAuthenticated: currentIsAuthenticated,
-          timestamp: new Date().toISOString(),
-          source: "web-app",
-        });
+        const startTime = Date.now();
         
         // Clear the cache for current user first
         walletStorage.clearAddresses();
@@ -203,6 +190,9 @@ const WalletInfo = () => {
             });
           } catch (error) {
             console.error('Failed to create new seed:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            trackChangeButton.failed(errorMessage);
+            trackWalletGeneration.failed(errorMessage);
             return; // Don't continue if seed creation failed
           }
         }
@@ -210,24 +200,27 @@ const WalletInfo = () => {
         // Force refresh to fetch new wallets immediately
         await loadWallets(walletIdToUse, true);
         
-        // Track successful wallet creation
-        trackMixpanelEvent("V2-Dashboard", {
-          action: "wallet_created",
-          newFingerprint: walletIdToUse,
-          chainId: selectedChainId,
-          isAuthenticated: currentIsAuthenticated,
-          timestamp: new Date().toISOString(),
-          source: "web-app",
-        });
+        // Track successful wallet generation
+        const duration = Date.now() - startTime;
+        const newWallet = wallets.find(w => w.chain === selectedChainId) || getWalletByChainType(selectedChain.type);
+        if (newWallet) {
+          trackWalletGeneration.success(newWallet.address, selectedChainId, duration);
+        }
       }
     } else if (action === 'copy' && currentWallet) {
       await copyToClipboard(currentWallet.address);
     } else if (action === 'send') {
+      // Track send button click
+      trackButtonClick.send();
+      
       // Open send modal instead of navigating to transactions page
       if (userId && selectedChainId) {
         setSendModalOpen(true);
       }
     } else if (action === 'history') {
+      // Track transaction history viewed
+      trackUserJourney.transactionHistoryViewed();
+      
       // Check if user is authenticated
       if (isAuthenticated && userId) {
         // Open wallet history modal for authenticated users
@@ -237,6 +230,9 @@ const WalletInfo = () => {
         setSignInPromptOpen(true);
       }
     } else if (action === 'connect') {
+      // Track receive button click (connect is used for receive)
+      trackButtonClick.receive();
+      
       // Open appropriate WalletConnect modal based on chain type
       if (selectedChain.hasWalletConnect) {
         if (selectedChain.type === 'evm') {

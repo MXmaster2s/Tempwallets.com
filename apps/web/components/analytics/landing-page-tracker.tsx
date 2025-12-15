@@ -1,19 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { initMixpanel, trackMixpanelEvent } from "@/lib/mixpanel";
+import { trackPageVisit } from "@/lib/tempwallets-analytics";
 
 export function LandingPageTracker() {
   const hasTracked = useRef(false);
 
   useEffect(() => {
     if (!hasTracked.current) {
-      initMixpanel();
-      trackMixpanelEvent("V2-Landing Page", {
-        path: window.location.pathname,
-        timestamp: new Date().toISOString(),
-        source: "web-app",
-      });
+      // Track about page visit (simple, no auth state needed)
+      trackPageVisit.about();
       hasTracked.current = true;
     }
   }, []);
