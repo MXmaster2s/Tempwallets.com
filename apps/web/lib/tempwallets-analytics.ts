@@ -1,7 +1,15 @@
 // lib/tempwallets-analytics.ts
 // Centralized analytics helper for Tempwallets.com
 
-import { trackEvent, identifyUser, aliasUser } from "./mixpanel";
+import {
+  trackEvent,
+  identifyUser,
+  aliasUser,
+  resetMixpanel,
+} from "./mixpanel";
+
+// Re-export Mixpanel functions for direct use
+export { identifyUser, aliasUser, resetMixpanel };
 
 /**
  * Track guest vs registered user visits

@@ -31,6 +31,7 @@ import {
   trackWalletGeneration,
   trackUserJourney,
 } from "@/lib/tempwallets-analytics";
+import { trackEvent } from "@/lib/mixpanel";
 
 const WalletInfo = () => {
   const router = useRouter();
@@ -251,14 +252,11 @@ const WalletInfo = () => {
       setTimeout(() => setCopied(false), 2000);
       
       // Track address copy action
-      trackMixpanelEvent("V2-Dashboard", {
-        action: "wallet_address_copied",
+      trackEvent("wallet_address_copied", {
         chainId: selectedChainId,
         chainName: selectedChain.name,
         chainType: selectedChain.type,
         isSmartAccount: selectedChainConfig?.isSmartAccount || false,
-        timestamp: new Date().toISOString(),
-        source: "web-app",
       });
     } catch (err) {
       console.error('Failed to copy: ', err);
