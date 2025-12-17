@@ -36,6 +36,17 @@ function AuthenticationBanner({
   walletAddress: string | null;
   error: string | null;
 }) {
+  const [copiedAddress, setCopiedAddress] = useState(false);
+
+  const handleCopyAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress);
+      setCopiedAddress(true);
+      setTimeout(() => setCopiedAddress(false), 2000);
+    }
+  };
+
   if (authenticating) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex items-center gap-3">
@@ -69,9 +80,25 @@ function AuthenticationBanner({
             <Wallet className="h-4 w-4" />
             Wallet Connected
           </p>
-          <p className="text-sm text-gray-700 font-mono">
-            {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p 
+              className="text-sm text-gray-700 font-mono cursor-pointer hover:text-gray-900 transition-colors"
+              onClick={handleCopyAddress}
+              title="Click to copy full address"
+            >
+              {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+            </p>
+            <button
+              onClick={handleCopyAddress}
+              className="text-gray-600 hover:text-gray-900 transition-colors p-1 rounded hover:bg-gray-200"
+              title="Copy wallet address"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            {copiedAddress && (
+              <span className="text-xs text-green-600 font-medium">Copied!</span>
+            )}
+          </div>
         </div>
         <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full">Base</span>
       </div>
