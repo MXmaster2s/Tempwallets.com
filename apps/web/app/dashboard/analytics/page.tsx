@@ -1,4 +1,4 @@
-import { ComingSoonSection } from "@/components/dashboard/coming-soon";
+import { ComingSoonSection } from "@/components/dashboard/ui/coming-soon";
 
 const analyticsHighlights = [
   "Cross-chain performance snapshots",

@@ -17,12 +17,12 @@ import { walletStorage } from "@/lib/walletStorage";
 import { useBrowserFingerprint } from "@/hooks/useBrowserFingerprint";
 import { useAuth } from "@/hooks/useAuth";
 import { walletApi } from "@/lib/api";
-import { WalletConnectModal } from "./walletconnect-modal";
-import { EvmWalletConnectModal } from "./evm-walletconnect-modal";
+import { WalletConnectModal } from "../modals/walletconnect-modal";
+import { EvmWalletConnectModal } from "../modals/evm-walletconnect-modal";
 import { WalletHistoryModal } from "./wallet-history-modal";
-import { SendCryptoModal } from "./send-crypto-modal";
+import { SendCryptoModal } from "../modals/send-crypto-modal";
 import { WalletCard } from "./wallet-card";
-import { ChainSelector } from "./chain-selector";
+import { ChainSelector } from "../ui/chain-selector";
 import { DEFAULT_CHAIN, getChainById } from "@/lib/chains";
 import { useWalletConfig } from "@/hooks/useWalletConfig";
 import {

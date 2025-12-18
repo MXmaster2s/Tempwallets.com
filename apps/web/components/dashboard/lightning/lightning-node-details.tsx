@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Zap, Copy, ArrowRightLeft, Plus, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@repo/ui/components/ui/button';
 import { lightningNodeApi, LightningNode, LightningNodeParticipant, walletApi } from '@/lib/api';
-import { TransferFundsModal } from './transfer-funds-modal';
+import { TransferFundsModal } from '../modals/transfer-funds-modal';
 import { useAuth } from '@/hooks/useAuth';
 
 interface LightningNodeDetailsProps {

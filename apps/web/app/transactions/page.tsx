@@ -7,8 +7,8 @@ import { Loader2, Send, RefreshCw, AlertCircle, Wallet } from "lucide-react";
 import { walletApi, TokenBalance, ApiError } from "@/lib/api";
 import { useBrowserFingerprint } from "@/hooks/useBrowserFingerprint";
 import { useWalletData } from "@/hooks/useWalletData";
-import { SendCryptoModal } from "@/components/dashboard/send-crypto-modal";
-import { BalanceTransactionsToggle } from "@/components/dashboard/balance-transactions-toggle";
+import { SendCryptoModal } from "@/components/dashboard/modals/send-crypto-modal";
+import { BalanceTransactionsToggle } from "@/components/dashboard/balance/balance-transactions-toggle";
 
 const CHAIN_NAMES: Record<string, string> = {
   // Zerion canonical chain ids

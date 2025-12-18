@@ -1,8 +1,8 @@
 "use client";
 
-import UpperBar from "@/components/dashboard/upper-bar";
-import WalletInfo from "@/components/dashboard/wallet-info";
-import { BalanceTransactionsToggle } from "@/components/dashboard/balance-transactions-toggle";
+import UpperBar from "@/components/dashboard/ui/upper-bar";
+import WalletInfo from "@/components/dashboard/wallet/wallet-info";
+import { BalanceTransactionsToggle } from "@/components/dashboard/balance/balance-transactions-toggle";
 import { DashboardTracker } from "@/components/analytics/dashboard-tracker";
 
 export default function DashboardPage() {

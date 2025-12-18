@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Loader2, RotateCw } from 'lucide-react';
 import { BalanceView } from './balance-view';
 import RecentTransactions from './recent-transactions';
-import { LightningNodesView } from './lightning-nodes-view';
+import { LightningNodesView } from '../lightning/lightning-nodes-view';
 import { useWalletData } from '@/hooks/useWalletData';
 import { LightningNodesProvider } from '@/hooks/lightning-nodes-context';
 import { useLightningNodes } from '@/hooks/useLightningNodes';

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
 import { Button } from "@repo/ui/components/ui/button";
 import { Wallet, Plus, Clock } from "lucide-react";
-import { WalletHistoryModal } from "@/components/dashboard/wallet-history-modal";
+import { WalletHistoryModal } from "@/components/dashboard/wallet/wallet-history-modal";
 import { useAuth } from "@/hooks/useAuth";
 import { walletApi } from "@/lib/api";
 import { toast } from "sonner";
