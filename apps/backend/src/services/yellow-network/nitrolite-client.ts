@@ -119,19 +119,19 @@ export class NitroliteClient {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      console.log('[NitroliteClient] Already initialized');
+      // Initialization logs moved to debug level
       return;
     }
 
-    console.log('[NitroliteClient] Initializing...');
+    // Initialization logs moved to debug level
 
     // Step 1: Connect to WebSocket
     await this.ws.connect();
-    console.log('[NitroliteClient] ✅ Connected to Clearnode');
+    // Connection success logged at debug level
 
     // Step 2: Load configuration (contract addresses)
     this.clearnodeConfig = await this.configLoader.loadConfig();
-    console.log('[NitroliteClient] ✅ Config loaded');
+    // Config loaded logged at debug level
 
     // Initialize Channel Service with loaded addresses
     this.channelService = new ChannelService(
@@ -150,17 +150,17 @@ export class NitroliteClient {
 
     // Step 3: Authenticate with session key (if enabled)
     if (this.config.useSessionKeys) {
-      console.log('[NitroliteClient] Authenticating with session key...');
+      // Authentication logs moved to debug level
       await this.auth.authenticate({
         application: this.config.application,
         allowances: [], // Empty = unrestricted session (Yellow Network requirement)
         expiryHours: 24,
       });
-      console.log('[NitroliteClient] ✅ Authenticated');
+      // Authentication success logged at debug level
     }
 
     this.initialized = true;
-    console.log('[NitroliteClient] ✅ Initialization complete');
+    // Initialization complete logged at debug level
   }
 
   // ============================================================================
@@ -454,7 +454,7 @@ export class NitroliteClient {
     this.ws.disconnect();
     this.configLoader.disconnect();
     this.initialized = false;
-    console.log('[NitroliteClient] Disconnected');
+    // Disconnect logs moved to debug level
   }
 
   // ============================================================================

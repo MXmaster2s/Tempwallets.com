@@ -218,6 +218,60 @@ export class LightningNodeService {
   }
 
   /**
+   * Execute a Yellow Network operation with automatic retry on session expiry
+   *
+   * If the operation fails due to expired session, clears cache and retries once
+   * with a freshly authenticated client.
+   */
+  private async executeWithRetry<T>(
+    operation: (client: NitroliteClient) => Promise<T>,
+    userId: string,
+    chainName: string,
+    userWalletAddress: Address,
+    isEOA: boolean,
+    chainKey: string,
+    cacheKey: string,
+  ): Promise<T> {
+    try {
+      const client = await this.getUserNitroliteClient(
+        userId,
+        chainName,
+        userWalletAddress,
+        isEOA,
+        chainKey,
+      );
+      return await operation(client);
+    } catch (error) {
+      const err = error as Error;
+      // If session expired, clear cache and retry once with fresh authentication
+      if (
+        err.message.includes('Session expired') ||
+        err.message.includes('re-authenticate')
+      ) {
+        this.logger.warn(
+          `Session expired during operation, re-authenticating and retrying...`,
+        );
+        // Clear the cached client to force re-authentication
+        this.userClients.delete(cacheKey);
+
+        // Get fresh authenticated client
+        const freshClient = await this.getUserNitroliteClient(
+          userId,
+          chainName,
+          userWalletAddress,
+          isEOA,
+          chainKey,
+        );
+
+        // Retry the operation
+        return await operation(freshClient);
+      }
+      // Re-throw other errors
+      throw error;
+    }
+  }
+
+  /**
    * Create or get NitroliteClient for a user's wallet
    *
    * Uses normal EOA wallets (ethereum, base, etc.) for signing when available.
@@ -237,10 +291,19 @@ export class LightningNodeService {
     // Check cache
     if (this.userClients.has(cacheKey)) {
       const cached = this.userClients.get(cacheKey)!;
-      if (cached.isInitialized()) {
+      // Check both initialization AND authentication (session expiry)
+      // isInitialized() only checks if client was initialized, not if session is still valid
+      // isAuthenticated() checks if session key exists and hasn't expired
+      if (cached.isInitialized() && cached.isAuthenticated()) {
+        this.logger.debug(
+          `Reusing cached NitroliteClient for user ${userId} (session still valid)`,
+        );
         return cached;
       }
-      // Remove invalid client from cache
+      // Remove invalid/expired client from cache
+      this.logger.log(
+        `Cached NitroliteClient expired or invalid for user ${userId}, removing from cache`,
+      );
       this.userClients.delete(cacheKey);
     }
 
@@ -428,15 +491,6 @@ export class LightningNodeService {
         // For now, we'll proceed with single signer and let Yellow Network reject if needed
       }
 
-      // Get or create NitroliteClient for this user's wallet
-      const nitroliteClient = await this.getUserNitroliteClient(
-        dto.userId,
-        chainName,
-        userWalletAddress,
-        isEOA,
-        chainKey,
-      );
-
       // Create app session via Yellow Network
       // NOTE: In Yellow Network, ALL participants are authorized at creation time.
       // There is no separate "join" step in the protocol itself.
@@ -445,14 +499,24 @@ export class LightningNodeService {
       this.logger.log(`  - Weights: ${weights.join(', ')}`);
       this.logger.log(`  - Quorum: ${quorum}`);
 
-      const appSession = await nitroliteClient.createLightningNode({
-        participants,
-        weights,
-        quorum,
-        token: dto.token.toLowerCase(),
-        initialAllocations,
-        sessionData: dto.sessionData,
-      });
+      const cacheKey = `${dto.userId}-${chainName}-${userWalletAddress}`;
+      const appSession = await this.executeWithRetry(
+        async (client) =>
+          await client.createLightningNode({
+            participants,
+            weights,
+            quorum,
+            token: dto.token.toLowerCase(),
+            initialAllocations,
+            sessionData: dto.sessionData,
+          }),
+        dto.userId,
+        chainName,
+        userWalletAddress,
+        isEOA,
+        chainKey,
+        cacheKey,
+      );
 
       const appSessionId = appSession.app_session_id;
       
@@ -685,19 +749,19 @@ export class LightningNodeService {
 
       this.logger.log(`[SEARCH] Querying as wallet: ${userWalletAddress}`);
 
-      // Get authenticated NitroliteClient for this user
-      const nitroliteClient = await this.getUserNitroliteClient(
+      // Query Yellow Network for the session
+      this.logger.log(`[SEARCH] Querying Yellow Network...`);
+      const cacheKey = `${dto.userId}-${chainName}-${userWalletAddress}`;
+      const remoteSession = await this.executeWithRetry(
+        async (client) => {
+          return await client.getLightningNode(appSessionId as `0x${string}`);
+        },
         dto.userId,
         chainName,
         userWalletAddress,
         isEOA,
         chainKey,
-      );
-
-      // Query Yellow Network for the session
-      this.logger.log(`[SEARCH] Querying Yellow Network...`);
-      const remoteSession = await nitroliteClient.getLightningNode(
-        appSessionId as `0x${string}`,
+        cacheKey,
       );
 
       this.logger.log(`[SEARCH] ✅ Session found on Yellow Network`);
@@ -837,18 +901,20 @@ export class LightningNodeService {
         chainKey,
       } = await this.getUserWalletAddress(userId, chainName);
 
-      // Get authenticated NitroliteClient
-      const nitroliteClient = await this.getUserNitroliteClient(
+      // Query Yellow Network for all open app sessions
+      this.logger.log(`[DISCOVER] Querying Yellow Network for all sessions...`);
+      const cacheKey = `${userId}-${chainName}-${primaryAddress}`;
+      const allRemoteSessions = await this.executeWithRetry(
+        async (client) => {
+          return await client.getLightningNodes('open');
+        },
         userId,
         chainName,
         primaryAddress,
         isEOA,
         chainKey,
+        cacheKey,
       );
-
-      // Query Yellow Network for all open app sessions
-      this.logger.log(`[DISCOVER] Querying Yellow Network for all sessions...`);
-      const allRemoteSessions = await nitroliteClient.getLightningNodes('open');
 
       this.logger.log(
         `[DISCOVER] Found ${allRemoteSessions.length} total sessions on Yellow Network`,
@@ -1353,45 +1419,51 @@ export class LightningNodeService {
       chainKey,
     } = await this.getUserWalletAddress(dto.userId, node.chain);
 
-    const nitroliteClient = await this.getUserNitroliteClient(
+    const cacheKey = `${dto.userId}-${node.chain}-${userWalletAddress}`;
+
+    await this.executeWithRetry(
+      async (client) => {
+        const remoteSession = await client.getLightningNode(
+          node.appSessionId as `0x${string}`,
+        );
+        const currentAllocations: AppSessionAllocation[] =
+          (remoteSession.allocations || []) as any;
+
+        await client.depositToLightningNode(
+          node.appSessionId as `0x${string}`,
+          dto.participantAddress as Address,
+          dto.asset,
+          dto.amount,
+          currentAllocations,
+        );
+
+        // Refresh remote state and persist balances best-effort
+        const updated = await client.getLightningNode(
+          node.appSessionId as `0x${string}`,
+        );
+        const updatedAllocations: AppSessionAllocation[] = (updated.allocations ||
+          []) as any;
+
+        for (const alloc of updatedAllocations) {
+          await this.prisma.lightningNodeParticipant.updateMany({
+            where: {
+              lightningNodeId: node.id,
+              address: (alloc as any).participant,
+              asset: dto.asset,
+            },
+            data: { balance: (alloc as any).amount } as any,
+          });
+        }
+
+        return { ok: true };
+      },
       dto.userId,
       node.chain,
       userWalletAddress,
       isEOA,
       chainKey,
+      cacheKey,
     );
-
-    const remoteSession = await nitroliteClient.getLightningNode(
-      node.appSessionId as `0x${string}`,
-    );
-    const currentAllocations: AppSessionAllocation[] =
-      (remoteSession.allocations || []) as any;
-
-    await nitroliteClient.depositToLightningNode(
-      node.appSessionId as `0x${string}`,
-      dto.participantAddress as Address,
-      dto.asset,
-      dto.amount,
-      currentAllocations,
-    );
-
-    // Refresh remote state and persist balances best-effort
-    const updated = await nitroliteClient.getLightningNode(
-      node.appSessionId as `0x${string}`,
-    );
-    const updatedAllocations: AppSessionAllocation[] = (updated.allocations ||
-      []) as any;
-
-    for (const alloc of updatedAllocations) {
-      await this.prisma.lightningNodeParticipant.updateMany({
-        where: {
-          lightningNodeId: node.id,
-          address: (alloc as any).participant,
-          asset: dto.asset,
-        },
-        data: { balance: (alloc as any).amount } as any,
-      });
-    }
 
     return { ok: true };
   }
@@ -1416,45 +1488,51 @@ export class LightningNodeService {
       chainKey,
     } = await this.getUserWalletAddress(dto.userId, node.chain);
 
-    const nitroliteClient = await this.getUserNitroliteClient(
+    const cacheKey = `${dto.userId}-${node.chain}-${userWalletAddress}`;
+
+    await this.executeWithRetry(
+      async (client) => {
+        const remoteSession = await client.getLightningNode(
+          node.appSessionId as `0x${string}`,
+        );
+        const currentAllocations: AppSessionAllocation[] =
+          (remoteSession.allocations || []) as any;
+
+        await client.transferInLightningNode(
+          node.appSessionId as `0x${string}`,
+          dto.fromAddress as Address,
+          dto.toAddress as Address,
+          dto.asset,
+          dto.amount,
+          currentAllocations,
+        );
+
+        const updated = await client.getLightningNode(
+          node.appSessionId as `0x${string}`,
+        );
+        const updatedAllocations: AppSessionAllocation[] = (updated.allocations ||
+          []) as any;
+
+        for (const alloc of updatedAllocations) {
+          await this.prisma.lightningNodeParticipant.updateMany({
+            where: {
+              lightningNodeId: node.id,
+              address: (alloc as any).participant,
+              asset: dto.asset,
+            },
+            data: { balance: (alloc as any).amount } as any,
+          });
+        }
+
+        return { ok: true };
+      },
       dto.userId,
       node.chain,
       userWalletAddress,
       isEOA,
       chainKey,
+      cacheKey,
     );
-
-    const remoteSession = await nitroliteClient.getLightningNode(
-      node.appSessionId as `0x${string}`,
-    );
-    const currentAllocations: AppSessionAllocation[] =
-      (remoteSession.allocations || []) as any;
-
-    await nitroliteClient.transferInLightningNode(
-      node.appSessionId as `0x${string}`,
-      dto.fromAddress as Address,
-      dto.toAddress as Address,
-      dto.asset,
-      dto.amount,
-      currentAllocations,
-    );
-
-    const updated = await nitroliteClient.getLightningNode(
-      node.appSessionId as `0x${string}`,
-    );
-    const updatedAllocations: AppSessionAllocation[] = (updated.allocations ||
-      []) as any;
-
-    for (const alloc of updatedAllocations) {
-      await this.prisma.lightningNodeParticipant.updateMany({
-        where: {
-          lightningNodeId: node.id,
-          address: (alloc as any).participant,
-          asset: dto.asset,
-        },
-        data: { balance: (alloc as any).amount } as any,
-      });
-    }
 
     return { ok: true };
   }
@@ -1505,15 +1583,6 @@ export class LightningNodeService {
         );
       }
 
-      // Get or create NitroliteClient for this user's wallet
-      const nitroliteClient = await this.getUserNitroliteClient(
-        dto.userId,
-        lightningNode.chain,
-        userWalletAddress,
-        isEOA,
-        chainKey,
-      );
-
       // Close the app session via Yellow Network
       this.logger.log(
         `Closing app session on Yellow Network: ${lightningNode.appSessionId}`,
@@ -1527,9 +1596,21 @@ export class LightningNodeService {
         asset: p.asset,
         amount: p.balance,
       }));
-      await nitroliteClient.closeLightningNode(
-        lightningNode.appSessionId as `0x${string}`,
-        finalAllocations,
+
+      const cacheKey = `${dto.userId}-${lightningNode.chain}-${userWalletAddress}`;
+      await this.executeWithRetry(
+        async (client) => {
+          await client.closeLightningNode(
+            lightningNode.appSessionId as `0x${string}`,
+            finalAllocations,
+          );
+        },
+        dto.userId,
+        lightningNode.chain,
+        userWalletAddress,
+        isEOA,
+        chainKey,
+        cacheKey,
       );
 
       // Update local status to closed

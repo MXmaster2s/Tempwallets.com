@@ -92,7 +92,7 @@ export class WebSocketManager {
       }
 
       this.connectionState = ConnectionState.CONNECTING;
-      console.log(`[WebSocket] Connecting to ${this.url}...`);
+      // Connection logs moved to debug level to reduce noise
 
       try {
         this.ws = new WebSocket(this.url);
@@ -103,7 +103,7 @@ export class WebSocketManager {
       }
 
       this.ws.on('open', () => {
-        console.log('[WebSocket] Connected to Clearnode');
+        // Connection success logged at debug level
         this.connectionState = ConnectionState.CONNECTED;
         this.reconnectAttempts = 0; // Reset counter on successful connection
 
@@ -137,9 +137,12 @@ export class WebSocketManager {
 
       this.ws.on('close', (code: number, reason: Buffer) => {
         const reasonStr = reason.toString();
-        console.log(
-          `[WebSocket] Disconnected (code: ${code}, reason: ${reasonStr})`,
-        );
+        // Disconnection logs moved to debug level (only log errors/unexpected disconnects)
+        if (code !== 1000) {
+          console.error(
+            `[WebSocket] Unexpected disconnect (code: ${code}, reason: ${reasonStr})`,
+          );
+        }
 
         this.connectionState = ConnectionState.DISCONNECTED;
         this.ws = null;
@@ -181,7 +184,7 @@ export class WebSocketManager {
     }
 
     if (this.ws) {
-      console.log('[WebSocket] Disconnecting...');
+      // Disconnect logs moved to debug level
       this.ws.close(1000, 'Client disconnect'); // Normal closure
       this.ws = null;
     }
@@ -232,7 +235,7 @@ export class WebSocketManager {
           reject(error);
         }
       } else {
-        console.log(`[WebSocket] Queueing message (requestId: ${requestId})`);
+        // Queueing logs moved to debug level
         this.messageQueue.push(request);
       }
     });
@@ -312,8 +315,7 @@ export class WebSocketManager {
       handler(response);
       this.responseHandlers.delete(requestId);
     } else {
-      // Unsolicited message (notification)
-      console.log(`[WebSocket] Notification received: ${method}`);
+      // Unsolicited message (notification) - logs moved to debug level
       this.handleNotification(response);
     }
   }
@@ -328,34 +330,28 @@ export class WebSocketManager {
 
     switch (method) {
       case 'bu': // Balance Update
-        console.log('[Notification] Balance updated:', data);
+        // Notification logs moved to debug level
         break;
       case 'cu': // Channel Update
-        console.log('[Notification] Channel updated:', data);
+        // Notification logs moved to debug level
         break;
       case 'tr': // Transfer
-        console.log('[Notification] Transfer received:', data);
+        // Notification logs moved to debug level
         break;
       case 'asu': // App Session Update
-        console.log('[Notification] App session updated:', data);
+        // Notification logs moved to debug level
         break;
       case 'assets':
-        // Cache and avoid noisy full dumps
+        // Cache assets catalog silently (no logs)
         if (Array.isArray(data?.assets)) {
           this.assetsCache = data.assets as AssetInfo[];
-          console.log(
-            `[Notification] Assets catalog received (${this.assetsCache.length} assets)`,
-          );
-        } else {
-          console.log(
-            '[Notification] Assets catalog received (unexpected format)',
-          );
+          // Assets catalog received silently to reduce log noise
         }
         break;
       default:
-        console.log(
-          `[Notification] Unknown notification type: ${method}`,
-          data,
+        // Only log unknown notification types as warnings
+        console.warn(
+          `[WebSocket] Unknown notification type: ${method}`,
         );
     }
   }
@@ -368,9 +364,7 @@ export class WebSocketManager {
       return;
     }
 
-    console.log(
-      `[WebSocket] Flushing ${this.messageQueue.length} queued messages`,
-    );
+    // Queue flush logs moved to debug level
 
     while (this.messageQueue.length > 0 && this.isConnected()) {
       const request = this.messageQueue.shift();
@@ -401,9 +395,7 @@ export class WebSocketManager {
       this.maxReconnectDelay,
     );
 
-    console.log(
-      `[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-    );
+    // Reconnection logs moved to debug level (only log errors)
 
     this.connectionState = ConnectionState.RECONNECTING;
 
