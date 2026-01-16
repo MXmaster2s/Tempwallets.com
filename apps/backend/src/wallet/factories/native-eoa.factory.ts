@@ -13,7 +13,6 @@ import {
   arbitrum,
   polygon,
   avalanche,
-  sepolia,
   optimism,
   bsc,
 } from 'viem/chains';
@@ -38,16 +37,12 @@ export class NativeEoaFactory {
       | 'arbitrum'
       | 'polygon'
       | 'avalanche'
-      | 'sepolia'
       | 'optimism'
       | 'bnb',
     accountIndex = 0,
   ): Promise<IAccount> {
     const viemChain = this.getViemChain(chain);
-    const rpcChainKey = chain === 'sepolia' ? 'ethereum' : chain;
-    const { rpcUrl } = this.chainConfig.getEvmChainConfig(
-      rpcChainKey as Parameters<ChainConfigService['getEvmChainConfig']>[0],
-    );
+    const { rpcUrl } = this.chainConfig.getEvmChainConfig(chain);
 
     const eoaAccount = mnemonicToAccount(seedPhrase, {
       accountIndex,
@@ -81,9 +76,8 @@ export class NativeEoaFactory {
       | 'arbitrum'
       | 'polygon'
       | 'avalanche'
-      | 'sepolia'
-    | 'optimism'
-    | 'bnb',
+      | 'optimism'
+      | 'bnb',
   ): Chain {
     const mapping: Record<string, Chain> = {
       ethereum: mainnet,
@@ -91,7 +85,6 @@ export class NativeEoaFactory {
       arbitrum,
       polygon,
       avalanche,
-      sepolia,
       optimism,
       bnb: bsc,
     };

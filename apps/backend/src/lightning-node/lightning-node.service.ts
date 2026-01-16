@@ -1390,7 +1390,6 @@ export class LightningNodeService {
         base: 8453,
         arbitrum: 42161,
         avalanche: 43114,
-        sepolia: 11155111,
       };
       const chainId = chainIdMap[chain];
       if (!chainId) {

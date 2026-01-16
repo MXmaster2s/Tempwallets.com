@@ -16,9 +16,8 @@ export class ChainConfigService {
   getEvmChainConfig(
     chain:
       | 'ethereum'
-  | 'sepolia'
-  | 'optimism'
-  | 'bnb'
+      | 'optimism'
+      | 'bnb'
       | 'base'
       | 'arbitrum'
       | 'polygon'
@@ -44,19 +43,6 @@ export class ChainConfigService {
           decimals: 18,
         },
         blockExplorer: 'https://etherscan.io',
-      },
-      sepolia: {
-        chainId: 11155111,
-        name: 'Sepolia',
-        rpcUrl:
-          this.configService.get<string>('SEPOLIA_RPC_URL') ||
-          'https://rpc.sepolia.org',
-        nativeCurrency: {
-          name: 'Ether',
-          symbol: 'ETH',
-          decimals: 18,
-        },
-        blockExplorer: 'https://sepolia.etherscan.io',
       },
       optimism: {
         chainId: 10,
@@ -261,7 +247,6 @@ export class ChainConfigService {
   getAllEvmChainConfigs(): Record<string, EvmChainConfig> {
     return {
       ethereum: this.getEvmChainConfig('ethereum'),
-      sepolia: this.getEvmChainConfig('sepolia'),
       optimism: this.getEvmChainConfig('optimism'),
       bnb: this.getEvmChainConfig('bnb'),
       base: this.getEvmChainConfig('base'),
@@ -284,7 +269,6 @@ export class ChainConfigService {
   isEvmChain(chain: string): boolean {
     return [
       'ethereum',
-      'sepolia',
       'optimism',
       'bnb',
       'base',

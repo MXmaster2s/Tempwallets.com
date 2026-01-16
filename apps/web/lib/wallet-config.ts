@@ -882,7 +882,6 @@ const chainNameToId: Record<string, number> = {
   polygon: 137,
   bnb: 56,
   avalanche: 43114,
-  sepolia: 11155111,
 };
 
 if (EIP7702_CHAIN_IDS.size === 0 && process.env.NEXT_PUBLIC_EIP7702_CHAINS) {

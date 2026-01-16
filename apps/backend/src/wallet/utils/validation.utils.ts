@@ -179,7 +179,6 @@ export function getExplorerUrl(
     10: 'optimism',
     137: 'polygon',
     43114: 'avalanche',
-    11155111: 'sepolia',
     56: 'bnb',
   };
 
@@ -194,7 +193,6 @@ export function getExplorerUrl(
     optimism: 'https://optimistic.etherscan.io',
     polygon: 'https://polygonscan.com',
     avalanche: 'https://snowtrace.io',
-    sepolia: 'https://sepolia.etherscan.io',
     bnb: 'https://bscscan.com',
   };
 

@@ -14,16 +14,12 @@ export type SubstrateChain =
  */
 export type ChainType =
   | 'ethereum'
-  | 'sepolia'
   | 'optimism'
   | 'bnb'
   | 'base'
   | 'arbitrum'
   | 'polygon'
   | 'avalanche'
-  | 'sepolia'
-  | 'optimism'
-  | 'bnb'
   | 'tron'
   | 'bitcoin'
   | 'solana'
@@ -76,7 +72,6 @@ export const NATIVE_TOKENS: Record<
   { symbol: string; decimals: number }
 > = {
   ethereum: { symbol: 'ETH', decimals: 18 },
-  sepolia: { symbol: 'ETH', decimals: 18 },
   optimism: { symbol: 'ETH', decimals: 18 },
   bnb: { symbol: 'BNB', decimals: 18 },
   base: { symbol: 'ETH', decimals: 18 },
