@@ -97,9 +97,9 @@ export class NitroliteClient {
     // Initialize WebSocket Manager
     this.ws = new WebSocketManager({
       url: this.config.wsUrl,
-      reconnectAttempts: 5,
-      reconnectDelay: 1000,
-      maxReconnectDelay: 30000,
+      reconnectAttempts: 3, // Reduced from 5
+      reconnectDelay: 2000, // Increased from 1000ms to 2000ms
+      maxReconnectDelay: 60000, // Increased from 30000ms to 60000ms (1 minute)
       requestTimeout: 30000,
     });
 
@@ -126,24 +126,14 @@ export class NitroliteClient {
   /**
    * Post-reconnect sync: Re-load channels and app sessions after WebSocket reconnection
    * 
-   * This is called automatically after WebSocket reconnects to ensure state consistency.
+   * OPTIMIZATION: Disabled aggressive post-reconnect sync.
+   * Channels and sessions will be fetched on-demand when user accesses Lightning Node UI.
    */
   async postReconnectSync(): Promise<void> {
-    console.log('[NitroliteClient] Post-reconnect sync: Re-loading state...');
+    console.log('[NitroliteClient] Post-reconnect: Skipping automatic sync (on-demand mode enabled)');
     
-    try {
-      // Re-fetch channels to ensure we have latest state
-      const channels = await this.queryService.getChannels();
-      console.log(`[NitroliteClient] Post-reconnect: Re-loaded ${channels.length} channels`);
-      
-      // Note: App sessions are fetched on-demand, so we don't need to pre-load them
-      // The next operation that needs them will fetch fresh state
-      
-      console.log('[NitroliteClient] ✅ Post-reconnect sync completed');
-    } catch (error) {
-      console.warn('[NitroliteClient] Post-reconnect sync failed (non-critical):', error);
-      // Don't throw - this is best-effort
-    }
+    // Note: Channels and app sessions will be fetched when the frontend requests them
+    // This avoids unnecessary load on the backend and Yellow Network
   }
 
   async initialize(): Promise<void> {

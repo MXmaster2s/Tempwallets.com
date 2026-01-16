@@ -47,7 +47,9 @@ export function useLightningNodes() {
 
   /**
    * Step 1: Authenticate user's wallet with Yellow Network
-   * This should be called once when the component mounts
+   * This should be called once when the user accesses the Lightning Node UI
+   * 
+   * OPTIMIZATION: Authentication now checks session TTL and skips if valid
    */
   const authenticate = useCallback(async (chain: string = 'base') => {
     if (!userId) {
@@ -81,8 +83,9 @@ export function useLightningNodes() {
           timestamp: Date.now(),
         });
 
-        // After authentication, discover sessions
-        await discoverSessions();
+        // OPTIMIZATION: Don't auto-discover sessions after authentication
+        // Sessions will be fetched on-demand when component explicitly calls discoverSessions()
+        console.log('[Lightning] Authentication complete. Call discoverSessions() to load sessions.');
       } else {
         throw new Error('Authentication failed');
       }
@@ -301,12 +304,13 @@ export function useLightningNodes() {
     return discoverSessions();
   }, [discoverSessions]);
 
-  // Auto-authenticate and discover sessions when userId changes
+  // OPTIMIZATION: Don't auto-authenticate when userId changes
+  // Authentication will be triggered on-demand when user navigates to Lightning Node UI
+  // This prevents unnecessary authentication flows during page loads
   useEffect(() => {
-    if (userId && !authenticated) {
-      authenticate();
-    }
-  }, [userId, authenticated, authenticate]);
+    // Removed: Auto-authenticate on userId change
+    // Lightning Node UI components will call authenticate() explicitly
+  }, [userId]);
 
   return {
     // Authentication state

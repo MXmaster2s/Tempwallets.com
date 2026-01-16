@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { loggingFetch } from '../common/http-logger.js';
 
 interface CachedData<T> {
   data: T;
@@ -452,7 +453,7 @@ export class ZerionService {
   }
 
   /**
-   * Make request to Zerion API with retry logic
+   * Make request to Zerion API with retry logic and detailed logging
    */
   private async makeRequest<T>(
     url: string,
@@ -480,48 +481,42 @@ export class ZerionService {
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        // Create AbortController for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        // Use loggingFetch for detailed request/response logging
+        const response = await loggingFetch(url, {
+          headers,
+          timeoutMs,
+          serviceName: 'ZerionAPI',
+          retryAttempt: attempt,
+        });
 
-        try {
-          const response = await fetch(url, {
-            headers,
-            signal: controller.signal,
-          });
-
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            if (response.status === 429) {
-              // Rate limited - wait and retry
-              const waitTime = attempt * 1000;
-              this.logger.warn(
-                `Rate limited by Zerion API. Waiting ${waitTime}ms before retry ${attempt}/${retries}`,
-              );
-              await new Promise((resolve) => setTimeout(resolve, waitTime));
-              continue;
-            }
-
-            const errorText = await response.text();
-            throw new Error(
-              `Zerion API error: ${response.status} - ${errorText}`,
+        if (!response.ok) {
+          if (response.status === 429) {
+            // Rate limited - wait and retry
+            const waitTime = attempt * 1000;
+            this.logger.warn(
+              `Rate limited by Zerion API. Waiting ${waitTime}ms before retry ${attempt}/${retries}`,
             );
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            continue;
           }
 
-          return (await response.json()) as T;
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
+          const errorText = await response.text();
+          throw new Error(
+            `Zerion API error: ${response.status} - ${errorText}`,
+          );
+        }
 
-          // Check if it's a timeout/abort error
-          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return (await response.json()) as T;
+      } catch (error) {
+        // Check if it's a timeout/abort error
+        if (error instanceof Error && error.name === 'AbortError') {
+          this.logger.error(
+            `Zerion API timeout after ${timeoutMs}ms (attempt ${attempt}/${retries}): ${url.substring(0, 60)}...`,
+          );
+          if (attempt === retries) {
             throw new Error(`Request timeout after ${timeoutMs}ms`);
           }
-
-          throw fetchError;
-        }
-      } catch (error) {
-        if (attempt === retries) {
+        } else if (attempt === retries) {
           this.logger.error(
             `Zerion API request failed after ${retries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
@@ -531,7 +526,7 @@ export class ZerionService {
         // Exponential backoff
         const waitTime = Math.pow(2, attempt) * 1000;
         this.logger.warn(
-          `Zerion API request failed, retrying in ${waitTime}ms (attempt ${attempt}/${retries})`,
+          `Zerion API request failed, retrying in ${waitTime}ms (attempt ${attempt}/${retries}): ${error instanceof Error ? error.message : 'Unknown'}`,
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }

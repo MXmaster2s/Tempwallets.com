@@ -299,6 +299,8 @@ export function LightningNodesView() {
     activeSessions,
     invitations,
     searchSession,
+    authenticate,
+    discoverSessions,
     loading,
     error,
   } = useLightningNodes();
@@ -307,6 +309,27 @@ export function LightningNodesView() {
   const [fundChannelModalOpen, setFundChannelModalOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  // OPTIMIZATION: On-demand authentication and session discovery
+  // Trigger authentication when component mounts (user navigates to Lightning section)
+  useEffect(() => {
+    const initializeLightningNodes = async () => {
+      if (!authenticated && !authenticating) {
+        console.log('[LightningNodesView] User navigated to Lightning section - initializing...');
+        await authenticate('base');
+        
+        // After authentication, fetch sessions
+        await discoverSessions('base');
+      } else if (authenticated && allSessions.length === 0 && !loading) {
+        // Already authenticated but no sessions loaded yet
+        console.log('[LightningNodesView] Authenticated but no sessions loaded - fetching...');
+        await discoverSessions('base');
+      }
+    };
+
+    initializeLightningNodes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Restore last-opened node after refresh
   useEffect(() => {

@@ -1,8 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  diagnoseNetworkConnectivity,
+  logEnvironmentInfo,
+  loggingFetch,
+} from './common/http-logger.js';
 
 @Controller()
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(private configService: ConfigService) {}
 
   @Get('health')
@@ -65,6 +72,131 @@ export class HealthController {
       },
       warnings: this.getConfigWarnings(),
     };
+  }
+
+  /**
+   * Network diagnostic endpoint - tests connectivity to external APIs
+   * Useful for debugging timeout issues in production
+   */
+  @Get('debug/network')
+  async debugNetwork() {
+    this.logger.log('Running network diagnostics...');
+    logEnvironmentInfo(this.logger);
+
+    const diagnostics = await diagnoseNetworkConnectivity(this.logger);
+
+    return {
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      platform: process.platform,
+      nodeVersion: process.version,
+      ...diagnostics,
+    };
+  }
+
+  /**
+   * Test Zerion API connectivity specifically
+   */
+  @Get('debug/zerion')
+  async debugZerion() {
+    const apiKey = this.configService.get<string>('ZERION_API_KEY');
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'ZERION_API_KEY not configured',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    this.logger.log('Testing Zerion API connectivity...');
+
+    const auth = Buffer.from(`${apiKey}:`).toString('base64');
+    const startTime = Date.now();
+
+    try {
+      // Test basic API connectivity with a simple request
+      const response = await loggingFetch(
+        'https://api.zerion.io/v1/chains',
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${auth}`,
+          },
+          timeoutMs: 30000,
+          serviceName: 'ZerionTest',
+        },
+      );
+
+      const durationMs = Date.now() - startTime;
+      const data = (await response.json()) as { data?: unknown[] };
+
+      return {
+        success: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        durationMs,
+        timestamp: new Date().toISOString(),
+        chainsCount: Array.isArray(data?.data) ? data.data.length : 'unknown',
+      };
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        durationMs,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Test Yellow Network WebSocket connectivity
+   */
+  @Get('debug/yellow')
+  async debugYellow() {
+    const wsUrl = this.configService.get<string>('YELLOW_NETWORK_WS_URL');
+    if (!wsUrl) {
+      return {
+        success: false,
+        error: 'YELLOW_NETWORK_WS_URL not configured',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    this.logger.log(`Testing Yellow Network connectivity to: ${wsUrl}`);
+
+    // Convert WebSocket URL to HTTP for basic connectivity test
+    const httpUrl = wsUrl.replace('wss://', 'https://').replace('ws://', 'http://');
+    const startTime = Date.now();
+
+    try {
+      const response = await loggingFetch(httpUrl, {
+        timeoutMs: 15000,
+        serviceName: 'YellowTest',
+      });
+
+      const durationMs = Date.now() - startTime;
+
+      return {
+        success: true,
+        wsUrl,
+        httpTestUrl: httpUrl,
+        status: response.status,
+        durationMs,
+        timestamp: new Date().toISOString(),
+        note: 'HTTP test only - WebSocket connection may behave differently',
+      };
+    } catch (error) {
+      const durationMs = Date.now() - startTime;
+      return {
+        success: false,
+        wsUrl,
+        httpTestUrl: httpUrl,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        durationMs,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   @Get()

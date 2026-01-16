@@ -88,6 +88,26 @@ export class SessionKeyAuth {
       scope = 'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
     } = options || {};
 
+    // OPTIMIZATION: Skip re-authentication if session is still valid
+    // Check if we have an existing session that hasn't expired
+    if (this.sessionKey && this.isAuthenticated()) {
+      const remainingTime = this.sessionKey.expiresAt - Date.now();
+      const remainingHours = Math.floor(remainingTime / (60 * 60 * 1000));
+      const remainingMinutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
+      
+      console.log(
+        `[SessionKeyAuth] ✅ Session already valid (expires in ${remainingHours}h ${remainingMinutes}m). Skipping re-authentication.`
+      );
+      
+      // Return cached authentication result
+      return {
+        success: true,
+        jwt_token: this.sessionKey.jwtToken,
+        address: this.mainWallet.address,
+        session_key: this.sessionKey.account.address,
+      };
+    }
+
     console.log('[SessionKeyAuth] Starting authentication flow...');
 
     // Step 1: Generate session key

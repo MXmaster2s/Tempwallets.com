@@ -9,12 +9,14 @@
  * - Request/response correlation via request IDs
  * - Message queueing when disconnected
  * - Promise-based request/response handling
+ * - Detailed logging for debugging production issues
  *
  * Protocol Reference:
  * - Message Format: /Users/monstu/Developer/crawl4Ai/yellow/docs_protocol_off-chain_message-format.md
  */
 
 import WebSocket from 'ws';
+import { Logger } from '@nestjs/common';
 import type {
   RPCRequest,
   RPCResponse,
@@ -45,6 +47,7 @@ interface WSEventHandlers {
  * with automatic reconnection and message queueing.
  */
 export class WebSocketManager {
+  private readonly logger = new Logger('YellowNetworkWS');
   private ws: WebSocket | null = null;
   private url: string;
   private connectionState: ConnectionState = ConnectionState.DISCONNECTED;
@@ -87,23 +90,27 @@ export class WebSocketManager {
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.connectionState === ConnectionState.CONNECTED) {
+        this.logger.debug('Already connected, skipping connect');
         resolve();
         return;
       }
 
       this.connectionState = ConnectionState.CONNECTING;
-      // Connection logs moved to debug level to reduce noise
+      this.logger.log(`Connecting to Yellow Network: ${this.maskUrl(this.url)} (timeout: ${this.requestTimeout}ms)`);
+      const connectStartTime = Date.now();
 
       try {
         this.ws = new WebSocket(this.url);
       } catch (error) {
         this.connectionState = ConnectionState.FAILED;
+        this.logger.error(`Failed to create WebSocket: ${error instanceof Error ? error.message : 'Unknown error'}`);
         reject(error);
         return;
       }
 
       this.ws.on('open', () => {
-        // Connection success logged at debug level
+        const connectDuration = Date.now() - connectStartTime;
+        this.logger.log(`Connected to Yellow Network in ${connectDuration}ms`);
         this.connectionState = ConnectionState.CONNECTED;
         this.reconnectAttempts = 0; // Reset counter on successful connection
 
@@ -121,13 +128,14 @@ export class WebSocketManager {
           const response: RPCResponse = JSON.parse(data.toString());
           this.handleMessage(response);
         } catch (error) {
-          console.error('[WebSocket] Failed to parse message:', error);
+          this.logger.error(`Failed to parse message: ${error instanceof Error ? error.message : 'Unknown'}`);
           this.eventHandlers.onError?.(error as Error);
         }
       });
 
       this.ws.on('error', (error: Error) => {
-        console.error('[WebSocket] Error:', error);
+        const connectDuration = Date.now() - connectStartTime;
+        this.logger.error(`WebSocket error after ${connectDuration}ms: ${error.message}`);
         this.eventHandlers.onError?.(error);
 
         if (this.connectionState === ConnectionState.CONNECTING) {
@@ -137,11 +145,12 @@ export class WebSocketManager {
 
       this.ws.on('close', (code: number, reason: Buffer) => {
         const reasonStr = reason.toString();
-        // Disconnection logs moved to debug level (only log errors/unexpected disconnects)
         if (code !== 1000) {
-          console.error(
-            `[WebSocket] Unexpected disconnect (code: ${code}, reason: ${reasonStr})`,
+          this.logger.error(
+            `Unexpected disconnect (code: ${code}, reason: ${reasonStr || 'none'})`,
           );
+        } else {
+          this.logger.log(`Connection closed normally (code: ${code})`);
         }
 
         this.connectionState = ConnectionState.DISCONNECTED;
@@ -157,7 +166,7 @@ export class WebSocketManager {
         ) {
           this.scheduleReconnect();
         } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          console.error('[WebSocket] Max reconnection attempts reached');
+          this.logger.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached`);
           this.connectionState = ConnectionState.FAILED;
         }
       });
@@ -165,8 +174,10 @@ export class WebSocketManager {
       // Connection timeout
       const timeout = setTimeout(() => {
         if (this.connectionState === ConnectionState.CONNECTING) {
+          const connectDuration = Date.now() - connectStartTime;
+          this.logger.error(`Connection timeout after ${connectDuration}ms to ${this.maskUrl(this.url)}`);
           this.ws?.terminate();
-          reject(new Error('Connection timeout'));
+          reject(new Error(`Connection timeout after ${this.requestTimeout}ms`));
         }
       }, this.requestTimeout);
 
@@ -198,22 +209,31 @@ export class WebSocketManager {
   async send(request: RPCRequest): Promise<RPCResponse> {
     return new Promise((resolve, reject) => {
       const requestId = request.req[0];
+      const method = request.req[1];
+      const sendStartTime = Date.now();
+
+      this.logger.debug(`--> RPC [${requestId}] ${method} (timeout: ${this.requestTimeout}ms)`);
 
       // Set up response handler
       this.responseHandlers.set(requestId, (response: RPCResponse) => {
+        const duration = Date.now() - sendStartTime;
         if (response.error) {
+          this.logger.error(`<-- RPC [${requestId}] ${method} ERROR in ${duration}ms: ${response.error.message || 'Unknown RPC error'}`);
           reject(new Error(response.error.message || 'RPC error'));
         } else {
+          this.logger.debug(`<-- RPC [${requestId}] ${method} OK in ${duration}ms`);
           resolve(response);
         }
       });
 
       // Set timeout for request
       const timeout = setTimeout(() => {
+        const duration = Date.now() - sendStartTime;
         this.responseHandlers.delete(requestId);
+        this.logger.error(`<-- RPC [${requestId}] ${method} TIMEOUT after ${duration}ms`);
         reject(
           new Error(
-            `Request ${requestId} timed out after ${this.requestTimeout}ms`,
+            `Request ${requestId} (${method}) timed out after ${this.requestTimeout}ms`,
           ),
         );
       }, this.requestTimeout);
@@ -232,10 +252,11 @@ export class WebSocketManager {
         } catch (error) {
           this.responseHandlers.delete(requestId);
           clearTimeout(timeout);
+          this.logger.error(`Failed to send RPC [${requestId}] ${method}: ${error instanceof Error ? error.message : 'Unknown'}`);
           reject(error);
         }
       } else {
-        // Queueing logs moved to debug level
+        this.logger.warn(`WebSocket not connected, queueing RPC [${requestId}] ${method}`);
         this.messageQueue.push(request);
       }
     });
@@ -330,29 +351,27 @@ export class WebSocketManager {
 
     switch (method) {
       case 'bu': // Balance Update
-        // Notification logs moved to debug level
+        this.logger.debug(`Notification: balance update`);
         break;
       case 'cu': // Channel Update
-        // Notification logs moved to debug level
+        this.logger.debug(`Notification: channel update`);
         break;
       case 'tr': // Transfer
-        // Notification logs moved to debug level
+        this.logger.debug(`Notification: transfer`);
         break;
       case 'asu': // App Session Update
-        // Notification logs moved to debug level
+        this.logger.debug(`Notification: app session update`);
         break;
       case 'assets':
-        // Cache assets catalog silently (no logs)
+        // Cache assets catalog
         if (Array.isArray(data?.assets)) {
           this.assetsCache = data.assets as AssetInfo[];
-          // Assets catalog received silently to reduce log noise
+          this.logger.debug(`Notification: received ${this.assetsCache.length} assets`);
         }
         break;
       default:
-        // Only log unknown notification types as warnings
-        console.warn(
-          `[WebSocket] Unknown notification type: ${method}`,
-        );
+        // Log unknown notification types as warnings
+        this.logger.warn(`Unknown notification type: ${method}`);
     }
   }
 
@@ -364,7 +383,7 @@ export class WebSocketManager {
       return;
     }
 
-    // Queue flush logs moved to debug level
+    this.logger.debug(`Flushing ${this.messageQueue.length} queued messages`);
 
     while (this.messageQueue.length > 0 && this.isConnected()) {
       const request = this.messageQueue.shift();
@@ -372,7 +391,7 @@ export class WebSocketManager {
         try {
           this.ws.send(JSON.stringify(request));
         } catch (error) {
-          console.error('[WebSocket] Failed to send queued message:', error);
+          this.logger.error(`Failed to send queued message: ${error instanceof Error ? error.message : 'Unknown'}`);
           // Re-queue if failed
           this.messageQueue.unshift(request);
           break;
@@ -395,7 +414,7 @@ export class WebSocketManager {
       this.maxReconnectDelay,
     );
 
-    // Reconnection logs moved to debug level (only log errors)
+    this.logger.warn(`Scheduling reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
 
     this.connectionState = ConnectionState.RECONNECTING;
 
@@ -405,9 +424,22 @@ export class WebSocketManager {
       try {
         await this.connect();
       } catch (error) {
-        console.error('[WebSocket] Reconnection failed:', error);
+        this.logger.error(`Reconnection attempt ${this.reconnectAttempts} failed: ${error instanceof Error ? error.message : 'Unknown'}`);
         // Will automatically schedule another attempt via close handler
       }
     }, delay);
+  }
+
+  /**
+   * Mask URL for safe logging (hide tokens/keys)
+   */
+  private maskUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      // Return host and path without query params
+      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    } catch {
+      return url.length > 50 ? url.substring(0, 50) + '...' : url;
+    }
   }
 }
