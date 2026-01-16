@@ -1366,11 +1366,13 @@ export const lightningNodeApi = {
 
   /**
    * Create a new Lightning Node
+   * Uses longer timeout (90s) as this involves WebSocket connection, config loading, and authentication
    */
   async createLightningNode(data: CreateLightningNodeRequest): Promise<CreateLightningNodeResponse> {
     return fetchApi<CreateLightningNodeResponse>('/lightning-node/create', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 90000, // 90 seconds - WebSocket + auth + config loading
     });
   },
 
@@ -1382,11 +1384,13 @@ export const lightningNodeApi = {
    * Authenticate user's wallet with Yellow Network (Step 1)
    * This creates/reuses an authenticated NitroliteClient for the user.
    * Should be called once when app starts or when user first accesses Lightning Nodes.
+   * Uses longer timeout (90s) as this involves WebSocket connection and 3-step auth flow
    */
   async authenticateWallet(data: AuthenticateWalletRequest): Promise<AuthenticateWalletResponse> {
     return fetchApi<AuthenticateWalletResponse>('/lightning-node/authenticate', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 90000, // 90 seconds - WebSocket + 3-step authentication
     });
   },
 
@@ -1399,6 +1403,7 @@ export const lightningNodeApi = {
     return fetchApi<SearchSessionResponse>('/lightning-node/search', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 60000, // 60 seconds - network query
     });
   },
 
@@ -1410,7 +1415,8 @@ export const lightningNodeApi = {
   async discoverSessions(userId: string, chain?: string): Promise<DiscoverSessionsResponse> {
     const params = chain ? `?chain=${encodeURIComponent(chain)}` : '';
     return fetchApi<DiscoverSessionsResponse>(
-      `/lightning-node/discover/${encodeURIComponent(userId)}${params}`
+      `/lightning-node/discover/${encodeURIComponent(userId)}${params}`,
+      { timeout: 60000 } // 60 seconds - network query
     );
   },
 
@@ -1438,11 +1444,13 @@ export const lightningNodeApi = {
   /**
    * Fund payment channel (add funds to unified balance)
    * This moves funds from on-chain wallet to unified balance (requires on-chain transaction)
+   * Uses longer timeout (120s) as this involves on-chain transaction confirmation
    */
   async fundChannel(data: FundChannelRequest): Promise<FundChannelResponse> {
     return fetchApi<FundChannelResponse>('/lightning-node/fund-channel', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 120000, // 120 seconds - on-chain transaction
     });
   },
 
@@ -1454,6 +1462,7 @@ export const lightningNodeApi = {
     return fetchApi<DepositFundsResponse>('/lightning-node/deposit', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 60000, // 60 seconds - state channel operation
     });
   },
 
@@ -1464,6 +1473,7 @@ export const lightningNodeApi = {
     return fetchApi<TransferFundsResponse>('/lightning-node/transfer', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 60000, // 60 seconds - state channel operation
     });
   },
 
@@ -1474,16 +1484,19 @@ export const lightningNodeApi = {
     return fetchApi<WithdrawFundsResponse>('/lightning-node/withdraw', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 60000, // 60 seconds - state channel operation
     });
   },
 
   /**
    * Close Lightning Node
+   * Uses longer timeout (90s) as this may involve state channel finalization
    */
   async closeLightningNode(data: CloseLightningNodeRequest): Promise<CloseLightningNodeResponse> {
     return fetchApi<CloseLightningNodeResponse>('/lightning-node/close', {
       method: 'POST',
       body: JSON.stringify(data),
+      timeout: 90000, // 90 seconds - may involve on-chain settlement
     });
   },
 };

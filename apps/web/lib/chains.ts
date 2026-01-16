@@ -223,30 +223,6 @@ export const chains: Chain[] = [
     category: 'sidechain',
     chainId: 137,
   },
-
-  // EIP-7702 Gasless chains (Testnet)
-  {
-    id: 'sepoliaGasless',
-    name: 'Sepolia (Gasless)',
-    symbol: 'ETH',
-    icon: Ethereum,
-    type: 'evm',
-    hasWalletConnect: false,
-    isTestnet: true,
-    category: 'layer1',
-    chainId: 11155111,
-  },
-  {
-    id: 'baseSepoliaGasless',
-    name: 'Base Sepolia (Gasless)',
-    symbol: 'ETH',
-    icon: Base,
-    type: 'evm',
-    hasWalletConnect: false,
-    isTestnet: true,
-    category: 'layer2',
-    chainId: 84532,
-  },
 ];
 
 /**
@@ -358,8 +334,6 @@ export const gaslessChainIdMap: Record<string, number> = {
   arbitrumGasless: 42161,
   optimismGasless: 10,
   polygonGasless: 137,
-  sepoliaGasless: 11155111,
-  baseSepoliaGasless: 84532,
 };
 
 /**

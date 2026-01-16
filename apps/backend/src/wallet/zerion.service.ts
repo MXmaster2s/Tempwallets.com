@@ -210,7 +210,6 @@ export class ZerionService {
       'btc': 'bitcoin',
       'tron': 'tron',
       'trx': 'tron',
-      'sepolia': 'sepolia',
     };
 
     return chainMapping[zerionChainId.toLowerCase()] || zerionChainId;

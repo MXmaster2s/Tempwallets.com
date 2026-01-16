@@ -10,7 +10,6 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import {
   mainnet,
-  sepolia,
   base,
   arbitrum,
   optimism,
@@ -42,7 +41,6 @@ export class Eip7702AccountFactory {
     seedPhrase: string,
     chain:
       | 'ethereum'
-      | 'sepolia'
       | 'base'
       | 'arbitrum'
       | 'optimism',
@@ -177,14 +175,12 @@ export class Eip7702AccountFactory {
   private getViemChain(
     chain:
       | 'ethereum'
-      | 'sepolia'
       | 'base'
       | 'arbitrum'
       | 'optimism',
   ): Chain {
     const baseChains: Record<string, Chain> = {
       ethereum: mainnet,
-      sepolia,
       base,
       arbitrum,
       optimism,
@@ -215,7 +211,6 @@ export class Eip7702AccountFactory {
   private getRpcUrl(
     chain:
       | 'ethereum'
-      | 'sepolia'
       | 'base'
       | 'arbitrum'
       | 'optimism',

@@ -41,7 +41,6 @@ export class AddressManager implements IAddressManager {
     'arbitrum',
     'polygon',
     'avalanche',
-    'sepolia',
     'moonbeamTestnet',
     'astarShibuya',
     'paseoPassetHub',
@@ -140,8 +139,8 @@ export class AddressManager implements IAddressManager {
 
     // EOA chains
     const evmChains: Array<
-      'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche' | 'sepolia'
-    > = ['ethereum', 'base', 'arbitrum', 'polygon', 'avalanche', 'sepolia'];
+      'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche'
+    > = ['ethereum', 'base', 'arbitrum', 'polygon', 'avalanche'];
 
     for (const chain of evmChains) {
       if (addresses[chain]) {
@@ -150,13 +149,13 @@ export class AddressManager implements IAddressManager {
 
       try {
         // Use EIP-7702 factory for enabled chains (same address as EOA), else native EOA
-        // Only enable EIP-7702 for supported chains: ethereum, sepolia, base, arbitrum, optimism
-        const supportedEip7702Chains = ['ethereum', 'sepolia', 'base', 'arbitrum', 'optimism'];
+        // Only enable EIP-7702 for supported chains: ethereum, base, arbitrum, optimism
+        const supportedEip7702Chains = ['ethereum', 'base', 'arbitrum', 'optimism'];
         const useEip7702 =
           this.pimlicoConfig.isEip7702Enabled(chain) &&
           supportedEip7702Chains.includes(chain);
         const account = useEip7702
-          ? await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'sepolia' | 'base' | 'arbitrum' | 'optimism', 0)
+          ? await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism', 0)
           : await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
 
         const address = await account.getAddress();
@@ -414,13 +413,12 @@ export class AddressManager implements IAddressManager {
     }
 
     // Process EVM chains (native/EIP-7702)
-    const evmChains: { name: WalletAddressKey; chain: 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche' | 'sepolia' }[] = [
+    const evmChains: { name: WalletAddressKey; chain: 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche' }[] = [
       { name: 'ethereum', chain: 'ethereum' },
       { name: 'base', chain: 'base' },
       { name: 'arbitrum', chain: 'arbitrum' },
       { name: 'polygon', chain: 'polygon' },
       { name: 'avalanche', chain: 'avalanche' },
-      { name: 'sepolia', chain: 'sepolia' },
     ];
 
     for (const { name, chain } of evmChains) {
@@ -429,13 +427,13 @@ export class AddressManager implements IAddressManager {
       }
 
       try {
-        // Only enable EIP-7702 for supported chains: ethereum, sepolia, base, arbitrum, optimism
-        const supportedEip7702Chains = ['ethereum', 'sepolia', 'base', 'arbitrum', 'optimism'];
+        // Only enable EIP-7702 for supported chains: ethereum, base, arbitrum, optimism
+        const supportedEip7702Chains = ['ethereum', 'base', 'arbitrum', 'optimism'];
         const useEip7702 =
           this.pimlicoConfig.isEip7702Enabled(chain) &&
           supportedEip7702Chains.includes(chain);
         const account = useEip7702
-          ? await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'sepolia' | 'base' | 'arbitrum' | 'optimism', 0)
+          ? await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism', 0)
           : await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
         const address = await account.getAddress();
         await this.addressCacheRepository.saveAddress(userId, name, address);
@@ -662,7 +660,6 @@ export class AddressManager implements IAddressManager {
       arbitrum: 'Arbitrum',
       polygon: 'Polygon',
       avalanche: 'Avalanche',
-      sepolia: 'Sepolia',
       tron: 'Tron',
       bitcoin: 'Bitcoin',
       solana: 'Solana',
@@ -708,7 +705,6 @@ export class AddressManager implements IAddressManager {
       'arbitrum',
       'polygon',
       'avalanche',
-      'sepolia',
       'moonbeamTestnet',
       'astarShibuya',
       'paseoPassetHub',
@@ -772,7 +768,6 @@ export class AddressManager implements IAddressManager {
       'arbitrum',
       'polygon',
       'avalanche',
-      'sepolia',
       'tron',
       'bitcoin',
       'solana',

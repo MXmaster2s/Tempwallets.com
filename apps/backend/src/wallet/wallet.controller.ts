@@ -69,7 +69,6 @@ export class WalletController {
   async testEip7702Support(@Param('chain') chain: string) {
     const validChains = [
       'ethereum',
-      'sepolia',
       'base',
       'arbitrum',
       'optimism',

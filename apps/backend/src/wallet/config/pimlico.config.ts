@@ -161,7 +161,6 @@ export class PimlicoConfigService {
   getEip7702Config(
     chain:
       | 'ethereum'
-      | 'sepolia'
       | 'base'
       | 'arbitrum'
       | 'optimism'
@@ -171,7 +170,6 @@ export class PimlicoConfigService {
   ) {
     const chainIds: Record<string, number> = {
       ethereum: 1,
-      sepolia: 11155111,
       base: 8453,
       arbitrum: 42161,
       optimism: 10,
@@ -220,7 +218,6 @@ export class PimlicoConfigService {
   async validateEip7702Support(
     chain:
       | 'ethereum'
-      | 'sepolia'
       | 'base'
       | 'arbitrum'
       | 'optimism'

@@ -34,7 +34,6 @@ const SUPPORTED_CHAINS = [
   'optimism',
   'polygon',
   'avalanche',
-  'sepolia',
   'bnb',
   // Non-EVM
   'tron',

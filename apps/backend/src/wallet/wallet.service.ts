@@ -1923,7 +1923,6 @@ export class WalletService {
   ): Promise<IAccount> {
     const eip7702Chains: AllChainTypes[] = [
       'ethereum',
-      'sepolia',
       'base',
       'arbitrum',
       'optimism',
@@ -1936,7 +1935,7 @@ export class WalletService {
     if (isEip7702) {
       return this.eip7702AccountFactory.createAccount(
         seedPhrase,
-        chain as 'ethereum' | 'sepolia' | 'base' | 'arbitrum' | 'optimism',
+        chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism',
         0,
         userId,
       );
@@ -1949,7 +1948,6 @@ export class WalletService {
       'optimism',
       'polygon',
       'avalanche',
-      'sepolia',
       'bnb',
     ];
 
@@ -1961,8 +1959,7 @@ export class WalletService {
           | 'base'
           | 'arbitrum'
           | 'polygon'
-          | 'avalanche'
-          | 'sepolia',
+          | 'avalanche',
         0,
       );
     }
@@ -2018,7 +2015,6 @@ export class WalletService {
         const chainId = this.pimlicoConfig.getEip7702Config(
           chain as
             | 'ethereum'
-            | 'sepolia'
             | 'base'
             | 'arbitrum'
             | 'optimism'
@@ -2478,7 +2474,6 @@ export class WalletService {
       10: 'optimism',
       137: 'polygon',
       43114: 'avalanche',
-      11155111: 'sepolia',
       56: 'bnb',
     };
 
