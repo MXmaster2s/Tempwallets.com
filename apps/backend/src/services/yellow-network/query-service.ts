@@ -59,16 +59,28 @@ export class QueryService {
 
     request = await this.auth.signRequest(request);
     const response = await this.ws.send(request);
-    const balanceData = response.res[2];
 
-    const balances: LedgerBalance[] = balanceData.ledger_balances.map(
-      (b: any) => ({
-        asset: b.asset,
-        amount: b.amount,
-        locked: b.locked || '0',
-        available: b.available || b.amount,
-      }),
-    );
+    const balanceData = response.res[2] as {
+      ledger_balances: Array<{
+        asset: string;
+        amount: string;
+        locked?: string;
+        available?: string;
+      }>;
+    };
+    if (!balanceData || !Array.isArray(balanceData.ledger_balances)) {
+      console.warn(
+        '[QueryService] No ledger_balances array in response. Returning empty array.',
+      );
+      return [];
+    }
+
+    const balances: LedgerBalance[] = balanceData.ledger_balances.map((b) => ({
+      asset: b.asset,
+      amount: b.amount,
+      locked: b.locked ?? '0',
+      available: b.available ?? b.amount,
+    }));
 
     console.log(
       `[QueryService] Found ${balances.length} assets in unified balance`,
@@ -86,40 +98,62 @@ export class QueryService {
    */
   async getAppSessions(
     status?: 'open' | 'closed',
-    participant?: string
+    participant?: string,
   ): Promise<AppSession[]> {
     console.log('[QueryService] Fetching app sessions...');
 
     // Build filter parameters
-    const params: any = {};
-    if (status) params.status = status;
+
+    const params: Record<string, unknown> = {};
+    if (status) (params as { status?: string }).status = status;
     if (participant) {
-      params.participant = participant;
+      (params as { participant?: string }).participant = participant;
       console.log(`[QueryService] Filtering by participant: ${participant}`);
     }
 
     const requestId = this.ws.getNextRequestId();
     let request: RPCRequest = {
-      req: [
-        requestId,
-        'get_app_sessions',
-        params,
-        Date.now(),
-      ],
+      req: [requestId, 'get_app_sessions', params, Date.now()],
       sig: [] as string[],
     };
 
     request = await this.auth.signRequest(request);
     const response = await this.ws.send(request);
-    const sessionsData = response.res[2];
 
-    const sessions: AppSession[] = sessionsData.app_sessions.map((s: any) => ({
-      app_session_id: s.app_session_id,
-      status: s.status,
+    const sessionsData = response.res[2] as {
+      app_sessions: Array<{
+        app_session_id: string;
+        status: string;
+        version: number;
+        session_data: unknown;
+        allocations?: unknown[];
+        definition?: unknown;
+        created_at: string | number | Date;
+        updated_at: string | number | Date;
+        closed_at?: string | number | Date;
+      }>;
+    };
+    if (!sessionsData || !Array.isArray(sessionsData.app_sessions)) {
+      console.warn(
+        '[QueryService] No app_sessions array in response. Returning empty array.',
+      );
+      return [];
+    }
+
+    const sessions: AppSession[] = sessionsData.app_sessions.map((s) => ({
+      app_session_id: s.app_session_id as `0x${string}`,
+      status: s.status === 'open' || s.status === 'closed' ? s.status : 'open',
       version: s.version,
-      session_data: s.session_data,
-      allocations: s.allocations || [],
-      definition: s.definition,
+      session_data:
+        typeof s.session_data === 'string'
+          ? s.session_data
+          : JSON.stringify(s.session_data ?? {}),
+      allocations: Array.isArray(s.allocations)
+        ? (s.allocations as any[]).map(
+            (a) => a as import('./types.js').AppSessionAllocation,
+          )
+        : [],
+      definition: s.definition as import('./types.js').AppDefinition,
       createdAt: new Date(s.created_at),
       updatedAt: new Date(s.updated_at),
       closedAt: s.closed_at ? new Date(s.closed_at) : undefined,
@@ -146,25 +180,38 @@ export class QueryService {
 
     request = await this.auth.signRequest(request);
     const response = await this.ws.send(request);
-    
+
     // Log full response for debugging
-    console.log('[QueryService] Full get_channels response:', JSON.stringify(response, null, 2));
-    
+    console.log(
+      '[QueryService] Full get_channels response:',
+      JSON.stringify(response, null, 2),
+    );
+
     // Check for errors in response
     if (response.error) {
-      console.error('[QueryService] Error in get_channels response:', response.error.message);
+      console.error(
+        '[QueryService] Error in get_channels response:',
+        response.error.message,
+      );
       throw new Error(`Yellow Network error: ${response.error.message}`);
     }
-    
+
     if (response.res && response.res[1] === 'error') {
-      console.error('[QueryService] Error in get_channels response:', response.res[2]);
-      throw new Error(`Yellow Network error: ${JSON.stringify(response.res[2])}`);
+      console.error(
+        '[QueryService] Error in get_channels response:',
+        response.res[2],
+      );
+      throw new Error(
+        `Yellow Network error: ${JSON.stringify(response.res[2])}`,
+      );
     }
-    
-    const channelsData = response.res[2];
-    
+
+    const channelsData = response.res[2] as { channels?: any[] };
+
     if (!channelsData) {
-      console.warn('[QueryService] No channels data in response. Returning empty array.');
+      console.warn(
+        '[QueryService] No channels data in response. Returning empty array.',
+      );
       return [];
     }
 
@@ -172,63 +219,178 @@ export class QueryService {
     if (!channelsData.channels || !Array.isArray(channelsData.channels)) {
       console.warn(
         `[QueryService] Invalid response structure: 'channels' is missing or not an array. ` +
-        `Response keys: ${Object.keys(channelsData).join(', ')}. ` +
-        `Returning empty array.`
+          `Response keys: ${Object.keys(channelsData).join(', ')}. ` +
+          `Returning empty array.`,
       );
       return [];
     }
 
-    const channels: ChannelWithState[] = channelsData.channels.map(
-      (c: any) => {
-        // get_channels returns simplified structure with 'participant' (singular), not 'participants' array
-        // We need to construct the participants array: [user, clearnode]
-        // Since we don't have clearnode address in get_channels response, we'll use the participant
-        // as the first element and construct a minimal structure
-        // Note: This is a limitation of get_channels - full channel details require create_channel response
-        
-        let participants: [Address, Address];
-        if (c.participants && Array.isArray(c.participants) && c.participants.length >= 2) {
-          // Full structure from create_channel response
-          participants = [c.participants[0] as Address, c.participants[1] as Address];
-        } else if (c.participant) {
-          // Simplified structure from get_channels - only has user address
-          // We need to construct participants array, but we don't have clearnode address
-          // For now, we'll use the participant address for both (this is a workaround)
-          // The actual clearnode address should be obtained from config or channel creation
-          const userAddress = c.participant as Address;
-          // TODO: Get clearnode address from config or channel details
-          // For now, using user address as placeholder (will be fixed when we have config access)
-          participants = [userAddress, userAddress]; // Temporary workaround
-          console.warn(
-            `[QueryService] get_channels returned simplified structure for channel ${c.channel_id}. ` +
-            `Using placeholder for clearnode address. Full participants array requires create_channel response.`
-          );
-        } else {
-          throw new Error(`Invalid channel structure: missing participants or participant field. Channel: ${JSON.stringify(c)}`);
-        }
+    const channels: ChannelWithState[] = Array.isArray(channelsData.channels)
+      ? channelsData.channels.map((c) => {
+          // Participants
+          let participants: [Address, Address];
+          if (
+            c &&
+            Array.isArray((c as { participants?: unknown[] }).participants) &&
+            (c as { participants: unknown[] }).participants.length >= 2
+          ) {
+            const p = (c as { participants: [Address, Address] }).participants;
+            participants = [p[0], p[1]];
+          } else if (
+            c &&
+            typeof (c as { participant?: unknown }).participant === 'string'
+          ) {
+            const userAddress = (c as { participant: Address }).participant;
+            participants = [userAddress, userAddress];
+            const channelId = (c as { channel_id?: string }).channel_id;
+            console.warn(
+              `[QueryService] get_channels returned simplified structure for channel ${channelId}. ` +
+                `Using placeholder for clearnode address. Full participants array requires create_channel response.`,
+            );
+          } else {
+            throw new Error(
+              `Invalid channel structure: missing participants or participant field. Channel: ${JSON.stringify(c)}`,
+            );
+          }
 
-        return {
-          participants,
-          adjudicator: c.adjudicator as Address,
-          challenge: BigInt(c.challenge),
-          nonce: BigInt(c.nonce),
-          channelId: c.channel_id as `0x${string}`,
-          state: {
-            intent: (c.state?.intent ?? StateIntent.INITIALIZE) as StateIntent,
-            version: BigInt(c.version ?? c.state?.version ?? 0),
-            data: c.state?.data ?? '0x',
-            allocations: c.state?.allocations
-              ? c.state.allocations.map((a: any, idx: number) => [
-                  BigInt(Array.isArray(a) ? a[0] : (a.index !== undefined ? a.index : idx)),
-                  BigInt(Array.isArray(a) ? a[1] : a.amount || 0),
-                ])
-              : [[BigInt(0), BigInt(0)], [BigInt(1), BigInt(0)]], // Default zero allocations
-          },
-          chainId: c.chain_id,
-          status: c.status,
-        };
-      },
-    );
+          // Channel fields
+          const channelId = (c as { channel_id?: string })
+            .channel_id as `0x${string}`;
+          const adjudicator = (c as { adjudicator?: Address })
+            .adjudicator as Address;
+          const challengeRaw = (c as { challenge?: string | number | bigint })
+            .challenge;
+          const challenge =
+            typeof challengeRaw === 'string' ||
+            typeof challengeRaw === 'number' ||
+            typeof challengeRaw === 'bigint'
+              ? BigInt(challengeRaw)
+              : BigInt(0);
+          const nonceRaw = (c as { nonce?: string | number | bigint }).nonce;
+          const nonce =
+            typeof nonceRaw === 'string' ||
+            typeof nonceRaw === 'number' ||
+            typeof nonceRaw === 'bigint'
+              ? BigInt(nonceRaw)
+              : BigInt(0);
+          const chainIdRaw = (c as { chain_id?: number }).chain_id;
+          const chainId = typeof chainIdRaw === 'number' ? chainIdRaw : 0;
+          const statusRaw = (c as { status?: string }).status;
+          const status: 'active' | 'closed' =
+            statusRaw === 'closed' ? 'closed' : 'active';
+          // State
+          const stateRaw = (c as { state?: unknown; version?: unknown }).state;
+          const stateVersionRaw = (c as { version?: unknown }).version;
+          let intent: StateIntent = StateIntent.INITIALIZE;
+          let version: bigint = BigInt(0);
+          let data: `0x${string}` = '0x';
+          let allocations: [bigint, bigint][] = [
+            [BigInt(0), BigInt(0)],
+            [BigInt(1), BigInt(0)],
+          ];
+          if (stateRaw && typeof stateRaw === 'object') {
+            const s = stateRaw as Record<string, unknown>;
+            if (typeof s.intent === 'string') {
+              intent = s.intent as unknown as StateIntent;
+            }
+            if (
+              typeof stateVersionRaw === 'string' ||
+              typeof stateVersionRaw === 'number' ||
+              typeof stateVersionRaw === 'bigint'
+            ) {
+              try {
+                version = BigInt(stateVersionRaw);
+              } catch {
+                version = BigInt(0);
+              }
+            } else if (
+              typeof s.version === 'string' ||
+              typeof s.version === 'number' ||
+              typeof s.version === 'bigint'
+            ) {
+              try {
+                version = BigInt(s.version);
+              } catch {
+                version = BigInt(0);
+              }
+            }
+            if (typeof s.data === 'string' && s.data.startsWith('0x')) {
+              data = s.data as `0x${string}`;
+            }
+            if (Array.isArray(s.allocations)) {
+              allocations = s.allocations.map((a, idx) => {
+                if (Array.isArray(a) && a.length === 2) {
+                  let v0 = BigInt(idx);
+                  let v1 = BigInt(0);
+                  if (
+                    (typeof a[0] === 'string' ||
+                      typeof a[0] === 'number' ||
+                      typeof a[0] === 'bigint') &&
+                    (typeof a[1] === 'string' ||
+                      typeof a[1] === 'number' ||
+                      typeof a[1] === 'bigint')
+                  ) {
+                    try {
+                      v0 = BigInt(a[0]);
+                    } catch {
+                      /* ignore */
+                    }
+                    try {
+                      v1 = BigInt(a[1]);
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  return [v0, v1];
+                } else if (a && typeof a === 'object') {
+                  const obj = a as Record<string, unknown>;
+                  let index = BigInt(idx);
+                  let amount = BigInt(0);
+                  if (
+                    typeof obj.index === 'number' ||
+                    typeof obj.index === 'string'
+                  ) {
+                    try {
+                      index = BigInt(obj.index);
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  if (
+                    typeof obj.amount === 'number' ||
+                    typeof obj.amount === 'string'
+                  ) {
+                    try {
+                      amount = BigInt(obj.amount);
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  return [index, amount];
+                } else {
+                  return [BigInt(idx), BigInt(0)];
+                }
+              });
+            }
+          }
+          const state: ChannelWithState['state'] = {
+            intent,
+            version,
+            data,
+            allocations,
+          };
+          return {
+            participants,
+            adjudicator,
+            challenge,
+            nonce,
+            channelId,
+            state,
+            chainId,
+            status,
+          };
+        })
+      : [];
 
     console.log(`[QueryService] Found ${channels.length} payment channels`);
 
@@ -257,20 +419,30 @@ export class QueryService {
 
     request = await this.auth.signRequest(request);
     const response = await this.ws.send(request);
-    const txData = response.res[2];
+    const txData = response.res[2] as { transactions?: any[] };
+    if (!txData || !Array.isArray(txData.transactions)) {
+      console.warn(
+        '[QueryService] No transactions array in response. Returning empty array.',
+      );
+      return [];
+    }
 
-    const transactions: LedgerTransaction[] = txData.transactions.map(
-      (tx: any) => ({
-        id: tx.id,
-        type: tx.type,
-        asset: tx.asset,
-        amount: tx.amount,
-        from: tx.from,
-        to: tx.to,
-        timestamp: tx.timestamp,
-        status: tx.status,
-      }),
-    );
+    const transactions: LedgerTransaction[] = txData.transactions
+      .map((tx) => {
+        if (!tx || typeof tx !== 'object') return null;
+        const t = tx as Record<string, unknown>;
+        return {
+          id: typeof t.id === 'string' ? t.id : '',
+          type: typeof t.type === 'string' ? t.type : '',
+          asset: typeof t.asset === 'string' ? t.asset : '',
+          amount: typeof t.amount === 'string' ? t.amount : '',
+          from: typeof t.from === 'string' ? t.from : '',
+          to: typeof t.to === 'string' ? t.to : '',
+          timestamp: typeof t.timestamp === 'number' ? t.timestamp : 0,
+          status: typeof t.status === 'string' ? t.status : '',
+        };
+      })
+      .filter(Boolean) as LedgerTransaction[];
 
     console.log(`[QueryService] Found ${transactions.length} transactions`);
 
@@ -289,7 +461,9 @@ export class QueryService {
    * @returns App definition with participants, weights, quorum, etc.
    */
   async getAppDefinition(appSessionId: Hash): Promise<any> {
-    console.log(`[QueryService] Fetching app definition for ${appSessionId}...`);
+    console.log(
+      `[QueryService] Fetching app definition for ${appSessionId}...`,
+    );
 
     const requestId = this.ws.getNextRequestId();
     const request: RPCRequest = {
@@ -303,17 +477,30 @@ export class QueryService {
     };
 
     const response = await this.ws.send(request);
-    const definition = response.res[2];
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const definition: any = response.res[2];
 
-    console.log(`[QueryService] ✅ Got app definition with ${definition.participants?.length || 0} participants`);
+    const def = definition as Record<string, unknown>;
+    const protocol = typeof def.protocol === 'string' ? def.protocol : '';
+    const participants = Array.isArray(def.participants)
+      ? def.participants
+      : [];
+    const weights = Array.isArray(def.weights) ? def.weights : [];
+    const quorum = typeof def.quorum === 'number' ? def.quorum : 0;
+    const challenge = typeof def.challenge === 'number' ? def.challenge : 0;
+    const nonce = typeof def.nonce === 'number' ? def.nonce : 0;
+
+    console.log(
+      `[QueryService] ✅ Got app definition with ${participants.length} participants`,
+    );
 
     return {
-      protocol: definition.protocol,
-      participants: definition.participants || [],
-      weights: definition.weights || [],
-      quorum: definition.quorum,
-      challenge: definition.challenge,
-      nonce: definition.nonce,
+      protocol,
+      participants,
+      weights,
+      quorum,
+      challenge,
+      nonce,
     };
   }
 
@@ -341,17 +528,55 @@ export class QueryService {
     // Get full definition with participants from get_app_definition
     // This ensures we always have participant data even if get_app_sessions filtered it
     try {
-      const definition = await this.getAppDefinition(appSessionId);
-      console.log(`[QueryService] ✅ Merged definition with ${definition.participants.length} participants`);
-
+      const definitionRaw = (await this.getAppDefinition(
+        appSessionId,
+      )) as unknown;
+      const def =
+        definitionRaw && typeof definitionRaw === 'object'
+          ? (definitionRaw as Record<string, unknown>)
+          : {};
+      const allowedProtocols = ['NitroRPC/0.2', 'NitroRPC/0.4'] as const;
+      const protocol =
+        typeof def.protocol === 'string' &&
+        allowedProtocols.includes(def.protocol as any)
+          ? (def.protocol as import('./types.js').AppSessionProtocol)
+          : 'NitroRPC/0.4';
+      const participants =
+        Array.isArray(def.participants) &&
+        def.participants.every(
+          (p) => typeof p === 'string' && p.startsWith('0x'),
+        )
+          ? (def.participants as `0x${string}`[])
+          : [];
+      const weights =
+        Array.isArray(def.weights) &&
+        def.weights.every((w) => typeof w === 'number')
+          ? def.weights
+          : [];
+      const quorum = typeof def.quorum === 'number' ? def.quorum : 0;
+      const challenge = typeof def.challenge === 'number' ? def.challenge : 0;
+      const nonce = typeof def.nonce === 'number' ? def.nonce : 0;
+      console.log(
+        `[QueryService] ✅ Merged definition with ${participants.length} participants`,
+      );
       return {
         ...session,
-        definition: definition,
+        definition: {
+          protocol,
+          participants,
+          weights,
+          quorum,
+          challenge,
+          nonce,
+        },
       };
     } catch (error) {
       // If get_app_definition fails, return session with existing definition
       // (may have empty participants but at least we have the session)
-      console.warn(`[QueryService] Failed to get app definition, using session definition:`, error);
+      console.warn(
+        `[QueryService] Failed to get app definition, using session definition:`,
+        error,
+      );
       return session;
     }
   }
@@ -369,19 +594,20 @@ export class QueryService {
     };
 
     const response = await this.ws.send(request);
-    const pongData = response.res[2];
-
-    // Handle null or undefined pongData
-    if (!pongData || typeof pongData !== 'object') {
+    const pongDataRaw: unknown = response.res[2];
+    if (!pongDataRaw || typeof pongDataRaw !== 'object') {
       return {
         pong: 'pong',
         timestamp: Date.now(),
       };
     }
-
+    const pongData = pongDataRaw as Record<string, unknown>;
     return {
-      pong: pongData.pong || 'pong',
-      timestamp: pongData.timestamp || Date.now(),
+      pong: typeof pongData.pong === 'string' ? pongData.pong : 'pong',
+      timestamp:
+        typeof pongData.timestamp === 'number'
+          ? pongData.timestamp
+          : Date.now(),
     };
   }
 }

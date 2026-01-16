@@ -457,7 +457,7 @@ export class ZerionService {
   private async makeRequest<T>(
     url: string,
     retries = 3,
-    timeoutMs = 30000,
+    timeoutMs = 60000, // Increased from 30s to 60s for production
   ): Promise<T> {
     if (!this.apiKey) {
       throw new Error('Zerion API key not configured');

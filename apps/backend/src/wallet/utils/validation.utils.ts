@@ -160,3 +160,75 @@ export function validateSufficientBalance(
 
   return true;
 }
+
+/**
+ * Get block explorer URL for a transaction
+ * @param txHash - Transaction hash
+ * @param chain - Chain name or chain ID
+ * @returns Block explorer URL
+ */
+export function getExplorerUrl(
+  txHash: string,
+  chain: string | number,
+): string {
+  // Convert chain ID to chain name if needed
+  const chainIdMap: Record<number, string> = {
+    1: 'ethereum',
+    8453: 'base',
+    42161: 'arbitrum',
+    10: 'optimism',
+    137: 'polygon',
+    43114: 'avalanche',
+    11155111: 'sepolia',
+    56: 'bnb',
+  };
+
+  const chainName =
+    typeof chain === 'number' ? chainIdMap[chain] || 'ethereum' : chain;
+
+  // EVM chain explorers
+  const evmExplorers: Record<string, string> = {
+    ethereum: 'https://etherscan.io',
+    base: 'https://basescan.org',
+    arbitrum: 'https://arbiscan.io',
+    optimism: 'https://optimistic.etherscan.io',
+    polygon: 'https://polygonscan.com',
+    avalanche: 'https://snowtrace.io',
+    sepolia: 'https://sepolia.etherscan.io',
+    bnb: 'https://bscscan.com',
+  };
+
+  if (evmExplorers[chainName]) {
+    return `${evmExplorers[chainName]}/tx/${txHash}`;
+  }
+
+  // Non-EVM chains
+  const nonEvmExplorers: Record<string, string> = {
+    tron: `https://tronscan.org/#/transaction/${txHash}`,
+    bitcoin: `https://blockstream.info/tx/${txHash}`,
+    solana: `https://solscan.io/tx/${txHash}`,
+    aptos: `https://explorer.aptoslabs.com/?network=mainnet&transaction=${txHash}`,
+    aptosTestnet: `https://explorer.aptoslabs.com/?network=testnet&transaction=${txHash}`,
+  };
+
+  if (nonEvmExplorers[chainName]) {
+    return nonEvmExplorers[chainName];
+  }
+
+  // Substrate/Polkadot chains
+  const substrateExplorers: Record<string, string> = {
+    polkadot: 'https://polkadot.subscan.io',
+    hydrationSubstrate: 'https://hydradx.subscan.io',
+    bifrostSubstrate: 'https://bifrost.subscan.io',
+    uniqueSubstrate: 'https://unique.subscan.io',
+    paseo: 'https://paseo.subscan.io',
+    paseoAssethub: 'https://assethub-paseo.subscan.io',
+  };
+
+  if (substrateExplorers[chainName]) {
+    return `${substrateExplorers[chainName]}/extrinsic/${txHash}`;
+  }
+
+  // Default fallback
+  return `https://etherscan.io/tx/${txHash}`;
+}
