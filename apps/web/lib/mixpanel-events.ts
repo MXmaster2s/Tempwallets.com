@@ -12,7 +12,7 @@ import { trackEvent } from './mixpanel';
 // ==========================================
 
 /**
- * Track when a user successfully authenticates their wallet with Lightning Network
+ * Track when a user successfully authenticates their wallet with Clearnode
  */
 export const trackLightningWalletConnected = (params: {
   userId: string;
@@ -20,7 +20,7 @@ export const trackLightningWalletConnected = (params: {
   chain: string;
   timestamp: number;
 }) => {
-  trackEvent('lightning_wallet_connected', {
+  trackEvent('clearnode_connected', {
     user_id: params.userId,
     wallet_address: params.walletAddress,
     chain: params.chain,

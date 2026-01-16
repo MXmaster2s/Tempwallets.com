@@ -480,26 +480,15 @@ export class ZerionService {
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        // Log the request in production for debugging
-        this.logger.debug(
-          `Zerion API request attempt ${attempt}/${retries}: ${url.substring(0, 100)}...`,
-        );
-
         // Create AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
-          const startTime = Date.now();
           const response = await fetch(url, {
             headers,
             signal: controller.signal,
           });
-          const duration = Date.now() - startTime;
-
-          this.logger.debug(
-            `Zerion API response received in ${duration}ms (status: ${response.status})`,
-          );
 
           clearTimeout(timeoutId);
 
@@ -526,16 +515,8 @@ export class ZerionService {
 
           // Check if it's a timeout/abort error
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            this.logger.warn(
-              `Zerion API request timeout after ${timeoutMs}ms (attempt ${attempt}/${retries})`,
-            );
             throw new Error(`Request timeout after ${timeoutMs}ms`);
           }
-
-          // Log other fetch errors
-          this.logger.warn(
-            `Zerion API fetch error: ${fetchError instanceof Error ? fetchError.message : 'Unknown'} (attempt ${attempt}/${retries})`,
-          );
 
           throw fetchError;
         }

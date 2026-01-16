@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Loader2, Zap, Copy, ChevronRight, Search, Mail, CheckCircle2, AlertCircle, Wallet, Plus } from 'lucide-react';
+import { Loader2, Zap, Copy, ChevronRight, Mail, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { useLightningNodes } from '@/hooks/lightning-nodes-context';
 import { CreateLightningNodeModal } from './create-lightning-node-modal';
@@ -32,13 +32,11 @@ function AuthenticationBanner({
   authenticating,
   walletAddress,
   error,
-  onFundChannel,
 }: {
   authenticated: boolean;
   authenticating: boolean;
   walletAddress: string | null;
   error: string | null;
-  onFundChannel?: () => void;
 }) {
   const [copiedAddress, setCopiedAddress] = useState(false);
 
@@ -57,7 +55,7 @@ function AuthenticationBanner({
         <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
         <div>
           <p className="font-rubik-medium text-gray-900">Authenticating Wallet</p>
-          <p className="text-sm text-gray-700">Connecting to Yellow Network...</p>
+          <p className="text-sm text-gray-700">Establishing clearnode connection...</p>
         </div>
       </div>
     );
@@ -82,11 +80,10 @@ function AuthenticationBanner({
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-gray-700" />
           <div className="flex-1">
-            <p className="font-rubik-medium text-gray-900 flex items-center gap-2">
-              <Wallet className="h-4 w-4" />
-              Wallet Connected
+            <p className="font-rubik-medium text-gray-900">
+              Wallet Authenticated
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <p 
                 className="text-sm text-gray-700 font-mono cursor-pointer hover:text-gray-900 transition-colors"
                 onClick={handleCopyAddress}
@@ -135,8 +132,6 @@ function AuthenticationBanner({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            <span className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded-full">Base</span>
           </div>
         </div>
       </div>
@@ -401,7 +396,6 @@ export function LightningNodesView() {
           authenticating={authenticating}
           walletAddress={walletAddress}
           error={error}
-          onFundChannel={() => setFundChannelModalOpen(true)}
         />
 
         {/* Empty State */}
@@ -460,7 +454,6 @@ export function LightningNodesView() {
         authenticating={authenticating}
         walletAddress={walletAddress}
         error={error}
-        onFundChannel={() => setFundChannelModalOpen(true)}
       />
 
       <div className="space-y-6">

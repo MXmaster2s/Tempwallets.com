@@ -5,7 +5,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
@@ -19,7 +18,7 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { Label } from "@repo/ui/components/ui/label";
-import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Zap, Clipboard } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Clipboard } from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
 import { useTokenIcon } from "@/lib/token-icons";
 import { trackTransaction } from "@/lib/tempwallets-analytics";
@@ -313,6 +312,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ amount?: string; address?: string }>({});
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const loadTokens = useCallback(async () => {
@@ -646,6 +646,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       }
 
       setTxHash(result.txHash);
+      setExplorerUrl(result.explorerUrl || null);
       setSuccess(true);
 
       // Track successful send transaction
@@ -722,12 +723,6 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           <DialogTitle className="text-xl font-semibold flex items-center gap-2">
             <ChainIcon className="h-6 w-6" />
             {chainName}
-            {isEip7702Chain(chain) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                <Zap className="h-3 w-3" />
-                Sponsored
-              </span>
-            )}
           </DialogTitle>
           <DialogDescription className="text-sm text-white/60">
             {isEip7702Chain(chain) 
@@ -863,7 +858,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
                 Transaction sent!
               </p>
               <a
-                href={getExplorerUrl(txHash, chain)}
+                href={explorerUrl || getExplorerUrl(txHash, chain)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-white/70 hover:text-white hover:underline flex items-center gap-1"

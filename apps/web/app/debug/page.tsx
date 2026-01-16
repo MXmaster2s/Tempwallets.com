@@ -1,5 +1,4 @@
-import { EnvironmentDebug } from '@/components/debug/environment-debug';
 
 export default function DebugPage() {
-  return <EnvironmentDebug />;
+  return <div>Debug component not found.</div>;
 }

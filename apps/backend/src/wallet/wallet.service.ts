@@ -36,7 +36,7 @@ import {
   convertToSmallestUnits,
   convertSmallestToHuman,
 } from './utils/conversion.utils.js';
-import { validateAmount } from './utils/validation.utils.js';
+import { validateAmount, getExplorerUrl } from './utils/validation.utils.js';
 import { PimlicoConfigService } from './config/pimlico.config.js';
 
 @Injectable()
@@ -381,9 +381,7 @@ export class WalletService {
     const canonicalAddress = canonicalChainKey
       ? (metadata[canonicalChainKey]?.address ?? null)
       : null;
-    const canonicalChain = canonicalChainKey
-  ? canonicalChainKey
-      : null;
+    const canonicalChain = canonicalChainKey ? canonicalChainKey : null;
 
     const smartAccount: SmartAccountSummary | null = canonicalAddress
       ? {
@@ -875,7 +873,7 @@ export class WalletService {
     const addresses = await this.getAddresses(userId);
     const targetAddresses = [addresses.ethereum, addresses.solana].filter(
       Boolean,
-    ) as string[];
+    );
 
     // Polkadot EVM chains use the same EOA address as ethereum
     const polkadotEvmAddress = addresses.ethereum;
@@ -1749,8 +1747,8 @@ export class WalletService {
       if (!match) {
         this.logger.warn(
           `[Zerion Lookup] Token ${tokenAddress} not found in Zerion positions for ${walletAddress}. ` +
-          `User may not hold this token, or Zerion data is stale. ` +
-          `Checked chain aliases: [${chainAliases.join(', ')}]`,
+            `User may not hold this token, or Zerion data is stale. ` +
+            `Checked chain aliases: [${chainAliases.join(', ')}]`,
         );
         return null;
       }
@@ -1762,7 +1760,7 @@ export class WalletService {
       if (decimals === null || decimals === undefined) {
         this.logger.error(
           `[Zerion Lookup] Token ${tokenAddress} found but decimals field is null/undefined. ` +
-          `Decimals value: ${decimals}. Zerion data may be incomplete.`,
+            `Decimals value: ${decimals}. Zerion data may be incomplete.`,
         );
         return null;
       }
@@ -1770,7 +1768,7 @@ export class WalletService {
       if (typeof decimals !== 'number') {
         this.logger.error(
           `[Zerion Lookup] Token ${tokenAddress} has invalid decimals type: ${typeof decimals}. ` +
-          `Value: ${decimals}. Expected a number.`,
+            `Value: ${decimals}. Expected a number.`,
         );
         return null;
       }
@@ -1778,7 +1776,7 @@ export class WalletService {
       if (decimals < 0 || decimals > 36) {
         this.logger.error(
           `[Zerion Lookup] Token ${tokenAddress} has out-of-range decimals: ${decimals}. ` +
-          `Decimals must be between 0 and 36.`,
+            `Decimals must be between 0 and 36.`,
         );
         return null;
       }
@@ -2008,9 +2006,9 @@ export class WalletService {
       throw new BadRequestException('Amount must be a positive number');
     }
 
-  const forceEip7702 = options?.forceEip7702 === true;
-  const isEip7702Chain = this.pimlicoConfig.isEip7702Enabled(chain);
-  const accountType = isEip7702Chain ? 'EIP-7702' : 'EOA';
+    const forceEip7702 = options?.forceEip7702 === true;
+    const isEip7702Chain = this.pimlicoConfig.isEip7702Enabled(chain);
+    const accountType = isEip7702Chain ? 'EIP-7702' : 'EOA';
 
     try {
       const seedPhrase = await this.seedRepository.getSeedPhrase(userId);
@@ -2018,7 +2016,15 @@ export class WalletService {
       // Auto-route native sends on EIP-7702 enabled chains to the gasless flow to avoid zeroed gas fields
       if (isEip7702Chain && !tokenAddress && !forceEip7702) {
         const chainId = this.pimlicoConfig.getEip7702Config(
-          chain as 'ethereum' | 'sepolia' | 'base' | 'arbitrum' | 'optimism' | 'polygon' | 'bnb' | 'avalanche',
+          chain as
+            | 'ethereum'
+            | 'sepolia'
+            | 'base'
+            | 'arbitrum'
+            | 'optimism'
+            | 'polygon'
+            | 'bnb'
+            | 'avalanche',
         ).chainId;
 
         this.logger.warn(
@@ -2068,13 +2074,13 @@ export class WalletService {
           decimalsSource = 'frontend-zerion';
           this.logger.log(
             `[Decimals Optimization] Using frontend-provided token decimals: ${finalDecimals} ` +
-            `(source: ${decimalsSource}). Skipping redundant Zerion API call.`,
+              `(source: ${decimalsSource}). Skipping redundant Zerion API call.`,
           );
         } else {
           // Frontend didn't provide decimals or they're invalid - fetch from Zerion
           this.logger.warn(
             `[Decimals Fallback] Frontend did not provide valid tokenDecimals for ${tokenAddress}. ` +
-            `Provided value: ${tokenDecimals}. Falling back to Zerion API lookup.`,
+              `Provided value: ${tokenDecimals}. Falling back to Zerion API lookup.`,
           );
 
           const tokenInfo = await this.getZerionTokenInfo(
@@ -2093,13 +2099,13 @@ export class WalletService {
             decimalsSource = 'zerion-api';
             this.logger.log(
               `[Decimals Fallback] Fetched token decimals from Zerion API: ${finalDecimals} ` +
-              `(source: ${decimalsSource})`,
+                `(source: ${decimalsSource})`,
             );
           } else {
             // Zerion failed - try RPC as final fallback
             this.logger.warn(
               `[Decimals Fallback] Zerion API lookup failed for ${tokenAddress} on ${chain}. ` +
-              `Trying RPC decimals() call as final fallback.`,
+                `Trying RPC decimals() call as final fallback.`,
             );
 
             const rpcDecimals = await this.fetchDecimalsFromRPC(
@@ -2111,15 +2117,15 @@ export class WalletService {
               decimalsSource = 'rpc-decimals()';
               this.logger.log(
                 `[Decimals Fallback] Fetched token decimals from RPC: ${finalDecimals} ` +
-                `(source: ${decimalsSource})`,
+                  `(source: ${decimalsSource})`,
               );
             } else {
               // All methods failed
               throw new BadRequestException(
                 `Cannot determine token decimals for ${tokenAddress} on ${chain}. ` +
-                `Attempted: Frontend (${tokenDecimals}), Zerion API (failed), RPC decimals() (failed). ` +
-                `This token may not exist on ${chain}, or Zerion data is incomplete. ` +
-                `Please refresh your wallet data and try again.`,
+                  `Attempted: Frontend (${tokenDecimals}), Zerion API (failed), RPC decimals() (failed). ` +
+                  `This token may not exist on ${chain}, or Zerion data is incomplete. ` +
+                  `Please refresh your wallet data and try again.`,
               );
             }
           }
@@ -2225,7 +2231,7 @@ export class WalletService {
         );
       }
 
-      // Send transaction using WDK - single mapped method per account type
+      // Send transaction- single mapped method per account type
       let txHash: string = '';
       let sendMethod: string = 'unknown';
 
@@ -2239,15 +2245,34 @@ export class WalletService {
           ) {
             try {
               // Try with 'recipient' key first
-              const result = await (account as any).transfer({
+              // Define a type for accounts with transfer method
+              type TransferableAccount = {
+                transfer(params: {
+                  token: string;
+                  recipient: string;
+                  amount: bigint;
+                }): Promise<string | { hash?: string; txHash?: string }>;
+              };
+              const transferableAccount = account as TransferableAccount;
+              const result = await transferableAccount.transfer({
                 token: tokenAddress,
                 recipient: recipientAddress,
                 amount: amountSmallest,
               });
-              txHash =
-                typeof result === 'string'
-                  ? result
-                  : result?.hash || result?.txHash || String(result);
+              if (typeof result === 'string') {
+                txHash = result;
+              } else if (
+                typeof result === 'object' &&
+                result !== null &&
+                ('hash' in result || 'txHash' in result)
+              ) {
+                txHash =
+                  (result as { hash?: string; txHash?: string }).hash ||
+                  (result as { hash?: string; txHash?: string }).txHash ||
+                  String(result);
+              } else {
+                txHash = String(result);
+              }
               sendMethod = 'transfer({token, recipient, amount})';
             } catch (e1) {
               // Try with 'to' key if 'recipient' was not accepted
@@ -2482,11 +2507,15 @@ export class WalletService {
       { forceEip7702: true },
     );
 
+    // Generate explorer URL for the transaction
+    const explorerUrl = getExplorerUrl(txHash, chainId);
+
     return {
       success: true,
       userOpHash: txHash,
       transactionHash: txHash,
       isFirstTransaction,
+      explorerUrl,
     };
   }
 

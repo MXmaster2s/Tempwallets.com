@@ -100,7 +100,7 @@ export class LightningNodeController {
   /**
    * POST /lightning-node/fund-channel
    * Fund payment channel (add funds to unified balance)
-   * 
+   *
    * This moves funds from the user's on-chain wallet to the unified balance.
    * Funds in unified balance can then be deposited to app sessions (gasless).
    */
@@ -113,7 +113,7 @@ export class LightningNodeController {
   /**
    * POST /lightning-node/deposit
    * Deposit funds to Lightning Node (gasless)
-   * 
+   *
    * Moves funds from unified balance to app session.
    * Requires funds to be in unified balance first (use fund-channel endpoint).
    */

@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   createPublicClient,
-  createWalletClient,
   http,
   type Address,
   type Chain,
   defineChain,
+  encodeFunctionData,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import {
@@ -380,6 +380,164 @@ class Eip7702SmartAccountWrapper implements IAccount {
       throw new Error(
         `Failed to send EIP-7702 transaction: ${errorMsg}. ` +
         `This may indicate a bundler issue, network incompatibility, or incorrect delegation address.`,
+      );
+    }
+  }
+
+  /**
+   * Transfer ERC-20 tokens using EIP-7702 gasless transaction
+   * @param params - Transfer parameters (token address, recipient, amount)
+   * @returns Transaction hash
+   */
+  async transfer(params: {
+    token: string;
+    recipient: string;
+    amount: bigint;
+  }): Promise<string> {
+    const { token, recipient, amount } = params;
+
+    this.logger.log(`[EIP-7702 Transfer] Starting ERC-20 token transfer`);
+    this.logger.log(`[EIP-7702 Transfer] Token: ${token}`);
+    this.logger.log(`[EIP-7702 Transfer] To: ${recipient}`);
+    this.logger.log(`[EIP-7702 Transfer] Amount: ${amount.toString()}`);
+    this.logger.log(`[EIP-7702 Transfer] EOA Address: ${this.eoaAddress}`);
+    this.logger.log(`[EIP-7702 Transfer] Chain ID: ${this.chainId}`);
+
+    try {
+      // Check delegation status
+      const code = await this.publicClient.getBytecode({
+        address: this.eoaAddress,
+      });
+
+      const hasDelegation = code && code !== '0x' && code.length > 2;
+
+      this.logger.log(
+        `[EIP-7702 Transfer] Delegation status - hasBytecode: ${hasDelegation}`,
+      );
+
+      // Encode ERC-20 transfer function call
+      // transfer(address to, uint256 amount)
+      const data = encodeFunctionData({
+        abi: [
+          {
+            name: 'transfer',
+            type: 'function',
+            stateMutability: 'nonpayable',
+            inputs: [
+              { name: 'to', type: 'address' },
+              { name: 'amount', type: 'uint256' },
+            ],
+            outputs: [{ type: 'bool' }],
+          },
+        ],
+        functionName: 'transfer',
+        args: [recipient as Address, amount],
+      });
+
+      this.logger.log(`[EIP-7702 Transfer] Encoded transfer data: ${data}`);
+
+      let txHash: string;
+
+      if (!hasDelegation) {
+        // First transaction - include authorization
+        this.logger.log(
+          `[EIP-7702 Transfer] First transaction - including authorization`,
+        );
+
+        const nonce = await this.publicClient.getTransactionCount({
+          address: this.eoaAddress,
+        });
+
+        this.logger.log(`[EIP-7702 Transfer] EOA nonce: ${nonce}`);
+
+        const authorization = await this.eoaAccount.signAuthorization({
+          address: this.delegationAddress,
+          chainId: this.chainId,
+          nonce,
+        });
+
+        this.logger.log(`[EIP-7702 Transfer] Authorization signed`);
+
+        // Verify authorization signature
+        try {
+          const recoveredAddress = await recoverAuthorizationAddress({
+            authorization,
+          });
+          this.logger.log(
+            `[EIP-7702 Transfer] Authorization signer: ${recoveredAddress}`,
+          );
+
+          if (
+            recoveredAddress.toLowerCase() !== this.eoaAddress.toLowerCase()
+          ) {
+            throw new Error(
+              `Authorization signature mismatch! ` +
+                `Expected: ${this.eoaAddress}, Got: ${recoveredAddress}`,
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            `[EIP-7702 Transfer] Authorization verification failed:`,
+            error instanceof Error ? error.message : 'Unknown error',
+          );
+          throw error;
+        }
+
+        // Send ERC-20 transfer with authorization (gasless)
+        txHash = await this.client.sendTransaction({
+          to: token as Address,
+          value: 0n,
+          data,
+          authorization,
+        });
+
+        this.logger.log(
+          `[EIP-7702 Transfer] First ERC-20 transfer sent: ${txHash}`,
+        );
+
+        // Record delegation in database
+        if (this.userId) {
+          await this.delegationRepo.recordDelegation(
+            this.userId,
+            this.eoaAddress,
+            this.chainId,
+            this.delegationAddress,
+          );
+          this.logger.log(
+            `[EIP-7702 Transfer] Delegation recorded in database`,
+          );
+        }
+      } else {
+        // Subsequent transactions - no authorization needed
+        this.logger.log(
+          `[EIP-7702 Transfer] Subsequent transaction - no authorization`,
+        );
+
+        // Send ERC-20 transfer without authorization (gasless)
+        txHash = await this.client.sendTransaction({
+          to: token as Address,
+          value: 0n,
+          data,
+        });
+
+        this.logger.log(`[EIP-7702 Transfer] ERC-20 transfer sent: ${txHash}`);
+      }
+
+      return txHash;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`[EIP-7702 Transfer] ERC-20 transfer failed:`, {
+        error: errorMsg,
+        token,
+        recipient,
+        amount: amount.toString(),
+        eoaAddress: this.eoaAddress,
+        chainId: this.chainId,
+      });
+
+      throw new Error(
+        `Failed to send EIP-7702 ERC-20 transfer: ${errorMsg}. ` +
+          `This may indicate a bundler issue, network incompatibility, incorrect token address, or insufficient token balance.`,
       );
     }
   }
