@@ -33,6 +33,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.1.0",
     "@polkadot/api": "^16.5.2",
     "@polkadot/keyring": "13.5.8",
     "@polkadot/types": "^16.5.2",
