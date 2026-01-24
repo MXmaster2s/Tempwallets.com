@@ -132,8 +132,8 @@ export class LightningNodeService {
 
       throw new NotFoundException(
         `No wallet address found for chain "${chainName}" (tried ${baseChain} and ${baseChain}Erc4337). ` +
-          `Available chains: ${availableChains || 'none'}. ` +
-          `Please select a different chain or refresh your wallet to generate addresses for this chain.`,
+        `Available chains: ${availableChains || 'none'}. ` +
+        `Please select a different chain or refresh your wallet to generate addresses for this chain.`,
       );
     }
 
@@ -207,7 +207,7 @@ export class LightningNodeService {
       );
       throw new BadRequestException(
         `Failed to create signer account: ${err.message}. ` +
-          `Make sure the user has a wallet seed phrase configured.`,
+        `Make sure the user has a wallet seed phrase configured.`,
       );
     }
   }
@@ -412,7 +412,7 @@ export class LightningNodeService {
 
       if (participants.length < 2) {
         throw new BadRequestException(
-          'Lightning Nodes require at least 1 participant address besides the creator.',
+          'Participant address required.',
         );
       }
 
@@ -441,8 +441,8 @@ export class LightningNodeService {
       if (participantsWithFunds.length > 1) {
         this.logger.warn(
           `[LN/create] Multiple participants have initial funds. ` +
-            `Yellow Network requires ALL of them to sign the creation request. ` +
-            `This feature is not yet implemented. Only creator will sign.`,
+          `Yellow Network requires ALL of them to sign the creation request. ` +
+          `This feature is not yet implemented. Only creator will sign.`,
         );
         // TODO: Implement multi-party signing flow
         // For now, we'll proceed with single signer and let Yellow Network reject if needed
@@ -544,9 +544,8 @@ export class LightningNodeService {
         `Failed to create Lightning Node: ${err.message}`,
         err.stack,
       );
-      throw new BadRequestException(
-        `Failed to create Lightning Node: ${err.message}`,
-      );
+      // Don't prefix with "Failed to create Lightning Node: " to avoid repetition
+      throw new BadRequestException(err.message);
     }
   }
 
@@ -728,7 +727,7 @@ export class LightningNodeService {
         );
         throw new BadRequestException(
           `You are not a participant in this session. ` +
-            `Your wallet address (${userWalletAddress}) was not included when the session was created.`,
+          `Your wallet address (${userWalletAddress}) was not included when the session was created.`,
         );
       }
 
@@ -793,7 +792,7 @@ export class LightningNodeService {
 
       throw new BadRequestException(
         `Failed to search for session: ${err.message}. ` +
-          `Make sure you're authenticated and the session exists.`,
+        `Make sure you're authenticated and the session exists.`,
       );
     }
   }
@@ -1105,8 +1104,8 @@ export class LightningNodeService {
       if (!participantRow) {
         throw new BadRequestException(
           `You are not a participant in this Lightning Node. ` +
-            `Your wallet address (${userWalletAddress}) was not included when the session was created. ` +
-            `In Yellow Network, participants must be specified at creation time and cannot be added later.`,
+          `Your wallet address (${userWalletAddress}) was not included when the session was created. ` +
+          `In Yellow Network, participants must be specified at creation time and cannot be added later.`,
         );
       }
 
@@ -1176,8 +1175,8 @@ export class LightningNodeService {
           if (!isIncluded) {
             this.logger.warn(
               `[LN/join] Yellow Network query result doesn't include user's address. ` +
-                `This may be due to wallet-scoped query visibility. ` +
-                `userAddress=${userWalletAddress} remoteParticipants=${remoteParticipants.join(',')}`,
+              `This may be due to wallet-scoped query visibility. ` +
+              `userAddress=${userWalletAddress} remoteParticipants=${remoteParticipants.join(',')}`,
             );
           } else {
             this.logger.log(
@@ -1192,8 +1191,8 @@ export class LightningNodeService {
         );
         throw new BadRequestException(
           `Cannot access Lightning Node on Yellow Network. ` +
-            `This may indicate: (1) session doesn't exist, (2) authentication failed, or (3) you're not a participant. ` +
-            `Error: ${err.message}`,
+          `This may indicate: (1) session doesn't exist, (2) authentication failed, or (3) you're not a participant. ` +
+          `Error: ${err.message}`,
         );
       }
 
@@ -1806,9 +1805,7 @@ export class LightningNodeService {
       }
     }
 
-    throw new BadRequestException(
-      'Invalid Lightning Node URI format. Expected lightning://0x<bytes32>.',
-    );
+    throw new BadRequestException('Invalid Lightning Node URI format.');
   }
 
   /**
