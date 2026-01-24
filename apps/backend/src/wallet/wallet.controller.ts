@@ -162,6 +162,36 @@ export class WalletController {
     }
   }
 
+  @Get('assets-any-db')
+  async getAssetsAnyDb(
+    @UserId() userId?: string,
+    @Query('userId') queryUserId?: string,
+    @Query('refreshIfStale') refreshIfStale?: string,
+  ) {
+    const finalUserId = userId || queryUserId;
+    if (!finalUserId) {
+      throw new BadRequestException('userId is required');
+    }
+
+    const doRefresh = refreshIfStale === 'true';
+    this.logger.log(
+      `Getting DB-backed any-chain assets for user ${finalUserId}${doRefresh ? ' (refresh if stale)' : ''}`,
+    );
+
+    try {
+      const assets = await this.walletService.getDbTokenBalances(
+        finalUserId,
+        doRefresh,
+      );
+      return assets;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get DB assets: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
+  }
+
   /**
    * Get wallet history for authenticated users
    * GET /wallet/history

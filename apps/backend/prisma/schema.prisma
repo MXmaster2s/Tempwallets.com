@@ -23,11 +23,31 @@ model User {
   sessions        UserSession[]
   paymentChannels PaymentChannel[]
   lightningNodes  LightningNode[]
+  userAssets    UserAsset[]  
 
   @@index([googleId])
   @@index([fingerprint])
 }
 
+model UserAsset {
+  id            String   @id @default(cuid())
+  userId        String
+  chain         String   
+  address       String?  
+  symbol        String   
+  balance       String   
+  decimals      Int      
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chain, address, symbol])
+  @@index([userId])
+  @@index([userId, lastSyncedAt])
+  @@index([chain])
+}
 model Wallet {
   id               String          @id @default(cuid())
   userId           String

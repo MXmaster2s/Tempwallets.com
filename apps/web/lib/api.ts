@@ -10,10 +10,20 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
 export interface SmartAccountSummary {
   key: 'evmSmartAccount';
   label: string;
-  canonicalChain: 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche' | null;
+  canonicalChain:
+    | 'ethereum'
+    | 'base'
+    | 'arbitrum'
+    | 'polygon'
+    | 'avalanche'
+    | null;
   address: string | null;
   chains: Record<
-    'ethereumErc4337' | 'baseErc4337' | 'arbitrumErc4337' | 'polygonErc4337' | 'avalancheErc4337',
+    | 'ethereumErc4337'
+    | 'baseErc4337'
+    | 'arbitrumErc4337'
+    | 'polygonErc4337'
+    | 'avalancheErc4337',
     string | null
   >;
 }
@@ -308,7 +318,10 @@ export interface GetLightningNodeByIdResponse {
 }
 
 class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
     this.name = 'ApiError';
   }
@@ -320,10 +333,11 @@ async function fetchApi<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const timeout = options?.timeout ?? 30000; // Default 30 seconds, can be overridden
-  
+
   // Get auth token from localStorage if available
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -370,7 +384,10 @@ async function fetchApi<T>(
     if (error instanceof Error && error.message.includes('fetch')) {
       throw new ApiError(503, 'Network error. Please check your connection.');
     }
-    throw new ApiError(500, error instanceof Error ? error.message : 'Unknown error');
+    throw new ApiError(
+      500,
+      error instanceof Error ? error.message : 'Unknown error',
+    );
   }
 }
 
@@ -378,7 +395,9 @@ export const walletApi = {
   /**
    * Create or import a wallet seed phrase
    */
-  async createOrImportSeed(data: CreateOrImportSeedRequest): Promise<CreateOrImportSeedResponse> {
+  async createOrImportSeed(
+    data: CreateOrImportSeedRequest,
+  ): Promise<CreateOrImportSeedResponse> {
     return fetchApi<CreateOrImportSeedResponse>('/wallet/seed', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -406,30 +425,39 @@ export const walletApi = {
    * Delete a wallet from history
    */
   async deleteWalletHistory(walletId: string): Promise<{ ok: boolean }> {
-    return fetchApi<{ ok: boolean }>(`/wallet/history/${encodeURIComponent(walletId)}`, {
-      method: 'DELETE',
-    });
+    return fetchApi<{ ok: boolean }>(
+      `/wallet/history/${encodeURIComponent(walletId)}`,
+      {
+        method: 'DELETE',
+      },
+    );
   },
 
   /**
    * Get all wallet addresses for a user
    */
   async getAddresses(userId: string): Promise<UiWalletPayload> {
-    return fetchApi<UiWalletPayload>(`/wallet/addresses?userId=${encodeURIComponent(userId)}`);
+    return fetchApi<UiWalletPayload>(
+      `/wallet/addresses?userId=${encodeURIComponent(userId)}`,
+    );
   },
 
   /**
    * Get balances for all chains
    */
   async getBalances(userId: string): Promise<WalletBalance[]> {
-    return fetchApi<WalletBalance[]>(`/wallet/balances?userId=${encodeURIComponent(userId)}`);
+    return fetchApi<WalletBalance[]>(
+      `/wallet/balances?userId=${encodeURIComponent(userId)}`,
+    );
   },
 
   /**
    * Get ERC-4337 paymaster token balances
    */
   async getErc4337PaymasterBalances(userId: string): Promise<WalletBalance[]> {
-    return fetchApi<WalletBalance[]>(`/wallet/erc4337/paymaster-balances?userId=${encodeURIComponent(userId)}`);
+    return fetchApi<WalletBalance[]>(
+      `/wallet/erc4337/paymaster-balances?userId=${encodeURIComponent(userId)}`,
+    );
   },
 
   /**
@@ -445,42 +473,75 @@ export const walletApi = {
   /**
    * Get token balances for a specific chain
    */
-  async getTokenBalances(userId: string, chain: string): Promise<TokenBalance[]> {
+  async getTokenBalances(
+    userId: string,
+    chain: string,
+  ): Promise<TokenBalance[]> {
     return fetchApi<TokenBalance[]>(
-      `/wallet/token-balances?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}`
+      `/wallet/token-balances?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}`,
+    );
+  },
+  /**
+   * Get aggregated assets (any-chain) from DB cache
+   * Optionally triggers background refresh if data is stale
+   */
+  async getDbAssetsAny(
+    userId: string,
+    options?: { refreshIfStale?: boolean },
+  ): Promise<AnyChainAsset[]> {
+    const refreshParam = options?.refreshIfStale ? '&refreshIfStale=true' : '';
+    return fetchApi<AnyChainAsset[]>(
+      `/wallet/assets-any-db?userId=${encodeURIComponent(userId)}${refreshParam}`,
     );
   },
 
   /**
    * Get transaction history for a specific chain
    */
-  async getTransactionHistory(userId: string, chain: string, limit: number = 50): Promise<Transaction[]> {
+  async getTransactionHistory(
+    userId: string,
+    chain: string,
+    limit: number = 50,
+  ): Promise<Transaction[]> {
     return fetchApi<Transaction[]>(
-      `/wallet/transactions?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}&limit=${limit}`
+      `/wallet/transactions?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}&limit=${limit}`,
     );
   },
 
   /**
    * Get aggregated assets (any-chain) for primary addresses (EOA, ERC-4337, Solana)
    */
-  async getAssetsAny(userId: string, refresh: boolean = false): Promise<AnyChainAsset[]> {
+  async getAssetsAny(
+    userId: string,
+    refresh: boolean = false,
+  ): Promise<AnyChainAsset[]> {
     const refreshParam = refresh ? '&refresh=true' : '';
-    return fetchApi<AnyChainAsset[]>(`/wallet/assets-any?userId=${encodeURIComponent(userId)}${refreshParam}`);
+    return fetchApi<AnyChainAsset[]>(
+      `/wallet/assets-any?userId=${encodeURIComponent(userId)}${refreshParam}`,
+    );
   },
 
   /**
    * Get aggregated transactions (any-chain) for primary addresses
    */
-  async getTransactionsAny(userId: string, limit: number = 100): Promise<Transaction[]> {
-    return fetchApi<Transaction[]>(`/wallet/transactions-any?userId=${encodeURIComponent(userId)}&limit=${limit}`);
+  async getTransactionsAny(
+    userId: string,
+    limit: number = 100,
+  ): Promise<Transaction[]> {
+    return fetchApi<Transaction[]>(
+      `/wallet/transactions-any?userId=${encodeURIComponent(userId)}&limit=${limit}`,
+    );
   },
 
   /**
    * Get WalletConnect-compatible accounts/namespaces for a user
    */
-  async getWalletConnectAccounts(userId: string): Promise<WalletConnectNamespacePayload> {
+
+  async getWalletConnectAccounts(
+    userId: string,
+  ): Promise<WalletConnectNamespacePayload> {
     return fetchApi<WalletConnectNamespacePayload>(
-      `/wallet/walletconnect/accounts?userId=${encodeURIComponent(userId)}`
+      `/wallet/walletconnect/accounts?userId=${encodeURIComponent(userId)}`,
     );
   },
 
@@ -513,24 +574,37 @@ export const walletApi = {
   /**
    * Get Substrate addresses for a user
    */
-  async getSubstrateAddresses(userId: string, useTestnet: boolean = false): Promise<Record<string, string | null>> {
+  async getSubstrateAddresses(
+    userId: string,
+    useTestnet: boolean = false,
+  ): Promise<Record<string, string | null>> {
     const response = await fetchApi<{
       userId: string;
       useTestnet: boolean;
       addresses: Record<string, string | null>;
-    }>(`/wallet/substrate/addresses?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`);
+    }>(
+      `/wallet/substrate/addresses?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`,
+    );
     return response.addresses;
   },
 
   /**
    * Get Substrate balances for all chains
    */
-  async getSubstrateBalances(userId: string, useTestnet: boolean = false): Promise<Record<string, {
-    balance: string;
-    address: string | null;
-    token: string;
-    decimals: number;
-  }>> {
+  async getSubstrateBalances(
+    userId: string,
+    useTestnet: boolean = false,
+  ): Promise<
+    Record<
+      string,
+      {
+        balance: string;
+        address: string | null;
+        token: string;
+        decimals: number;
+      }
+    >
+  > {
     // Use longer timeout for Substrate balance calls (60 seconds) as RPC connections can be slow
     const url = `${API_BASE_URL}/wallet/substrate/balances?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`;
     const controller = new AbortController();
@@ -566,12 +640,18 @@ export const walletApi = {
         throw error;
       }
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiError(408, 'Request timeout (Substrate RPC connections may be slow)');
+        throw new ApiError(
+          408,
+          'Request timeout (Substrate RPC connections may be slow)',
+        );
       }
       if (error instanceof Error && error.message.includes('fetch')) {
         throw new ApiError(503, 'Network error. Please check your connection.');
       }
-      throw new ApiError(500, error instanceof Error ? error.message : 'Unknown error');
+      throw new ApiError(
+        500,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   },
 
@@ -583,7 +663,7 @@ export const walletApi = {
     chain: string,
     useTestnet: boolean = false,
     limit: number = 10,
-    cursor?: string
+    cursor?: string,
   ): Promise<{
     transactions: Array<{
       txHash: string;
@@ -636,7 +716,9 @@ export const walletApi = {
         hasMore: boolean;
         nextCursor?: string;
       };
-    }>(`/wallet/substrate/transactions?${params.toString()}`, { timeout: 60000 });
+    }>(`/wallet/substrate/transactions?${params.toString()}`, {
+      timeout: 60000,
+    });
     return response.history;
   },
 
@@ -692,7 +774,9 @@ export const walletApi = {
         chain: string;
         address: string;
       }>;
-    }>(`/wallet/substrate/walletconnect/accounts?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`);
+    }>(
+      `/wallet/substrate/walletconnect/accounts?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`,
+    );
   },
 
   /**
@@ -704,10 +788,13 @@ export const walletApi = {
     transactionPayload: string; // Hex-encoded transaction
     useTestnet?: boolean;
   }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/substrate/walletconnect/sign-transaction', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return fetchApi<{ signature: string }>(
+      '/wallet/substrate/walletconnect/sign-transaction',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   /**
@@ -719,10 +806,13 @@ export const walletApi = {
     message: string;
     useTestnet?: boolean;
   }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/substrate/walletconnect/sign-message', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return fetchApi<{ signature: string }>(
+      '/wallet/substrate/walletconnect/sign-message',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   /**
@@ -881,7 +971,11 @@ export const walletApi = {
   /**
    * Save a WalletConnect session
    */
-  async saveWcSession(userId: string, session: any, namespaces: any): Promise<{ success: boolean }> {
+  async saveWcSession(
+    userId: string,
+    session: any,
+    namespaces: any,
+  ): Promise<{ success: boolean }> {
     return fetchApi<{ success: boolean }>('/walletconnect/save-session', {
       method: 'POST',
       body: JSON.stringify({ userId, session, namespaces }),
@@ -915,10 +1009,16 @@ export const walletApi = {
   /**
    * Disconnect a WalletConnect session
    */
-  async disconnectWcSession(userId: string, topic: string): Promise<{ success: boolean }> {
-    return fetchApi<{ success: boolean }>(`/walletconnect/sessions/${topic}?userId=${userId}`, {
-      method: 'DELETE',
-    });
+  async disconnectWcSession(
+    userId: string,
+    topic: string,
+  ): Promise<{ success: boolean }> {
+    return fetchApi<{ success: boolean }>(
+      `/walletconnect/sessions/${topic}?userId=${userId}`,
+      {
+        method: 'DELETE',
+      },
+    );
   },
 
   /**
@@ -941,10 +1041,13 @@ export const walletApi = {
     };
     useTestnet?: boolean;
   }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/evm/walletconnect/sign-transaction', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return fetchApi<{ signature: string }>(
+      '/wallet/evm/walletconnect/sign-transaction',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   /**
@@ -957,10 +1060,13 @@ export const walletApi = {
     message: string;
     useTestnet?: boolean;
   }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/evm/walletconnect/sign-message', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return fetchApi<{ signature: string }>(
+      '/wallet/evm/walletconnect/sign-message',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   /**
@@ -978,10 +1084,13 @@ export const walletApi = {
     };
     useTestnet?: boolean;
   }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/evm/walletconnect/sign-typed-data', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return fetchApi<{ signature: string }>(
+      '/wallet/evm/walletconnect/sign-typed-data',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
   },
 
   /**
@@ -991,7 +1100,11 @@ export const walletApi = {
   /**
    * Get Aptos address for a user
    */
-  async getAptosAddress(userId: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet', accountIndex: number = 0): Promise<{
+  async getAptosAddress(
+    userId: string,
+    network: 'mainnet' | 'testnet' | 'devnet' = 'testnet',
+    accountIndex: number = 0,
+  ): Promise<{
     address: string;
     network: string;
     accountIndex: number;
@@ -1000,13 +1113,18 @@ export const walletApi = {
       address: string;
       network: string;
       accountIndex: number;
-    }>(`/wallet/aptos/address?userId=${encodeURIComponent(userId)}&network=${network}&accountIndex=${accountIndex}`);
+    }>(
+      `/wallet/aptos/address?userId=${encodeURIComponent(userId)}&network=${network}&accountIndex=${accountIndex}`,
+    );
   },
 
   /**
    * Get Aptos balance for a user
    */
-  async getAptosBalance(userId: string, network: 'mainnet' | 'testnet' | 'devnet' = 'testnet'): Promise<{
+  async getAptosBalance(
+    userId: string,
+    network: 'mainnet' | 'testnet' | 'devnet' = 'testnet',
+  ): Promise<{
     balance: string;
     network: string;
     currency: string;
@@ -1015,7 +1133,9 @@ export const walletApi = {
       balance: string;
       network: string;
       currency: string;
-    }>(`/wallet/aptos/balance?userId=${encodeURIComponent(userId)}&network=${network}`);
+    }>(
+      `/wallet/aptos/balance?userId=${encodeURIComponent(userId)}&network=${network}`,
+    );
   },
 
   /**
@@ -1073,21 +1193,27 @@ export const walletApi = {
   /**
    * Get EIP-7702 EOA address
    */
-  async getEip7702Address(userId: string, chainId?: number): Promise<{
+  async getEip7702Address(
+    userId: string,
+    chainId?: number,
+  ): Promise<{
     address: string;
     chainId?: number;
   }> {
     const params = new URLSearchParams({ userId });
     if (chainId) params.append('chainId', chainId.toString());
     return fetchApi<{ address: string; chainId?: number }>(
-      `/wallet/eip7702/address?${params.toString()}`
+      `/wallet/eip7702/address?${params.toString()}`,
     );
   },
 
   /**
    * Get delegation status for EIP-7702
    */
-  async getEip7702DelegationStatus(userId: string, chainId: number): Promise<{
+  async getEip7702DelegationStatus(
+    userId: string,
+    chainId: number,
+  ): Promise<{
     userId: string;
     chainId: number;
     address: string;
@@ -1102,24 +1228,30 @@ export const walletApi = {
       isDelegated: boolean;
       delegationAddress?: string;
       authorizedAt?: string;
-    }>(`/wallet/eip7702/delegation-status?userId=${encodeURIComponent(userId)}&chainId=${chainId}`);
+    }>(
+      `/wallet/eip7702/delegation-status?userId=${encodeURIComponent(userId)}&chainId=${chainId}`,
+    );
   },
 
   /**
    * Get supported chains for EIP-7702 gasless transactions
    */
-  async getEip7702SupportedChains(): Promise<Array<{
-    chainId: number;
-    name: string;
-    supportsEip7702: boolean;
-    isTestnet: boolean;
-  }>> {
-    return fetchApi<Array<{
+  async getEip7702SupportedChains(): Promise<
+    Array<{
       chainId: number;
       name: string;
       supportsEip7702: boolean;
       isTestnet: boolean;
-    }>>('/wallet/eip7702/supported-chains');
+    }>
+  > {
+    return fetchApi<
+      Array<{
+        chainId: number;
+        name: string;
+        supportsEip7702: boolean;
+        isTestnet: boolean;
+      }>
+    >('/wallet/eip7702/supported-chains');
   },
 
   /**
@@ -1130,7 +1262,7 @@ export const walletApi = {
     isAvailable: boolean;
   }> {
     return fetchApi<{ chainId: number; isAvailable: boolean }>(
-      `/wallet/eip7702/paymaster-status?chainId=${chainId}`
+      `/wallet/eip7702/paymaster-status?chainId=${chainId}`,
     );
   },
 
@@ -1211,7 +1343,10 @@ export const walletApi = {
   /**
    * Get EIP-7702 UserOperation receipt
    */
-  async getEip7702Receipt(chainId: number, userOpHash: string): Promise<{
+  async getEip7702Receipt(
+    chainId: number,
+    userOpHash: string,
+  ): Promise<{
     found: boolean;
     userOpHash?: string;
     transactionHash?: string;
@@ -1234,7 +1369,9 @@ export const walletApi = {
       reason?: string;
       explorerUrl?: string;
       message?: string;
-    }>(`/wallet/eip7702/receipt?chainId=${chainId}&userOpHash=${encodeURIComponent(userOpHash)}`);
+    }>(
+      `/wallet/eip7702/receipt?chainId=${chainId}&userOpHash=${encodeURIComponent(userOpHash)}`,
+    );
   },
 
   /**
@@ -1275,12 +1412,15 @@ export const walletApi = {
   /**
    * Get EIP-7702 native balance
    */
-  async getEip7702Balance(userId: string, chainId: number): Promise<{
+  async getEip7702Balance(
+    userId: string,
+    chainId: number,
+  ): Promise<{
     balance: string;
     chainId: number;
   }> {
     return fetchApi<{ balance: string; chainId: number }>(
-      `/wallet/eip7702/balance?userId=${encodeURIComponent(userId)}&chainId=${chainId}`
+      `/wallet/eip7702/balance?userId=${encodeURIComponent(userId)}&chainId=${chainId}`,
     );
   },
 };
@@ -1347,28 +1487,40 @@ export const lightningNodeApi = {
    * Get all Lightning Nodes for a user
    */
   async getLightningNodes(userId: string): Promise<GetLightningNodesResponse> {
-    return fetchApi<GetLightningNodesResponse>(`/lightning-node/${encodeURIComponent(userId)}`);
+    return fetchApi<GetLightningNodesResponse>(
+      `/lightning-node/${encodeURIComponent(userId)}`,
+    );
   },
 
   /**
    * Get Lightning Nodes where the user is an invited participant.
    */
-  async getInvitedLightningNodes(userId: string): Promise<GetLightningNodesResponse> {
-    return fetchApi<GetLightningNodesResponse>(`/lightning-node/invited/${encodeURIComponent(userId)}`);
+  async getInvitedLightningNodes(
+    userId: string,
+  ): Promise<GetLightningNodesResponse> {
+    return fetchApi<GetLightningNodesResponse>(
+      `/lightning-node/invited/${encodeURIComponent(userId)}`,
+    );
   },
 
   /**
    * Get Lightning Node by ID
    */
-  async getLightningNodeById(id: string): Promise<GetLightningNodeByIdResponse> {
-    return fetchApi<GetLightningNodeByIdResponse>(`/lightning-node/detail/${encodeURIComponent(id)}`);
+  async getLightningNodeById(
+    id: string,
+  ): Promise<GetLightningNodeByIdResponse> {
+    return fetchApi<GetLightningNodeByIdResponse>(
+      `/lightning-node/detail/${encodeURIComponent(id)}`,
+    );
   },
 
   /**
    * Create a new Lightning Node
    * Uses longer timeout (90s) as this involves WebSocket connection, config loading, and authentication
    */
-  async createLightningNode(data: CreateLightningNodeRequest): Promise<CreateLightningNodeResponse> {
+  async createLightningNode(
+    data: CreateLightningNodeRequest,
+  ): Promise<CreateLightningNodeResponse> {
     return fetchApi<CreateLightningNodeResponse>('/lightning-node/create', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1386,12 +1538,17 @@ export const lightningNodeApi = {
    * Should be called once when app starts or when user first accesses Lightning Nodes.
    * Uses longer timeout (90s) as this involves WebSocket connection and 3-step auth flow
    */
-  async authenticateWallet(data: AuthenticateWalletRequest): Promise<AuthenticateWalletResponse> {
-    return fetchApi<AuthenticateWalletResponse>('/lightning-node/authenticate', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      timeout: 90000, // 90 seconds - WebSocket + 3-step authentication
-    });
+  async authenticateWallet(
+    data: AuthenticateWalletRequest,
+  ): Promise<AuthenticateWalletResponse> {
+    return fetchApi<AuthenticateWalletResponse>(
+      '/lightning-node/authenticate',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        timeout: 90000, // 90 seconds - WebSocket + 3-step authentication
+      },
+    );
   },
 
   /**
@@ -1399,7 +1556,9 @@ export const lightningNodeApi = {
    * Uses Yellow Network's getLightningNode() to query a session.
    * User must be authenticated and must be a participant.
    */
-  async searchSession(data: SearchSessionRequest): Promise<SearchSessionResponse> {
+  async searchSession(
+    data: SearchSessionRequest,
+  ): Promise<SearchSessionResponse> {
     return fetchApi<SearchSessionResponse>('/lightning-node/search', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1412,11 +1571,14 @@ export const lightningNodeApi = {
    * Uses Yellow Network's getLightningNodes() to find all sessions.
    * Returns active sessions and new invitations separately.
    */
-  async discoverSessions(userId: string, chain?: string): Promise<DiscoverSessionsResponse> {
+  async discoverSessions(
+    userId: string,
+    chain?: string,
+  ): Promise<DiscoverSessionsResponse> {
     const params = chain ? `?chain=${encodeURIComponent(chain)}` : '';
     return fetchApi<DiscoverSessionsResponse>(
       `/lightning-node/discover/${encodeURIComponent(userId)}${params}`,
-      { timeout: 60000 } // 60 seconds - network query
+      { timeout: 60000 }, // 60 seconds - network query
     );
   },
 
@@ -1424,7 +1586,9 @@ export const lightningNodeApi = {
    * Join an existing Lightning Node by URI
    * @deprecated Use authenticateWallet() + searchSession() or discoverSessions() instead
    */
-  async joinLightningNode(data: JoinLightningNodeRequest): Promise<JoinLightningNodeResponse> {
+  async joinLightningNode(
+    data: JoinLightningNodeRequest,
+  ): Promise<JoinLightningNodeResponse> {
     return fetchApi<JoinLightningNodeResponse>('/lightning-node/join', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1434,10 +1598,13 @@ export const lightningNodeApi = {
   /**
    * Best-effort presence heartbeat for a node.
    */
-  async heartbeatLightningNode(appSessionId: string, userId: string): Promise<{ ok: boolean }>{
+  async heartbeatLightningNode(
+    appSessionId: string,
+    userId: string,
+  ): Promise<{ ok: boolean }> {
     return fetchApi<{ ok: boolean }>(
       `/lightning-node/presence/${encodeURIComponent(appSessionId)}/${encodeURIComponent(userId)}`,
-      { method: 'POST' }
+      { method: 'POST' },
     );
   },
 
@@ -1469,7 +1636,9 @@ export const lightningNodeApi = {
   /**
    * Transfer funds between participants in Lightning Node
    */
-  async transferFunds(data: TransferFundsRequest): Promise<TransferFundsResponse> {
+  async transferFunds(
+    data: TransferFundsRequest,
+  ): Promise<TransferFundsResponse> {
     return fetchApi<TransferFundsResponse>('/lightning-node/transfer', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1480,7 +1649,9 @@ export const lightningNodeApi = {
   /**
    * Withdraw funds from Lightning Node back to unified balance
    */
-  async withdrawFunds(data: WithdrawFundsRequest): Promise<WithdrawFundsResponse> {
+  async withdrawFunds(
+    data: WithdrawFundsRequest,
+  ): Promise<WithdrawFundsResponse> {
     return fetchApi<WithdrawFundsResponse>('/lightning-node/withdraw', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1492,7 +1663,9 @@ export const lightningNodeApi = {
    * Close Lightning Node
    * Uses longer timeout (90s) as this may involve state channel finalization
    */
-  async closeLightningNode(data: CloseLightningNodeRequest): Promise<CloseLightningNodeResponse> {
+  async closeLightningNode(
+    data: CloseLightningNodeRequest,
+  ): Promise<CloseLightningNodeResponse> {
     return fetchApi<CloseLightningNodeResponse>('/lightning-node/close', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1552,7 +1725,10 @@ export const userApi = {
   /**
    * Award XP to user (e.g., for creating a wallet)
    */
-  async awardXP(amount: number, reason: string): Promise<{ xp: number; totalXP: number }> {
+  async awardXP(
+    amount: number,
+    reason: string,
+  ): Promise<{ xp: number; totalXP: number }> {
     return fetchApi<{ xp: number; totalXP: number }>('/user/xp/award', {
       method: 'POST',
       body: JSON.stringify({ amount, reason }),

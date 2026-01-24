@@ -13,6 +13,8 @@ import { AddressManager } from './managers/address.manager.js';
 import { AccountFactory } from './factories/account.factory.js';
 import { NativeEoaFactory } from './factories/native-eoa.factory.js';
 import { Eip7702AccountFactory } from './factories/eip7702-account.factory.js';
+import { UserAssetsRepository } from './repositories/user-assets.repository.js';
+import { ZerionSyncService } from './services/zerion-sync.service.js';
 import { PolkadotEvmRpcService } from './services/polkadot-evm-rpc.service.js';
 import { SubstrateManager } from './substrate/managers/substrate.manager.js';
 import { SubstrateChainKey } from './substrate/config/substrate-chain.config.js';
@@ -147,6 +149,8 @@ export class WalletService {
     private walletHistoryRepository: WalletHistoryRepository,
     private pimlicoConfig: PimlicoConfigService,
     private eip7702DelegationRepository: Eip7702DelegationRepository,
+    private userAssetsRepository: UserAssetsRepository,
+    private zerionSyncService: ZerionSyncService,
   ) {}
 
   /**
@@ -842,6 +846,68 @@ export class WalletService {
     }
 
     return Array.from(byKey.values());
+  }
+
+  /**
+   * Get token balances from DB (and optionally trigger a refresh if stale)
+   */
+  async getDbTokenBalances(
+    userId: string,
+    refreshIfStale: boolean = false,
+  ): Promise<
+    Array<{
+      chain: string;
+      address: string | null;
+      symbol: string;
+      balance: string;
+      decimals: number;
+    }>
+  > {
+    // Ensure wallet exists
+    const hasSeed = await this.seedRepository.hasSeed(userId);
+    if (!hasSeed) {
+      await this.createOrImportSeed(userId, 'random');
+    }
+
+    // Fetch cached assets
+    let assets: Array<{
+      chain: string;
+      address: string | null;
+      symbol: string;
+      balance: string;
+      decimals: number;
+    }> = await this.userAssetsRepository.getAssetsForUser(userId);
+    const isStale = await this.userAssetsRepository.isDataStale(userId);
+
+    if (isStale && refreshIfStale) {
+      this.logger.log(`Assets stale for ${userId}, triggering async refresh`);
+      setImmediate(() => {
+        void this.zerionSyncService.syncAssetsForUser(userId).catch((err) => {
+          const message =
+            err instanceof Error
+              ? err.message
+              : 'Unknown error refreshing assets';
+          this.logger.error(
+            `Failed to refresh assets for ${userId}: ${message}`,
+          );
+        });
+      });
+    } else if (isStale && assets.length === 0) {
+      // No data at all—do a blocking refresh so we return something
+      this.logger.log(
+        `No cached assets for ${userId}, performing sync refresh`,
+      );
+      await this.zerionSyncService.syncAssetsForUser(userId);
+      assets = await this.userAssetsRepository.getAssetsForUser(userId);
+    }
+
+    return assets.map((a) => ({
+      chain: a.chain,
+      address: a.address,
+      symbol: a.symbol,
+      balance: a.balance,
+      decimals: a.decimals,
+    }));
   }
 
   /**
@@ -1954,12 +2020,7 @@ export class WalletService {
     if (evmChains.includes(chain)) {
       return this.nativeEoaFactory.createAccount(
         seedPhrase,
-        chain as
-          | 'ethereum'
-          | 'base'
-          | 'arbitrum'
-          | 'polygon'
-          | 'avalanche',
+        chain as 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche',
         0,
       );
     }

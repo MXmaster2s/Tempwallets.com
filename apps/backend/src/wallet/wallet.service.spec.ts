@@ -330,4 +330,127 @@ describe('WalletService', () => {
       expect(result).toBeDefined();
     });
   });
+
+  describe('getDbTokenBalances', () => {
+    let userAssetsRepository: jest.Mocked<any>;
+    let zerionSyncService: jest.Mocked<any>;
+
+    beforeEach(() => {
+      // Mock dependencies for getDbTokenBalances
+      userAssetsRepository = {
+        getAssetsForUser: jest.fn(),
+        isDataStale: jest.fn(),
+      };
+
+      zerionSyncService = {
+        syncAssetsForUser: jest.fn(),
+      };
+
+      // Inject mocks into walletService
+      walletService['userAssetsRepository'] = userAssetsRepository;
+      walletService['zerionSyncService'] = zerionSyncService;
+    });
+
+    it('should return cached assets without refresh if data is fresh', async () => {
+      const mockAssets = [
+        {
+          chain: 'ethereum',
+          address: '0x123',
+          symbol: 'USDC',
+          balance: '1000000000',
+          decimals: 6,
+        },
+        {
+          chain: 'ethereum',
+          address: null,
+          symbol: 'ETH',
+          balance: '1500000000000000000',
+          decimals: 18,
+        },
+      ];
+
+      userAssetsRepository.getAssetsForUser.mockResolvedValue(mockAssets);
+      userAssetsRepository.isDataStale.mockResolvedValue(false);
+
+      const result = await walletService.getDbTokenBalances(mockUserId, false);
+
+      expect(userAssetsRepository.getAssetsForUser).toHaveBeenCalledWith(
+        mockUserId,
+      );
+      expect(userAssetsRepository.isDataStale).toHaveBeenCalledWith(mockUserId);
+      expect(zerionSyncService.syncAssetsForUser).not.toHaveBeenCalled();
+      expect(result).toEqual(mockAssets);
+    });
+
+    it('should trigger async refresh if data is stale and refreshIfStale=true', async () => {
+      const mockAssets = [
+        {
+          chain: 'ethereum',
+          address: null,
+          symbol: 'ETH',
+          balance: '1000000000000000000',
+          decimals: 18,
+        },
+      ];
+
+      userAssetsRepository.getAssetsForUser.mockResolvedValue(mockAssets);
+      userAssetsRepository.isDataStale.mockResolvedValue(true);
+      zerionSyncService.syncAssetsForUser.mockResolvedValue(undefined);
+
+      const result = await walletService.getDbTokenBalances(mockUserId, true);
+
+      // Should return cached data immediately
+      expect(result).toEqual(mockAssets);
+
+      // Sync should be triggered but not awaited
+      expect(userAssetsRepository.getAssetsForUser).toHaveBeenCalledWith(
+        mockUserId,
+      );
+      expect(userAssetsRepository.isDataStale).toHaveBeenCalledWith(mockUserId);
+
+      // Allow async operations to settle
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(zerionSyncService.syncAssetsForUser).toHaveBeenCalledWith(
+        mockUserId,
+      );
+    });
+
+    it('should perform blocking sync if data is stale and no cached assets exist', async () => {
+      userAssetsRepository.getAssetsForUser.mockResolvedValue([]);
+      userAssetsRepository.isDataStale.mockResolvedValue(true);
+      zerionSyncService.syncAssetsForUser.mockResolvedValue(undefined);
+
+      const refreshedAssets = [
+        {
+          chain: 'ethereum',
+          address: null,
+          symbol: 'ETH',
+          balance: '2000000000000000000',
+          decimals: 18,
+        },
+      ];
+
+      // Mock second call after sync
+      userAssetsRepository.getAssetsForUser.mockResolvedValueOnce([]);
+      userAssetsRepository.getAssetsForUser.mockResolvedValueOnce(
+        refreshedAssets,
+      );
+
+      const result = await walletService.getDbTokenBalances(mockUserId, false);
+
+      expect(zerionSyncService.syncAssetsForUser).toHaveBeenCalledWith(
+        mockUserId,
+      );
+      expect(result).toEqual(refreshedAssets);
+    });
+
+    it('should handle empty asset list gracefully', async () => {
+      userAssetsRepository.getAssetsForUser.mockResolvedValue([]);
+      userAssetsRepository.isDataStale.mockResolvedValue(false);
+
+      const result = await walletService.getDbTokenBalances(mockUserId, false);
+
+      expect(result).toEqual([]);
+    });
+  });
 });

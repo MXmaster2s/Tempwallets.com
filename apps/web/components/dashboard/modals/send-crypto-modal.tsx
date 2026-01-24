@@ -18,7 +18,13 @@ import {
   SelectValue,
 } from "@repo/ui/components/ui/select";
 import { Label } from "@repo/ui/components/ui/label";
-import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Clipboard } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Clipboard,
+} from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
 import { useTokenIcon } from "@/lib/token-icons";
 import { trackTransaction } from "@/lib/tempwallets-analytics";
@@ -87,9 +93,9 @@ const EIP7702_CHAIN_IDS: Record<string, number> = {
 const isEip7702Chain = (chain: string): boolean => {
   // Direct check
   if (chain in EIP7702_CHAIN_IDS) return true;
-  
+
   // Normalize chain name (remove Erc4337 suffix for base chains)
-  const normalized = chain.replace(/Erc4337$/i, '').toLowerCase();
+  const normalized = chain.replace(/Erc4337$/i, "").toLowerCase();
   return normalized in EIP7702_CHAIN_IDS;
 };
 
@@ -102,8 +108,13 @@ const validateAddress = (address: string, chain: string): string | null => {
   const trimmed = address.trim();
 
   const evmChains = [
-    "ethereum", "base", "arbitrum", "polygon", "avalanche",
-    "optimism", "sepolia",
+    "ethereum",
+    "base",
+    "arbitrum",
+    "polygon",
+    "avalanche",
+    "optimism",
+    "sepolia",
   ];
   if (evmChains.includes(chain)) {
     if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
@@ -120,7 +131,9 @@ const validateAddress = (address: string, chain: string): string | null => {
 
   // Bitcoin
   if (chain === "bitcoin") {
-    if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/.test(trimmed)) {
+    if (
+      !/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/.test(trimmed)
+    ) {
       return "Invalid Bitcoin address format";
     }
   }
@@ -133,11 +146,22 @@ const validateAddress = (address: string, chain: string): string | null => {
   }
 
   // Substrate/Polkadot chains (SS58 format)
-  const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
+  const SUBSTRATE_CHAINS = [
+    "polkadot",
+    "hydrationSubstrate",
+    "bifrostSubstrate",
+    "uniqueSubstrate",
+    "paseo",
+    "paseoAssethub",
+  ];
   if (SUBSTRATE_CHAINS.includes(chain)) {
     // SS58 addresses are typically 48 characters, but can vary
     // Basic validation: should be alphanumeric and reasonable length
-    if (trimmed.length < 32 || trimmed.length > 50 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed)) {
+    if (
+      trimmed.length < 32 ||
+      trimmed.length > 50 ||
+      !/^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed)
+    ) {
       return "Invalid Substrate address format (SS58 encoded, typically 32-50 characters)";
     }
   }
@@ -156,41 +180,72 @@ const validateAddress = (address: string, chain: string): string | null => {
  * Format transaction hash for block explorer
  * Substrate chains need hash without 0x prefix for Subscan
  */
-const formatTxHashForExplorer = (hash: string, isSubstrate: boolean = false): string => {
-  if (!hash) return '';
+const formatTxHashForExplorer = (
+  hash: string,
+  isSubstrate: boolean = false,
+): string => {
+  if (!hash) return "";
   // Remove 0x prefix for Substrate chains (Subscan expects it without prefix)
-  if (isSubstrate && hash.startsWith('0x')) {
+  if (isSubstrate && hash.startsWith("0x")) {
     return hash.slice(2);
   }
   return hash;
 };
 
 const getExplorerUrl = (txHash: string, chain: string): string => {
-  if (!txHash) return '#';
+  if (!txHash) return "#";
 
   // Determine if this is a testnet chain
-  const isTestnet = chain === 'paseo' || chain === 'paseoAssethub' || 
-                    chain === 'moonbeamTestnet' || chain === 'astarShibuya' ||
-                    chain === 'paseoPassetHub';
+  const isTestnet =
+    chain === "paseo" ||
+    chain === "paseoAssethub" ||
+    chain === "moonbeamTestnet" ||
+    chain === "astarShibuya" ||
+    chain === "paseoPassetHub";
 
   // EVM chains (testnet support)
   const evmExplorers: Record<string, { mainnet: string; testnet?: string }> = {
-    ethereum: { mainnet: 'https://etherscan.io', testnet: 'https://sepolia.etherscan.io' },
-    base: { mainnet: 'https://basescan.org', testnet: 'https://sepolia.basescan.org' },
-    arbitrum: { mainnet: 'https://arbiscan.io', testnet: 'https://sepolia.arbiscan.io' },
-    polygon: { mainnet: 'https://polygonscan.com', testnet: 'https://mumbai.polygonscan.com' },
-    avalanche: { mainnet: 'https://snowtrace.io', testnet: 'https://testnet.snowtrace.io' },
-    moonbeamTestnet: { mainnet: 'https://moonscan.io', testnet: 'https://moonbase.moonscan.io' },
-    astarShibuya: { mainnet: 'https://astar.subscan.io', testnet: 'https://shibuya.subscan.io' },
-    paseoPassetHub: { mainnet: 'https://assethub-polkadot.subscan.io', testnet: 'https://assethub-paseo.subscan.io' },
+    ethereum: {
+      mainnet: "https://etherscan.io",
+      testnet: "https://sepolia.etherscan.io",
+    },
+    base: {
+      mainnet: "https://basescan.org",
+      testnet: "https://sepolia.basescan.org",
+    },
+    arbitrum: {
+      mainnet: "https://arbiscan.io",
+      testnet: "https://sepolia.arbiscan.io",
+    },
+    polygon: {
+      mainnet: "https://polygonscan.com",
+      testnet: "https://mumbai.polygonscan.com",
+    },
+    avalanche: {
+      mainnet: "https://snowtrace.io",
+      testnet: "https://testnet.snowtrace.io",
+    },
+    moonbeamTestnet: {
+      mainnet: "https://moonscan.io",
+      testnet: "https://moonbase.moonscan.io",
+    },
+    astarShibuya: {
+      mainnet: "https://astar.subscan.io",
+      testnet: "https://shibuya.subscan.io",
+    },
+    paseoPassetHub: {
+      mainnet: "https://assethub-polkadot.subscan.io",
+      testnet: "https://assethub-paseo.subscan.io",
+    },
   };
 
   // Check if it's an EVM chain
   const evmChain = chain;
   if (evmExplorers[evmChain]) {
-    const explorer = isTestnet && evmExplorers[evmChain].testnet
-      ? evmExplorers[evmChain].testnet
-      : evmExplorers[evmChain].mainnet;
+    const explorer =
+      isTestnet && evmExplorers[evmChain].testnet
+        ? evmExplorers[evmChain].testnet
+        : evmExplorers[evmChain].mainnet;
     return `${explorer}/tx/${txHash}`;
   }
 
@@ -208,40 +263,45 @@ const getExplorerUrl = (txHash: string, chain: string): string => {
   }
 
   // Substrate/Polkadot chains - use Subscan
-  const substrateExplorers: Record<string, { mainnet: string; testnet: string }> = {
-    polkadot: { 
-      mainnet: 'https://polkadot.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
+  const substrateExplorers: Record<
+    string,
+    { mainnet: string; testnet: string }
+  > = {
+    polkadot: {
+      mainnet: "https://polkadot.subscan.io",
+      testnet: "https://paseo.subscan.io",
     },
-    hydrationSubstrate: { 
-      mainnet: 'https://hydradx.subscan.io', 
-      testnet: 'https://hydradx-testnet.subscan.io' 
+    hydrationSubstrate: {
+      mainnet: "https://hydradx.subscan.io",
+      testnet: "https://hydradx-testnet.subscan.io",
     },
-    bifrostSubstrate: { 
-      mainnet: 'https://bifrost.subscan.io', 
-      testnet: 'https://bifrost-testnet.subscan.io' 
+    bifrostSubstrate: {
+      mainnet: "https://bifrost.subscan.io",
+      testnet: "https://bifrost-testnet.subscan.io",
     },
-    uniqueSubstrate: { 
-      mainnet: 'https://unique.subscan.io', 
-      testnet: 'https://unique-testnet.subscan.io' 
+    uniqueSubstrate: {
+      mainnet: "https://unique.subscan.io",
+      testnet: "https://unique-testnet.subscan.io",
     },
-    paseo: { 
-      mainnet: 'https://paseo.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
+    paseo: {
+      mainnet: "https://paseo.subscan.io",
+      testnet: "https://paseo.subscan.io",
     },
-    paseoAssethub: { 
-      mainnet: 'https://assethub-polkadot.subscan.io', 
-      testnet: 'https://assethub-paseo.subscan.io' 
+    paseoAssethub: {
+      mainnet: "https://assethub-polkadot.subscan.io",
+      testnet: "https://assethub-paseo.subscan.io",
     },
   };
 
   if (substrateExplorers[chain]) {
-    const explorer = isTestnet ? substrateExplorers[chain].testnet : substrateExplorers[chain].mainnet;
+    const explorer = isTestnet
+      ? substrateExplorers[chain].testnet
+      : substrateExplorers[chain].mainnet;
     const formattedHash = formatTxHashForExplorer(txHash, true);
     return `${explorer}/extrinsic/${formattedHash}`;
   }
 
-  return '#';
+  return "#";
 };
 
 // Component to render selected token in trigger with network icon
@@ -250,15 +310,15 @@ interface SelectedTokenDisplayProps {
 }
 
 function SelectedTokenDisplay({ token }: SelectedTokenDisplayProps) {
-  const NetworkIcon = useTokenIcon(token.chain || 'ethereum');
-  
+  const NetworkIcon = useTokenIcon(token.chain || "ethereum");
+
   // Format balance
   const formatBalance = (balance: string, decimals: number): string => {
     const num = parseFloat(balance);
     if (isNaN(num)) return "0";
     return (num / Math.pow(10, decimals)).toFixed(6).replace(/\.?0+$/, "");
   };
-  
+
   return (
     <div className="flex items-center gap-2">
       <NetworkIcon className="h-4 w-4 flex-shrink-0" />
@@ -276,17 +336,17 @@ interface TokenSelectItemProps {
 }
 
 function TokenSelectItem({ value, token }: TokenSelectItemProps) {
-  const NetworkIcon = useTokenIcon(token.chain || 'ethereum');
-  
+  const NetworkIcon = useTokenIcon(token.chain || "ethereum");
+
   // Format balance
   const formatBalance = (balance: string, decimals: number): string => {
     const num = parseFloat(balance);
     if (isNaN(num)) return "0";
     return (num / Math.pow(10, decimals)).toFixed(6).replace(/\.?0+$/, "");
   };
-  
+
   return (
-    <SelectItem 
+    <SelectItem
       value={value}
       className="text-sm focus:bg-white/10 focus:text-white"
     >
@@ -300,7 +360,13 @@ function TokenSelectItem({ value, token }: TokenSelectItemProps) {
   );
 }
 
-export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }: SendCryptoModalProps) {
+export function SendCryptoModal({
+  open,
+  onOpenChange,
+  chain,
+  userId,
+  onSuccess,
+}: SendCryptoModalProps) {
   // Get chain icon
   const ChainIcon = useTokenIcon(chain);
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
@@ -310,7 +376,10 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
   const [loading, setLoading] = useState(false);
   const [loadingTokens, setLoadingTokens] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<{ amount?: string; address?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    amount?: string;
+    address?: string;
+  }>({});
   const [txHash, setTxHash] = useState<string | null>(null);
   const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -320,7 +389,14 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     setError(null);
     try {
       // Check if this is a Substrate chain
-      const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
+      const SUBSTRATE_CHAINS = [
+        "polkadot",
+        "hydrationSubstrate",
+        "bifrostSubstrate",
+        "uniqueSubstrate",
+        "paseo",
+        "paseoAssethub",
+      ];
       const isSubstrate = SUBSTRATE_CHAINS.includes(chain);
 
       // Check if this is an Aptos chain
@@ -331,15 +407,17 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         // Load Substrate balances
         const balances = await walletApi.getSubstrateBalances(userId, false);
         const chainBalance = balances[chain];
-        
+
         if (chainBalance && chainBalance.address) {
           // Create a single token entry for native Substrate token
-          const tokenList: TokenBalance[] = [{
-            address: null, // Native token
-            symbol: chainBalance.token,
-            balance: chainBalance.balance,
-            decimals: chainBalance.decimals,
-          }];
+          const tokenList: TokenBalance[] = [
+            {
+              address: null, // Native token
+              symbol: chainBalance.token,
+              balance: chainBalance.balance,
+              decimals: chainBalance.decimals,
+            },
+          ];
           setTokens(tokenList);
           setSelectedToken(tokenList[0] ?? null);
         } else {
@@ -350,20 +428,29 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         // Load Aptos balance
         const network = chain === "aptosTestnet" ? "testnet" : "mainnet";
         const balanceData = await walletApi.getAptosBalance(userId, network);
-        
+
         // Create a single token entry for native APT token
-        const tokenList: TokenBalance[] = [{
-          address: null, // Native token
-          symbol: "APT",
-          balance: (parseFloat(balanceData.balance) * Math.pow(10, 8)).toString(), // Convert to octas (8 decimals)
-          decimals: 8,
-        }];
+        const tokenList: TokenBalance[] = [
+          {
+            address: null, // Native token
+            symbol: "APT",
+            balance: (
+              parseFloat(balanceData.balance) * Math.pow(10, 8)
+            ).toString(), // Convert to octas (8 decimals)
+            decimals: 8,
+          },
+        ];
         setTokens(tokenList);
         setSelectedToken(tokenList[0] ?? null);
       } else {
         // Load aggregated assets once (any-chain). Zerion assets are the source of truth.
         // To ensure tokens are always available in the modal, do NOT filter by UI-selected chain.
-        const allAssets: AnyChainAsset[] = await walletApi.getAssetsAny(userId, true);
+        const allAssets: AnyChainAsset[] = await walletApi.getDbAssetsAny(
+          userId,
+          {
+            refreshIfStale: true,
+          },
+        );
 
         // Keep all EVM/Solana assets; we'll still show chain name via explorer mapping elsewhere.
         // Sorting: native first if address null, then alphabetically by symbol.
@@ -383,7 +470,9 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           });
 
         // Keep native first, then others; native has address === null
-        tokenList.sort((a, b) => (a.address === null ? -1 : b.address === null ? 1 : 0));
+        tokenList.sort((a, b) =>
+          a.address === null ? -1 : b.address === null ? 1 : 0,
+        );
 
         setTokens(tokenList);
         if (tokenList.length > 0) {
@@ -395,9 +484,10 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof ApiError 
-        ? err.message 
-        : "Failed to load tokens. Please try again.";
+      const errorMessage =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to load tokens. Please try again.";
       setError(errorMessage);
     } finally {
       setLoadingTokens(false);
@@ -433,7 +523,9 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         errors.amount = "Amount must be a positive number";
       } else if (selectedToken) {
         // Convert balance from smallest units using actual token decimals
-        const available = parseFloat(selectedToken.balance) / Math.pow(10, selectedToken.decimals);
+        const available =
+          parseFloat(selectedToken.balance) /
+          Math.pow(10, selectedToken.decimals);
         if (amountNum > available) {
           errors.amount = `Insufficient balance. Available: ${formatBalance(selectedToken.balance, selectedToken.decimals)} ${selectedToken.symbol}`;
         }
@@ -469,8 +561,8 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         }
       }
     } catch (err) {
-      console.error('Failed to read clipboard:', err);
-      setError('Failed to read clipboard. Please paste manually.');
+      console.error("Failed to read clipboard:", err);
+      setError("Failed to read clipboard. Please paste manually.");
     }
   };
 
@@ -480,10 +572,13 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     }
 
     // CRITICAL: Validate that Zerion provided decimals for this token
-    if (selectedToken.decimals === undefined || selectedToken.decimals === null) {
+    if (
+      selectedToken.decimals === undefined ||
+      selectedToken.decimals === null
+    ) {
       setError(
         `Token data incomplete: ${selectedToken.symbol} is missing decimals information from Zerion. ` +
-        `Please try refreshing your wallet data or contact support.`
+          `Please try refreshing your wallet data or contact support.`,
       );
       return;
     }
@@ -491,7 +586,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     // Validate decimals are in valid range
     if (selectedToken.decimals < 0 || selectedToken.decimals > 36) {
       setError(
-        `Invalid token decimals: ${selectedToken.decimals}. Decimals must be between 0 and 36.`
+        `Invalid token decimals: ${selectedToken.decimals}. Decimals must be between 0 and 36.`,
       );
       return;
     }
@@ -500,7 +595,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     if (!selectedToken.chain) {
       setError(
         `Token data incomplete: ${selectedToken.symbol} is missing chain information. ` +
-        `Please try refreshing your wallet data or contact support.`
+          `Please try refreshing your wallet data or contact support.`,
       );
       return;
     }
@@ -516,7 +611,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       const tokenChain = selectedToken.chain || chain;
 
       // Log token send details for debugging
-      console.log('[Send Debug] Sending token:', {
+      console.log("[Send Debug] Sending token:", {
         symbol: selectedToken.symbol,
         address: selectedToken.address,
         decimals: selectedToken.decimals,
@@ -526,7 +621,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       });
 
       // 🔍 DETAILED CHAIN DETECTION DEBUG
-      console.log('🔍 [Chain Detection] Avalanche EIP-7702 Check:', {
+      console.log("🔍 [Chain Detection] Avalanche EIP-7702 Check:", {
         selectedTokenChain: selectedToken.chain,
         modalChain: chain,
         finalTokenChain: tokenChain,
@@ -536,7 +631,14 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       });
 
       // Check if this is a Substrate chain
-      const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
+      const SUBSTRATE_CHAINS = [
+        "polkadot",
+        "hydrationSubstrate",
+        "bifrostSubstrate",
+        "uniqueSubstrate",
+        "paseo",
+        "paseoAssethub",
+      ];
       const isSubstrate = SUBSTRATE_CHAINS.includes(tokenChain);
 
       // Check if this is an Aptos chain
@@ -545,33 +647,54 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
 
       // ✅ FIX: Check if this is an EIP-7702 gasless chain
       // Normalize chain name first (handle both 'base' and 'baseErc4337')
-      const normalizedChain = tokenChain.replace(/Erc4337$/i, '').toLowerCase();
-      const isGasless = isEip7702Chain(normalizedChain) || isEip7702Chain(tokenChain);
+      const normalizedChain = tokenChain.replace(/Erc4337$/i, "").toLowerCase();
+      const isGasless =
+        isEip7702Chain(normalizedChain) || isEip7702Chain(tokenChain);
 
       // 🔍 LOG WHICH ENDPOINT WILL BE USED
       if (isGasless) {
-        const chainId = EIP7702_CHAIN_IDS[normalizedChain] || EIP7702_CHAIN_IDS[tokenChain];
-        console.log('✅ [Endpoint] Using EIP-7702 gasless endpoint (/wallet/eip7702/send)');
-        console.log('✅ [ChainID]', chainId, `(from ${normalizedChain} or ${tokenChain})`);
+        const chainId =
+          EIP7702_CHAIN_IDS[normalizedChain] || EIP7702_CHAIN_IDS[tokenChain];
+        console.log(
+          "✅ [Endpoint] Using EIP-7702 gasless endpoint (/wallet/eip7702/send)",
+        );
+        console.log(
+          "✅ [ChainID]",
+          chainId,
+          `(from ${normalizedChain} or ${tokenChain})`,
+        );
       } else if (isSubstrate) {
-        console.log('ℹ️ [Endpoint] Using Substrate endpoint');
+        console.log("ℹ️ [Endpoint] Using Substrate endpoint");
       } else if (isAptos) {
-        console.log('ℹ️ [Endpoint] Using Aptos endpoint');
+        console.log("ℹ️ [Endpoint] Using Aptos endpoint");
       } else {
-        console.log('⚠️ [Endpoint] Using regular sendCrypto endpoint (/wallet/send)');
-        console.log('⚠️ [Reason] isGasless =', isGasless, ', tokenChain =', tokenChain);
+        console.log(
+          "⚠️ [Endpoint] Using regular sendCrypto endpoint (/wallet/send)",
+        );
+        console.log(
+          "⚠️ [Reason] isGasless =",
+          isGasless,
+          ", tokenChain =",
+          tokenChain,
+        );
       }
 
-      let result: { txHash: string; userOpHash?: string; explorerUrl?: string; isFirstTransaction?: boolean };
+      let result: {
+        txHash: string;
+        userOpHash?: string;
+        explorerUrl?: string;
+        isFirstTransaction?: boolean;
+      };
 
       if (isGasless) {
         // ✅ FIX: Use EIP-7702 gasless endpoint
         // Try both normalized and original chain name
-        const chainId = EIP7702_CHAIN_IDS[normalizedChain] || EIP7702_CHAIN_IDS[tokenChain];
+        const chainId =
+          EIP7702_CHAIN_IDS[normalizedChain] || EIP7702_CHAIN_IDS[tokenChain];
         if (!chainId) {
           throw new Error(
             `Chain ID not found for ${tokenChain} (normalized: ${normalizedChain}). ` +
-            `Available chains: ${Object.keys(EIP7702_CHAIN_IDS).join(', ')}`
+              `Available chains: ${Object.keys(EIP7702_CHAIN_IDS).join(", ")}`,
           );
         }
 
@@ -585,7 +708,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         });
 
         // Use transactionHash if available, otherwise use userOpHash
-        result = { 
+        result = {
           txHash: gaslessResult.transactionHash || gaslessResult.userOpHash,
           userOpHash: gaslessResult.userOpHash,
           explorerUrl: gaslessResult.explorerUrl,
@@ -604,12 +727,14 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
             result.explorerUrl = confirmResult.explorerUrl;
           } catch (waitError) {
             // Even if waiting fails, show the userOpHash
-            console.warn('Failed to wait for confirmation:', waitError);
+            console.warn("Failed to wait for confirmation:", waitError);
           }
         }
       } else if (isSubstrate) {
         // Convert human-readable amount to smallest units for Substrate
-        const amountInSmallestUnits = (parseFloat(amount) * Math.pow(10, selectedToken.decimals)).toString();
+        const amountInSmallestUnits = (
+          parseFloat(amount) * Math.pow(10, selectedToken.decimals)
+        ).toString();
 
         // Use Substrate send endpoint
         const substrateResult = await walletApi.sendSubstrateTransfer({
@@ -618,7 +743,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           to: recipientAddress.trim(),
           amount: amountInSmallestUnits, // Amount in smallest units
           useTestnet: false, // TODO: Add testnet toggle if needed
-          transferMethod: 'transferAllowDeath', // Default transfer method
+          transferMethod: "transferAllowDeath", // Default transfer method
         });
 
         result = { txHash: substrateResult.txHash };
@@ -670,11 +795,11 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     } catch (err) {
       let errorMessage = "Failed to send transaction. Please try again.";
       let errorCode: string | number | undefined;
-      
+
       if (err instanceof ApiError) {
         errorMessage = err.message;
         errorCode = err.status;
-        
+
         // Parse specific error codes
         if (err.status === 422) {
           // Insufficient balance
@@ -696,15 +821,13 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
             errorMessage = err.message;
           }
         } else if (err.status === 503 || err.status === 408) {
-          errorMessage = "Network error. Please check your connection and try again.";
+          errorMessage =
+            "Network error. Please check your connection and try again.";
         }
       }
 
       // Track failed send transaction
-      trackTransaction.sendFailed(
-        errorMessage,
-        errorCode,
-      );
+      trackTransaction.sendFailed(errorMessage, errorCode);
 
       if (errorMessage) {
         setError(errorMessage);
@@ -725,8 +848,8 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
             {chainName}
           </DialogTitle>
           <DialogDescription className="text-sm text-white/60">
-            {isEip7702Chain(chain) 
-              ? "Gas-free transfer - fees are sponsored" 
+            {isEip7702Chain(chain)
+              ? "Gas-free transfer - fees are sponsored"
               : "Transfer to recipient address"}
           </DialogDescription>
         </DialogHeader>
@@ -734,7 +857,12 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         <div className="space-y-4 px-6 pb-6">
           {/* Token Selection */}
           <div className="space-y-1.5">
-            <Label htmlFor="token" className="text-xs font-medium text-white/80">Token</Label>
+            <Label
+              htmlFor="token"
+              className="text-xs font-medium text-white/80"
+            >
+              Token
+            </Label>
             {loadingTokens ? (
               <div className="flex items-center gap-2 text-xs text-white/60 py-2">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -746,13 +874,24 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
               </div>
             ) : (
               <Select
-                value={selectedToken ? `${selectedToken.chain || 'unknown'}:${selectedToken.address || 'native'}` : undefined}
+                value={
+                  selectedToken
+                    ? `${selectedToken.chain || "unknown"}:${selectedToken.address || "native"}`
+                    : undefined
+                }
                 onValueChange={(value) => {
-                  const token = tokens.find(t => `${t.chain || 'unknown'}:${t.address || 'native'}` === value);
+                  const token = tokens.find(
+                    (t) =>
+                      `${t.chain || "unknown"}:${t.address || "native"}` ===
+                      value,
+                  );
                   setSelectedToken(token ?? null);
                 }}
               >
-                <SelectTrigger id="token" className="h-9 rounded-xl border-white/20 bg-white/5 text-sm text-white hover:bg-white/10">
+                <SelectTrigger
+                  id="token"
+                  className="h-9 rounded-xl border-white/20 bg-white/5 text-sm text-white hover:bg-white/10"
+                >
                   {selectedToken ? (
                     <SelectedTokenDisplay token={selectedToken} />
                   ) : (
@@ -761,13 +900,9 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-white/20 bg-black/95 text-white">
                   {tokens.map((token) => {
-                    const key = `${token.chain || 'unknown'}:${token.address || 'native'}`;
+                    const key = `${token.chain || "unknown"}:${token.address || "native"}`;
                     return (
-                      <TokenSelectItem 
-                        key={key}
-                        value={key}
-                        token={token}
-                      />
+                      <TokenSelectItem key={key} value={key} token={token} />
                     );
                   })}
                 </SelectContent>
@@ -777,7 +912,12 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
 
           {/* Amount Input */}
           <div className="space-y-1.5">
-            <Label htmlFor="amount" className="text-xs font-medium text-white/80">Amount</Label>
+            <Label
+              htmlFor="amount"
+              className="text-xs font-medium text-white/80"
+            >
+              Amount
+            </Label>
             <Input
               id="amount"
               type="number"
@@ -798,16 +938,25 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
                 <AlertCircle className="h-3 w-3" />
                 {fieldErrors.amount}
               </p>
-            ) : selectedToken && (
-              <p className="text-xs text-white/40">
-                Available: {formatBalance(selectedToken.balance, selectedToken.decimals)} {selectedToken.symbol}
-              </p>
+            ) : (
+              selectedToken && (
+                <p className="text-xs text-white/40">
+                  Available:{" "}
+                  {formatBalance(selectedToken.balance, selectedToken.decimals)}{" "}
+                  {selectedToken.symbol}
+                </p>
+              )
             )}
           </div>
 
           {/* Recipient Address Input */}
           <div className="space-y-1.5">
-            <Label htmlFor="recipient" className="text-xs font-medium text-white/80">Recipient</Label>
+            <Label
+              htmlFor="recipient"
+              className="text-xs font-medium text-white/80"
+            >
+              Recipient
+            </Label>
             <div className="relative">
               <Input
                 id="recipient"
@@ -870,17 +1019,17 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)} 
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
               disabled={loading}
               className="flex-1 h-9 text-sm rounded-full border-white/20 text-white hover:bg-white/10"
             >
               {success ? "Close" : "Cancel"}
             </Button>
             {!success && (
-              <Button 
-                onClick={handleSend} 
+              <Button
+                onClick={handleSend}
                 disabled={loading || loadingTokens || !selectedToken}
                 className="flex-1 h-9 text-sm rounded-full bg-white text-black hover:bg-white/90"
               >

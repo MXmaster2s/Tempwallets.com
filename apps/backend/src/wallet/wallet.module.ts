@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { WalletController } from './wallet.controller.js';
 import { WalletService } from './wallet.service.js';
 import { SeedRepository } from './seed.repository.js';
@@ -38,7 +39,8 @@ import { AptosAccountService } from './aptos/services/aptos-account.service.js';
 import { AptosSequenceManager } from './aptos/managers/aptos-sequence.manager.js';
 import { AptosTransactionService } from './aptos/services/aptos-transaction.service.js';
 import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
-
+import { UserAssetsRepository } from './repositories/user-assets.repository.js';
+import { ZerionSyncService } from './services/zerion-sync.service.js';
 @Module({
   imports: [
     PrismaModule,
@@ -46,6 +48,7 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     SubstrateModule,
     EvmModule,
     AptosModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [WalletController],
   providers: [
@@ -62,11 +65,11 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     AptosSequenceManager,
     // Factories
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAccountFactory,
-  // Delegation repository for EIP-7702
-  Eip7702DelegationRepository,
+    // Delegation repository for EIP-7702
+    Eip7702DelegationRepository,
     // Aptos Services
     AptosRpcService,
     AptosAccountService,
@@ -82,6 +85,9 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     AddressCacheRepository,
     BalanceCacheRepository,
     WalletHistoryRepository,
+    // DB-backed assets and sync service
+    UserAssetsRepository,
+    ZerionSyncService,
   ],
   exports: [
     WalletService,
@@ -94,15 +100,15 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     SeedManager,
     AddressManager,
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAddressManager,
     AptosAccountFactory,
     AptosRpcService,
     AptosAccountService,
     AptosTransactionService,
     AptosSequenceManager,
-  Eip7702DelegationRepository,
+    Eip7702DelegationRepository,
     // Export Pimlico service
     PimlicoService,
     // Export Polkadot EVM RPC service
