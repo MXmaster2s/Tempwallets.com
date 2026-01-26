@@ -145,13 +145,12 @@ export class WebSocketManager {
 
       this.ws.on('close', (code: number, reason: Buffer) => {
         const reasonStr = reason.toString();
-        if (code !== 1000) {
-          this.logger.error(
-            `Unexpected disconnect (code: ${code}, reason: ${reasonStr || 'none'})`,
-          );
-        } else {
+        
+        // Only log intentional disconnects at info level
+        if (code === 1000) {
           this.logger.log(`Connection closed normally (code: ${code})`);
         }
+        // Silently handle abnormal closes - no reconnection spam
 
         this.connectionState = ConnectionState.DISCONNECTED;
         this.ws = null;
@@ -159,16 +158,9 @@ export class WebSocketManager {
         // Notify listeners
         this.eventHandlers.onDisconnect?.();
 
-        // Attempt reconnection if not intentionally closed
-        if (
-          code !== 1000 &&
-          this.reconnectAttempts < this.maxReconnectAttempts
-        ) {
-          this.scheduleReconnect();
-        } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          this.logger.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached`);
-          this.connectionState = ConnectionState.FAILED;
-        }
+        // DO NOT automatically reconnect - let the application decide when to reconnect
+        // Cached sessions should be used instead of constant reconnections
+        // If reconnection is needed, the application will call connect() explicitly
       });
 
       // Connection timeout

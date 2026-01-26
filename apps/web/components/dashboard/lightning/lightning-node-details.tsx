@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Zap, Copy, ArrowRightLeft, Plus, Minus, Wallet, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@repo/ui/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { lightningNodeApi, LightningNode, LightningNodeParticipant, walletApi } from '@/lib/api';
 import { TransferFundsModal } from '../modals/transfer-funds-modal';
 import { DepositFundsModal } from '../modals/deposit-funds-modal';
@@ -307,65 +306,42 @@ export function LightningNodeDetails({ lightningNodeId, onClose }: LightningNode
           </div>
         )}
 
-        {/* Action Buttons – Coming Soon */}
+        {/* Action Buttons */}
         {lightningNode.status === 'open' && currentParticipant && (
           <div className="space-y-3">
-            <TooltipProvider>
-              {/* Primary Actions: Deposit, Transfer, Withdraw */}
-              <div className="grid grid-cols-3 gap-3">
-                <Tooltip delayDuration={150}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled
-                      className="border-blue-200 text-blue-500 bg-blue-50 cursor-not-allowed opacity-80"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Deposit
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-black/80 text-white text-xs px-3 py-2 rounded-md border border-white/10 max-w-xs">
-                    <p>Coming soon: depositing additional funds into this Lightning Node will be available later.</p>
-                  </TooltipContent>
-                </Tooltip>
+            {/* Primary Actions: Deposit, Transfer, Withdraw */}
+            <div className="grid grid-cols-3 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDepositModalOpen(true)}
+                className="border-blue-200 text-blue-500 bg-blue-50 hover:bg-blue-100"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Deposit
+              </Button>
 
-                <Tooltip delayDuration={150}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      className="bg-gray-300 text-gray-700 cursor-not-allowed opacity-80"
-                      disabled
-                    >
-                      <ArrowRightLeft className="mr-2 h-4 w-4" />
-                      Transfer
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-black/80 text-white text-xs px-3 py-2 rounded-md border border-white/10 max-w-xs">
-                    <p>Coming soon: transferring funds between participants is not yet available.</p>
-                  </TooltipContent>
-                </Tooltip>
+              <Button
+                type="button"
+                onClick={() => setTransferModalOpen(true)}
+                className="bg-gray-800 text-white hover:bg-gray-900"
+              >
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Transfer
+              </Button>
 
-                <Tooltip delayDuration={150}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled
-                      className="border-orange-200 text-orange-600 bg-orange-50 cursor-not-allowed opacity-80"
-                    >
-                      <Minus className="mr-2 h-4 w-4" />
-                      Withdraw
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="bg-black/80 text-white text-xs px-3 py-2 rounded-md border border-white/10 max-w-xs">
-                    <p>Coming soon: withdrawing funds back to unified balance will be enabled in production soon.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </TooltipProvider>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setWithdrawModalOpen(true)}
+                className="border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100"
+              >
+                <Minus className="mr-2 h-4 w-4" />
+                Withdraw
+              </Button>
+            </div>
 
-            {/* Secondary Action: Close Node (still functional) */}
+            {/* Secondary Action: Close Node */}
             <Button
               onClick={handleCloseNode}
               variant="outline"
@@ -378,9 +354,6 @@ export function LightningNodeDetails({ lightningNodeId, onClose }: LightningNode
                 <X className="mr-2 h-4 w-4" />
               )}
               Close Node
-              <span className="ml-2 text-[10px] bg-gray-200 px-2 py-0.5 rounded-full">
-                Coming Soon
-              </span>
             </Button>
           </div>
         )}

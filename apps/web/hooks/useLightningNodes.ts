@@ -5,6 +5,7 @@ import {
   lightningNodeApi,
   LightningNode,
   CreateLightningNodeRequest,
+  UnifiedBalanceAsset,
 } from '@/lib/api';
 import { useAuth } from './useAuth';
 import {
@@ -32,6 +33,10 @@ export function useLightningNodes() {
   const [authenticating, setAuthenticating] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
+  // Unified balance state
+  const [unifiedBalance, setUnifiedBalance] = useState<UnifiedBalanceAsset[]>([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
   // Sessions state
   const [allSessions, setAllSessions] = useState<LightningNode[]>([]);
   const [activeSessions, setActiveSessions] = useState<LightningNode[]>([]);
@@ -49,17 +54,20 @@ export function useLightningNodes() {
    * Step 1: Authenticate user's wallet with Yellow Network
    * This should be called once when the user accesses the Lightning Node UI
    * 
-   * OPTIMIZATION: Authentication now checks session TTL and skips if valid
+   * OPTIMIZATION: Checks localStorage cache first to avoid reconnections
    */
   const authenticate = useCallback(async (chain: string = 'base') => {
-    if (!userId) {
-      console.log('[Lightning] No userId, skipping authentication');
-      return;
-    }
-
+    console.log('[Lightning] authenticate called - userId:', userId, 'authenticated:', authenticated);
+    
     // Skip if already authenticated
     if (authenticated) {
       console.log('[Lightning] Already authenticated, skipping');
+      return;
+    }
+
+    // If no userId yet, don't set error - auto-retry will handle it
+    if (!userId) {
+      console.warn('[Lightning] ⚠️ No userId available yet - will retry when available');
       return;
     }
 
@@ -67,13 +75,55 @@ export function useLightningNodes() {
     setError(null);
 
     try {
-      console.log('[Lightning] Authenticating wallet for user:', userId);
+      // Check localStorage cache first
+      const { getCachedSession, cacheSession } = await import('@/lib/lightning-session-cache');
+      const cachedSession = getCachedSession(userId, chain);
+
+      if (cachedSession) {
+        console.log('[Lightning] � Restoring session from cache');
+        
+        // Restore session without backend call
+        setAuthenticated(true);
+        setWalletAddress(cachedSession.walletAddress);
+        console.log('[Lightning] ✅ Session restored from cache:', cachedSession.walletAddress);
+
+        // Track restoration
+        trackLightningWalletConnected({
+          userId,
+          walletAddress: cachedSession.walletAddress,
+          chain,
+          timestamp: Date.now(),
+        });
+
+        console.log('[Lightning] Authentication complete (cached). Call discoverSessions() to load sessions.');
+        setAuthenticating(false);
+        return;
+      }
+
+      // No valid cache, authenticate with backend
+      console.log('[Lightning] 🔄 No valid cache, authenticating with backend...');
+      console.log('[Lightning] Request payload:', { userId, chain });
+      
       const response = await lightningNodeApi.authenticateWallet({ userId, chain });
+      
+      console.log('[Lightning] 📥 Backend response:', response);
 
       if (response.ok && response.authenticated) {
         setAuthenticated(true);
         setWalletAddress(response.walletAddress);
-        console.log('[Lightning] ✅ Wallet authenticated:', response.walletAddress);
+        console.log('[Lightning] ✅ Wallet authenticated successfully:', response.walletAddress);
+
+        // Cache the session with 24h expiry
+        if (response.sessionKey && response.jwtToken && response.expiresAt) {
+          cacheSession({
+            userId,
+            chain,
+            walletAddress: response.walletAddress,
+            sessionKey: response.sessionKey,
+            jwtToken: response.jwtToken,
+            expiresAt: response.expiresAt,
+          });
+        }
 
         // Track successful authentication
         trackLightningWalletConnected({
@@ -87,23 +137,82 @@ export function useLightningNodes() {
         // Sessions will be fetched on-demand when component explicitly calls discoverSessions()
         console.log('[Lightning] Authentication complete. Call discoverSessions() to load sessions.');
       } else {
+        console.error('[Lightning] ❌ Authentication failed - response:', response);
         throw new Error('Authentication failed');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to authenticate wallet';
       setError(errorMessage);
-      console.error('[Lightning] Authentication error:', err);
+      console.error('[Lightning] ❌ Authentication error:', err);
       setAuthenticated(false);
 
       // Track authentication failure
       trackLightningAuthFailed({
-        userId,
+        userId: userId || 'unknown',
         chain,
         errorMessage,
       });
     } finally {
       setAuthenticating(false);
     }
+  }, [userId, authenticated]);
+
+  /**
+   * Fetch unified balance from Clearnode
+   * This shows all assets available in the off-chain balance
+   */
+  const fetchUnifiedBalance = useCallback(async (chain: string = 'base') => {
+    if (!userId || !authenticated) {
+      console.warn('[Lightning] Cannot fetch balance - user not authenticated');
+      return;
+    }
+
+    setBalanceLoading(true);
+
+    try {
+      console.log('[Lightning] Fetching unified balance...');
+      const response = await lightningNodeApi.getUnifiedBalance(userId, chain);
+
+      if (response.success) {
+        setUnifiedBalance(response.balances);
+        console.log('[Lightning] ✅ Unified balance fetched:', response.balances);
+      } else {
+        console.error('[Lightning] Failed to fetch unified balance');
+      }
+    } catch (err) {
+      console.error('[Lightning] Error fetching unified balance:', err);
+      // Don't set error state for balance fetches - it's not critical
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [userId, authenticated]);
+
+  /**
+   * Fetch custody balance (on-chain Custody contract balance)
+   * This shows the balance deposited to the Custody smart contract
+   * before it's moved to unified balance via channel resize.
+   */
+  const fetchCustodyBalance = useCallback(async (
+    chain: string = 'base',
+    asset: string = 'usdc'
+  ) => {
+    if (!userId || !authenticated) {
+      console.warn('[Lightning] Cannot fetch custody balance - user not authenticated');
+      return null;
+    }
+
+    try {
+      console.log('[Lightning] Fetching custody balance...');
+      const response = await lightningNodeApi.getCustodyBalance(userId, chain, asset);
+
+      if (response.success) {
+        console.log('[Lightning] ✅ Custody balance:', response.balanceFormatted, asset.toUpperCase());
+        return response;
+      }
+    } catch (err) {
+      console.error('[Lightning] Error fetching custody balance:', err);
+    }
+    return null;
   }, [userId, authenticated]);
 
   /**
@@ -304,13 +413,14 @@ export function useLightningNodes() {
     return discoverSessions();
   }, [discoverSessions]);
 
-  // OPTIMIZATION: Don't auto-authenticate when userId changes
-  // Authentication will be triggered on-demand when user navigates to Lightning Node UI
-  // This prevents unnecessary authentication flows during page loads
+  // Auto-authenticate when userId becomes available
+  // This ensures authentication happens automatically when user navigates to Lightning Node UI
   useEffect(() => {
-    // Removed: Auto-authenticate on userId change
-    // Lightning Node UI components will call authenticate() explicitly
-  }, [userId]);
+    if (userId && !authenticated && !authenticating) {
+      console.log('[Lightning] UserId now available, auto-authenticating...');
+      authenticate('base');
+    }
+  }, [userId, authenticated, authenticating, authenticate]);
 
   return {
     // Authentication state
@@ -318,6 +428,12 @@ export function useLightningNodes() {
     authenticating,
     walletAddress,
     authenticate,
+
+    // Unified balance state
+    unifiedBalance,
+    balanceLoading,
+    fetchUnifiedBalance,
+    fetchCustodyBalance,
 
     // Sessions state (Yellow Network native)
     allSessions,

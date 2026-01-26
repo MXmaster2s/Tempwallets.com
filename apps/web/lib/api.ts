@@ -174,15 +174,21 @@ export interface CreateLightningNodeResponse {
 export interface AuthenticateWalletRequest {
   userId: string;
   chain?: string; // optional, defaults to 'base'
+  sessionKey?: string; // cached session key
+  jwtToken?: string; // cached JWT token
+  expiresAt?: number; // cached expiration timestamp
 }
 
 export interface AuthenticateWalletResponse {
   ok: boolean;
   authenticated: boolean;
   walletAddress: string;
-  chain: string;
-  isEOA: boolean;
-  timestamp: number;
+  sessionKey?: string; // session key for caching
+  jwtToken?: string; // JWT token for caching
+  expiresAt?: number; // expiration timestamp for caching
+  chain?: string;
+  isEOA?: boolean;
+  timestamp?: number;
   message: string;
 }
 
@@ -233,6 +239,42 @@ export interface FundChannelResponse {
   ok: boolean;
   channelId?: string;
   message?: string;
+}
+
+// Get Unified Balance
+export interface GetUnifiedBalanceRequest {
+  userId: string;
+  chain: string;
+}
+
+export interface UnifiedBalanceAsset {
+  asset: string; // e.g., "base:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+  amount: string; // Raw amount in smallest unit
+  locked: string; // Locked amount
+  available: string; // Available amount
+}
+
+export interface GetUnifiedBalanceResponse {
+  success: boolean;
+  balances: UnifiedBalanceAsset[];
+  walletAddress: string;
+  chain: string;
+}
+
+// Get Custody Balance
+export interface GetCustodyBalanceRequest {
+  userId: string;
+  chain: string;
+  asset: string;
+}
+
+export interface GetCustodyBalanceResponse {
+  success: boolean;
+  balance: string; // Raw amount in smallest unit (e.g., "10000000" for 10 USDC)
+  balanceFormatted: string; // Human-readable (e.g., "10.000000")
+  asset: string;
+  chain: string;
+  walletAddress: string;
 }
 
 // Deposit Funds
@@ -324,6 +366,14 @@ async function fetchApi<T>(
   // Get auth token from localStorage if available
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
   
+  // Log API request for debugging
+  console.log(`[API] 🔄 ${options?.method || 'GET'} ${endpoint}`);
+  console.log('[API] Full URL:', url);
+  console.log('[API] Has auth token:', !!token);
+  if (options?.body) {
+    console.log('[API] Request body:', JSON.parse(options.body as string));
+  }
+  
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -352,24 +402,32 @@ async function fetchApi<T>(
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
+        console.error(`[API] ❌ ${options?.method || 'GET'} ${endpoint} - ${response.status}:`, errorData);
       } catch {
         const errorText = await response.text();
         errorMessage = errorText || errorMessage;
+        console.error(`[API] ❌ ${options?.method || 'GET'} ${endpoint} - ${response.status}:`, errorText);
       }
       throw new ApiError(response.status, errorMessage);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`[API] ✅ ${options?.method || 'GET'} ${endpoint} - Success`);
+    console.log('[API] Response data:', data);
+    return data;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
     }
     if (error instanceof Error && error.name === 'AbortError') {
+      console.error(`[API] ⏱️ ${options?.method || 'GET'} ${endpoint} - Timeout`);
       throw new ApiError(408, 'Request timeout');
     }
     if (error instanceof Error && error.message.includes('fetch')) {
+      console.error(`[API] 🌐 ${options?.method || 'GET'} ${endpoint} - Network error`);
       throw new ApiError(503, 'Network error. Please check your connection.');
     }
+    console.error(`[API] ❌ ${options?.method || 'GET'} ${endpoint} - Unknown error:`, error);
     throw new ApiError(500, error instanceof Error ? error.message : 'Unknown error');
   }
 }
@@ -501,225 +559,6 @@ export const walletApi = {
     nonce?: string;
   }): Promise<{ txHash: string }> {
     return fetchApi<{ txHash: string }>('/wallet/walletconnect/sign', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /**
-   * Substrate/Polkadot API methods
-   */
-
-  /**
-   * Get Substrate addresses for a user
-   */
-  async getSubstrateAddresses(userId: string, useTestnet: boolean = false): Promise<Record<string, string | null>> {
-    const response = await fetchApi<{
-      userId: string;
-      useTestnet: boolean;
-      addresses: Record<string, string | null>;
-    }>(`/wallet/substrate/addresses?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`);
-    return response.addresses;
-  },
-
-  /**
-   * Get Substrate balances for all chains
-   */
-  async getSubstrateBalances(userId: string, useTestnet: boolean = false): Promise<Record<string, {
-    balance: string;
-    address: string | null;
-    token: string;
-    decimals: number;
-  }>> {
-    // Use longer timeout for Substrate balance calls (60 seconds) as RPC connections can be slow
-    const url = `${API_BASE_URL}/wallet/substrate/balances?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for Substrate
-
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorMessage = 'API request failed';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-        }
-        throw new ApiError(response.status, errorMessage);
-      }
-
-      const data = await response.json();
-      return data.balances;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new ApiError(408, 'Request timeout (Substrate RPC connections may be slow)');
-      }
-      if (error instanceof Error && error.message.includes('fetch')) {
-        throw new ApiError(503, 'Network error. Please check your connection.');
-      }
-      throw new ApiError(500, error instanceof Error ? error.message : 'Unknown error');
-    }
-  },
-
-  /**
-   * Get Substrate transaction history
-   */
-  async getSubstrateTransactions(
-    userId: string,
-    chain: string,
-    useTestnet: boolean = false,
-    limit: number = 10,
-    cursor?: string
-  ): Promise<{
-    transactions: Array<{
-      txHash: string;
-      blockNumber?: number;
-      blockHash?: string;
-      timestamp?: number;
-      from: string;
-      to?: string;
-      amount?: string;
-      fee?: string;
-      status: 'pending' | 'inBlock' | 'finalized' | 'failed' | 'error';
-      method?: string;
-    }>;
-    total: number;
-    page: number;
-    pageSize: number;
-    hasMore: boolean;
-    nextCursor?: string;
-  }> {
-    const params = new URLSearchParams({
-      userId,
-      chain,
-      useTestnet: useTestnet.toString(),
-      limit: limit.toString(),
-    });
-    if (cursor) {
-      params.append('cursor', cursor);
-    }
-    // Use longer timeout (60 seconds) for transaction history as it may need to scan many blocks
-    const response = await fetchApi<{
-      userId: string;
-      chain: string;
-      useTestnet: boolean;
-      history: {
-        transactions: Array<{
-          txHash: string;
-          blockNumber?: number;
-          blockHash?: string;
-          timestamp?: number;
-          from: string;
-          to?: string;
-          amount?: string;
-          fee?: string;
-          status: 'pending' | 'inBlock' | 'finalized' | 'failed' | 'error';
-          method?: string;
-        }>;
-        total: number;
-        page: number;
-        pageSize: number;
-        hasMore: boolean;
-        nextCursor?: string;
-      };
-    }>(`/wallet/substrate/transactions?${params.toString()}`, { timeout: 60000 });
-    return response.history;
-  },
-
-  /**
-   * Send Substrate transfer
-   */
-  async sendSubstrateTransfer(data: {
-    userId: string;
-    chain: string;
-    to: string;
-    amount: string;
-    useTestnet?: boolean;
-    transferMethod?: 'transferAllowDeath' | 'transferKeepAlive';
-  }): Promise<{
-    success: boolean;
-    txHash: string;
-    status: string;
-    blockHash?: string;
-    error?: string;
-  }> {
-    return fetchApi<{
-      success: boolean;
-      txHash: string;
-      status: string;
-      blockHash?: string;
-      error?: string;
-    }>('/wallet/substrate/send', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /**
-   * Get Substrate WalletConnect accounts (CAIP-10 formatted)
-   */
-  async getSubstrateWalletConnectAccounts(
-    userId: string,
-    useTestnet: boolean = false,
-  ): Promise<{
-    userId: string;
-    useTestnet: boolean;
-    accounts: Array<{
-      accountId: string; // CAIP-10 format: polkadot:<genesis_hash>:<address>
-      chain: string;
-      address: string;
-    }>;
-  }> {
-    return fetchApi<{
-      userId: string;
-      useTestnet: boolean;
-      accounts: Array<{
-        accountId: string;
-        chain: string;
-        address: string;
-      }>;
-    }>(`/wallet/substrate/walletconnect/accounts?userId=${encodeURIComponent(userId)}&useTestnet=${useTestnet}`);
-  },
-
-  /**
-   * Sign a Substrate transaction for WalletConnect
-   */
-  async signSubstrateWalletConnectTransaction(data: {
-    userId: string;
-    accountId: string; // CAIP-10 format
-    transactionPayload: string; // Hex-encoded transaction
-    useTestnet?: boolean;
-  }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/substrate/walletconnect/sign-transaction', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /**
-   * Sign a Substrate message for WalletConnect
-   */
-  async signSubstrateWalletConnectMessage(data: {
-    userId: string;
-    accountId: string; // CAIP-10 format
-    message: string;
-    useTestnet?: boolean;
-  }): Promise<{ signature: string }> {
-    return fetchApi<{ signature: string }>('/wallet/substrate/walletconnect/sign-message', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1452,6 +1291,34 @@ export const lightningNodeApi = {
       body: JSON.stringify(data),
       timeout: 120000, // 120 seconds - on-chain transaction
     });
+  },
+
+  /**
+   * Get unified balance from Clearnode (off-chain balance)
+   * This returns all assets in the user's off-chain balance
+   */
+  async getUnifiedBalance(userId: string, chain: string): Promise<GetUnifiedBalanceResponse> {
+    return fetchApi<GetUnifiedBalanceResponse>(
+      `/lightning-node/unified-balance?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}`,
+      { timeout: 30000 } // 30 seconds
+    );
+  },
+
+  /**
+   * Get custody balance (on-chain balance in Custody contract)
+   * This returns the deposited balance in the Custody smart contract
+   * before it's moved to unified balance via channel resize.
+   * Use this to show "Available (Custody SC)" balance in UI.
+   */
+  async getCustodyBalance(
+    userId: string,
+    chain: string,
+    asset: string
+  ): Promise<GetCustodyBalanceResponse> {
+    return fetchApi<GetCustodyBalanceResponse>(
+      `/lightning-node/custody-balance?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}&asset=${encodeURIComponent(asset)}`,
+      { timeout: 30000 } // 30 seconds
+    );
   },
 
   /**

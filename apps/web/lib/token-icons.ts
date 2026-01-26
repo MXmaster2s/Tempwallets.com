@@ -1,17 +1,17 @@
 import { ComponentType, SVGProps } from 'react';
 import { useWalletConfig } from '@/hooks/useWalletConfig';
-import Polkadot from '@thirdweb-dev/chain-icons/dist/polkadot-new';
+import GenericChain from '@thirdweb-dev/chain-icons/dist/ethereum';
 
 /**
- * Fallback icon component (Polkadot as generic Substrate icon)
+ * Fallback icon component (Generic chain icon)
  */
-const FallbackIcon: ComponentType<SVGProps<SVGSVGElement>> = Polkadot;
+const FallbackIcon: ComponentType<SVGProps<SVGSVGElement>> = GenericChain;
 
 /**
  * Get token icon component for a chain
  * Uses wallet config to get chain icon from @thirdweb-dev/chain-icons
  * 
- * @param chain Chain ID (e.g., 'ethereum', 'polkadot', 'baseErc4337')
+ * @param chain Chain ID (e.g., 'ethereum', 'base', 'baseErc4337')
  * @param symbol Optional token symbol (currently not used, but reserved for future token-specific icons)
  * @returns React icon component (never null)
  */
@@ -29,7 +29,7 @@ export function getTokenIcon(
  * Hook to get token icon component for a chain
  * Must be used inside React components
  * 
- * @param chain Chain ID (e.g., 'ethereum', 'polkadot', 'baseErc4337')
+ * @param chain Chain ID (e.g., 'ethereum', 'base', 'baseErc4337')
  * @param symbol Optional token symbol (currently not used, but reserved for future token-specific icons)
  * @returns React icon component (never null)
  */
@@ -64,7 +64,7 @@ export function useTokenIcon(
     }
   }
   
-  // Fallback to Polkadot icon (generic Substrate/chain icon)
+  // Fallback to generic chain icon
   return FallbackIcon;
 }
 

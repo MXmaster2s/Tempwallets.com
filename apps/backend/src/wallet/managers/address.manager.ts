@@ -11,7 +11,6 @@ import { SeedManager } from './seed.manager.js';
 import { AccountFactory } from '../factories/account.factory.js';
 import { NativeEoaFactory } from '../factories/native-eoa.factory.js';
 import { Eip7702AccountFactory } from '../factories/eip7702-account.factory.js';
-import { SubstrateManager } from '../substrate/managers/substrate.manager.js';
 import { AddressCacheRepository } from '../repositories/address-cache.repository.js';
 import { AptosAddressManager } from '../aptos/managers/aptos-address.manager.js';
 import { PimlicoConfigService } from '../config/pimlico.config.js';
@@ -61,8 +60,6 @@ export class AddressManager implements IAddressManager {
     private accountFactory: AccountFactory,
     private nativeEoaFactory: NativeEoaFactory,
     private eip7702AccountFactory: Eip7702AccountFactory,
-    @Inject(forwardRef(() => SubstrateManager))
-    private substrateManager: SubstrateManager,
     private addressCacheRepository: AddressCacheRepository,
     private aptosAddressManager: AptosAddressManager,
     private pimlicoConfig: PimlicoConfigService,
@@ -195,58 +192,13 @@ export class AddressManager implements IAddressManager {
       }
     }
 
-    // Get Substrate addresses (parallel with EVM addresses)
-    try {
-      const substrateAddresses = await this.substrateManager.getAddresses(
-        userId,
-        false,
-      );
-
-      // Map Substrate addresses to WalletAddresses format
-      const substrateMappings: Array<{
-        key: keyof WalletAddresses;
-        value: string | null;
-      }> = [
-        { key: 'polkadot', value: substrateAddresses.polkadot ?? null },
-        {
-          key: 'hydrationSubstrate',
-          value: substrateAddresses.hydration ?? null,
-        },
-        { key: 'bifrostSubstrate', value: substrateAddresses.bifrost ?? null },
-        { key: 'uniqueSubstrate', value: substrateAddresses.unique ?? null },
-        { key: 'paseo', value: substrateAddresses.paseo ?? null },
-        {
-          key: 'paseoAssethub',
-          value: substrateAddresses.paseoAssethub ?? null,
-        },
-      ];
-
-      for (const { key, value } of substrateMappings) {
-        // Only update if not already cached or if cached value is null
-        if (addresses[key] === undefined || addresses[key] === null) {
-          addresses[key] = value as any;
-          if (value) {
-            addressesToSave[key] = value;
-            // Save to database immediately
-            await this.addressCacheRepository.saveAddress(userId, key, value);
-          }
-        }
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error getting Substrate addresses: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
-      // Set defaults only if not already set
-      if (addresses.polkadot === undefined) addresses.polkadot = null;
-      if (addresses.hydrationSubstrate === undefined)
-        addresses.hydrationSubstrate = null;
-      if (addresses.bifrostSubstrate === undefined)
-        addresses.bifrostSubstrate = null;
-      if (addresses.uniqueSubstrate === undefined)
-        addresses.uniqueSubstrate = null;
-      if (addresses.paseo === undefined) addresses.paseo = null;
-      if (addresses.paseoAssethub === undefined) addresses.paseoAssethub = null;
-    }
+    // Set Substrate addresses to null (not supported)
+    addresses.polkadot = null;
+    addresses.hydrationSubstrate = null;
+    addresses.bifrostSubstrate = null;
+    addresses.uniqueSubstrate = null;
+    addresses.paseo = null;
+    addresses.paseoAssethub = null;
 
     // Get Aptos addresses
     try {
@@ -446,61 +398,18 @@ export class AddressManager implements IAddressManager {
       }
     }
 
-    // Process Substrate chains
-    try {
-      const substrateAddresses = await this.substrateManager.getAddresses(
-        userId,
-        false,
-      );
-
-      // Map Substrate addresses to WalletAddresses format
-      const substrateChains: { name: string; address: string | null }[] = [
-        { name: 'polkadot', address: substrateAddresses.polkadot ?? null },
-        {
-          name: 'hydrationSubstrate',
-          address: substrateAddresses.hydration ?? null,
-        },
-        {
-          name: 'bifrostSubstrate',
-          address: substrateAddresses.bifrost ?? null,
-        },
-        { name: 'uniqueSubstrate', address: substrateAddresses.unique ?? null },
-        { name: 'paseo', address: substrateAddresses.paseo ?? null },
-        {
-          name: 'paseoAssethub',
-          address: substrateAddresses.paseoAssethub ?? null,
-        },
-      ];
-
-      for (const { name, address } of substrateChains) {
-        // Skip if already cached
-        if (cachedAddresses[name]) {
-          continue;
-        }
-
-        if (address) {
-          // Save to database BEFORE streaming
-          await this.addressCacheRepository.saveAddress(userId, name, address);
-        }
-        yield { chain: name, address };
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error streaming Substrate addresses: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
-      // Yield null addresses for all Substrate chains on error (only if not cached)
-      const substrateChainNames = [
-        'polkadot',
-        'hydrationSubstrate',
-        'bifrostSubstrate',
-        'uniqueSubstrate',
-        'paseo',
-        'paseoAssethub',
-      ];
-      for (const name of substrateChainNames) {
-        if (!cachedAddresses[name]) {
-          yield { chain: name, address: null };
-        }
+    // Substrate chains - not supported, return null
+    const substrateChainNames = [
+      'polkadot',
+      'hydrationSubstrate',
+      'bifrostSubstrate',
+      'uniqueSubstrate',
+      'paseo',
+      'paseoAssethub',
+    ];
+    for (const name of substrateChainNames) {
+      if (!cachedAddresses[name]) {
+        yield { chain: name, address: null };
       }
     }
 

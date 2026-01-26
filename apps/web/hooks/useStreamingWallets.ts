@@ -75,21 +75,10 @@ function mapBackendKeyToConfigId(key: string): string {
     'solana': 'solana',
     'tron': 'tron',
     
-    // Substrate/Polkadot
-    'polkadot': 'polkadot',
-    'hydration': 'hydrationSubstrate',
-    'hydrationSubstrate': 'hydrationSubstrate',
-    'bifrost': 'bifrostSubstrate',
-    'bifrostSubstrate': 'bifrostSubstrate',
-    'unique': 'uniqueSubstrate',
-    'uniqueSubstrate': 'uniqueSubstrate',
-    
     // Testnets
     'moonbeamTestnet': 'moonbeamTestnet',
     'astarShibuya': 'astarShibuya',
     'paseoPassetHub': 'paseoPassetHub',
-    'paseo': 'paseo',
-    'paseoAssethub': 'paseoAssethub',
   };
   
   return keyMap[key] || key;

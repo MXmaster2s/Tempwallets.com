@@ -46,13 +46,6 @@ const CHAIN_NAMES: Record<string, string> = {
   moonbeamTestnet: "Moonbeam Testnet",
   astarShibuya: "Astar Shibuya",
   paseoPassetHub: "Paseo PassetHub",
-  // Substrate/Polkadot chains
-  polkadot: "Polkadot",
-  hydrationSubstrate: "Hydration",
-  bifrostSubstrate: "Bifrost",
-  uniqueSubstrate: "Unique",
-  paseo: "Paseo",
-  paseoAssethub: "Paseo AssetHub",
   // Aptos chains
   aptos: "Aptos",
   aptosTestnet: "Aptos Testnet",
@@ -132,16 +125,6 @@ const validateAddress = (address: string, chain: string): string | null => {
     }
   }
 
-  // Substrate/Polkadot chains (SS58 format)
-  const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
-  if (SUBSTRATE_CHAINS.includes(chain)) {
-    // SS58 addresses are typically 48 characters, but can vary
-    // Basic validation: should be alphanumeric and reasonable length
-    if (trimmed.length < 32 || trimmed.length > 50 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed)) {
-      return "Invalid Substrate address format (SS58 encoded, typically 32-50 characters)";
-    }
-  }
-
   // Aptos chains (0x-prefixed hex, 64 characters)
   if (chain === "aptos" || chain === "aptosTestnet") {
     if (!/^0x[a-fA-F0-9]{64}$/.test(trimmed)) {
@@ -150,19 +133,6 @@ const validateAddress = (address: string, chain: string): string | null => {
   }
 
   return null;
-};
-
-/**
- * Format transaction hash for block explorer
- * Substrate chains need hash without 0x prefix for Subscan
- */
-const formatTxHashForExplorer = (hash: string, isSubstrate: boolean = false): string => {
-  if (!hash) return '';
-  // Remove 0x prefix for Substrate chains (Subscan expects it without prefix)
-  if (isSubstrate && hash.startsWith('0x')) {
-    return hash.slice(2);
-  }
-  return hash;
 };
 
 const getExplorerUrl = (txHash: string, chain: string): string => {
@@ -205,40 +175,6 @@ const getExplorerUrl = (txHash: string, chain: string): string => {
 
   if (nonEvmExplorers[chain]) {
     return nonEvmExplorers[chain];
-  }
-
-  // Substrate/Polkadot chains - use Subscan
-  const substrateExplorers: Record<string, { mainnet: string; testnet: string }> = {
-    polkadot: { 
-      mainnet: 'https://polkadot.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
-    },
-    hydrationSubstrate: { 
-      mainnet: 'https://hydradx.subscan.io', 
-      testnet: 'https://hydradx-testnet.subscan.io' 
-    },
-    bifrostSubstrate: { 
-      mainnet: 'https://bifrost.subscan.io', 
-      testnet: 'https://bifrost-testnet.subscan.io' 
-    },
-    uniqueSubstrate: { 
-      mainnet: 'https://unique.subscan.io', 
-      testnet: 'https://unique-testnet.subscan.io' 
-    },
-    paseo: { 
-      mainnet: 'https://paseo.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
-    },
-    paseoAssethub: { 
-      mainnet: 'https://assethub-polkadot.subscan.io', 
-      testnet: 'https://assethub-paseo.subscan.io' 
-    },
-  };
-
-  if (substrateExplorers[chain]) {
-    const explorer = isTestnet ? substrateExplorers[chain].testnet : substrateExplorers[chain].mainnet;
-    const formattedHash = formatTxHashForExplorer(txHash, true);
-    return `${explorer}/extrinsic/${formattedHash}`;
   }
 
   return '#';
@@ -319,34 +255,11 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     setLoadingTokens(true);
     setError(null);
     try {
-      // Check if this is a Substrate chain
-      const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
-      const isSubstrate = SUBSTRATE_CHAINS.includes(chain);
-
       // Check if this is an Aptos chain
       const APTOS_CHAINS = ["aptos", "aptosTestnet"];
       const isAptos = APTOS_CHAINS.includes(chain);
 
-      if (isSubstrate) {
-        // Load Substrate balances
-        const balances = await walletApi.getSubstrateBalances(userId, false);
-        const chainBalance = balances[chain];
-        
-        if (chainBalance && chainBalance.address) {
-          // Create a single token entry for native Substrate token
-          const tokenList: TokenBalance[] = [{
-            address: null, // Native token
-            symbol: chainBalance.token,
-            balance: chainBalance.balance,
-            decimals: chainBalance.decimals,
-          }];
-          setTokens(tokenList);
-          setSelectedToken(tokenList[0] ?? null);
-        } else {
-          setTokens([]);
-          setError("No address found for this Substrate chain");
-        }
-      } else if (isAptos) {
+      if (isAptos) {
         // Load Aptos balance
         const network = chain === "aptosTestnet" ? "testnet" : "mainnet";
         const balanceData = await walletApi.getAptosBalance(userId, network);
@@ -535,10 +448,6 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         allEIP7702Chains: Object.keys(EIP7702_CHAIN_IDS),
       });
 
-      // Check if this is a Substrate chain
-      const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
-      const isSubstrate = SUBSTRATE_CHAINS.includes(tokenChain);
-
       // Check if this is an Aptos chain
       const APTOS_CHAINS = ["aptos", "aptosTestnet"];
       const isAptos = APTOS_CHAINS.includes(tokenChain);
@@ -553,8 +462,6 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         const chainId = EIP7702_CHAIN_IDS[normalizedChain] || EIP7702_CHAIN_IDS[tokenChain];
         console.log('✅ [Endpoint] Using EIP-7702 gasless endpoint (/wallet/eip7702/send)');
         console.log('✅ [ChainID]', chainId, `(from ${normalizedChain} or ${tokenChain})`);
-      } else if (isSubstrate) {
-        console.log('ℹ️ [Endpoint] Using Substrate endpoint');
       } else if (isAptos) {
         console.log('ℹ️ [Endpoint] Using Aptos endpoint');
       } else {
@@ -607,21 +514,6 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
             console.warn('Failed to wait for confirmation:', waitError);
           }
         }
-      } else if (isSubstrate) {
-        // Convert human-readable amount to smallest units for Substrate
-        const amountInSmallestUnits = (parseFloat(amount) * Math.pow(10, selectedToken.decimals)).toString();
-
-        // Use Substrate send endpoint
-        const substrateResult = await walletApi.sendSubstrateTransfer({
-          userId,
-          chain: tokenChain, // Use token's chain
-          to: recipientAddress.trim(),
-          amount: amountInSmallestUnits, // Amount in smallest units
-          useTestnet: false, // TODO: Add testnet toggle if needed
-          transferMethod: 'transferAllowDeath', // Default transfer method
-        });
-
-        result = { txHash: substrateResult.txHash };
       } else if (isAptos) {
         // Use Aptos send endpoint
         const network = tokenChain === "aptosTestnet" ? "testnet" : "mainnet"; // Use token's chain

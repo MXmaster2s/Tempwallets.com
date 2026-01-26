@@ -3,7 +3,7 @@ import { ComponentType, SVGProps } from 'react';
 /**
  * Chain types that determine wallet compatibility and functionality
  */
-export type ChainType = 'evm' | 'substrate' | 'bitcoin' | 'solana' | 'tron' | 'aptos';
+export type ChainType = 'evm' | 'bitcoin' | 'solana' | 'tron' | 'aptos';
 
 /**
  * Chain category for organizing chains

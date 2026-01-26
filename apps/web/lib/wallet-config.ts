@@ -2,7 +2,6 @@ import { ComponentType, SVGProps } from 'react';
 import Ethereum from '@thirdweb-dev/chain-icons/dist/ethereum';
 import Bitcoin from '@thirdweb-dev/chain-icons/dist/bitcoin';
 import Solana from '@thirdweb-dev/chain-icons/dist/solana';
-import Polkadot from '@thirdweb-dev/chain-icons/dist/polkadot-new';
 import Polygon from '@thirdweb-dev/chain-icons/dist/polygon';
 import Avalanche from '@thirdweb-dev/chain-icons/dist/avalanche';
 import Tron from '@thirdweb-dev/chain-icons/dist/tron';
@@ -17,12 +16,9 @@ import {
   ChainGroup,
 } from '@/types/wallet.types';
 
-// Fallback icon for chains without specific icons (using Polkadot as generic Substrate icon)
-const SubstrateFallback = Polkadot;
-
 /**
  * Master wallet configuration registry
- * Single source of truth for all 26+ wallet/chain configurations
+ * Single source of truth for all wallet/chain configurations
  */
 const RAW_WALLET_CONFIGS: WalletConfig[] = [
   // ========================================
@@ -243,38 +239,6 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
     group: 'bitcoin',
   },
   {
-    id: 'polkadot',
-    name: 'Polkadot',
-    symbol: 'DOT',
-    description: 'Polkadot Relay Chain',
-    type: 'substrate',
-    isTestnet: false,
-    category: 'layer1',
-    visible: true,
-    icon: Polkadot,
-    priority: 3,
-    color: '#E6007A',
-    capabilities: {
-      walletConnect: true,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: true,
-      transactionHistory: true,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: true,
-      showInWalletList: true,
-      enabledInProd: true,
-      enabledInDev: true,
-      advancedOnly: false,
-    },
-    group: 'substrate-mainnet',
-  },
-  {
     id: 'solana',
     name: 'Solana',
     symbol: 'SOL',
@@ -401,109 +365,6 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
       advancedOnly: false,
     },
     group: 'aptos',
-  },
-
-  // ========================================
-  // SUBSTRATE PARACHAINS (MAINNET)
-  // ========================================
-  {
-    id: 'hydrationSubstrate',
-    name: 'Hydration',
-    symbol: 'HDX',
-    description: 'Hydration Parachain',
-    type: 'substrate',
-    isTestnet: false,
-    category: 'parachain',
-    visible: false, // Hidden by default, show in advanced
-    icon: SubstrateFallback,
-    priority: 50,
-    color: '#FF0084',
-    capabilities: {
-      walletConnect: false,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: false, // Not currently supported
-      transactionHistory: false,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: false,
-      showInWalletList: true,
-      enabledInProd: false,
-      enabledInDev: true,
-      advancedOnly: true,
-    },
-    group: 'substrate-mainnet',
-    parentChain: 'polkadot',
-  },
-  {
-    id: 'bifrostSubstrate',
-    name: 'Bifrost',
-    symbol: 'BNC',
-    description: 'Bifrost Parachain',
-    type: 'substrate',
-    isTestnet: false,
-    category: 'parachain',
-    visible: false,
-    icon: SubstrateFallback,
-    priority: 51,
-    color: '#5A25F0',
-    capabilities: {
-      walletConnect: false,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: false,
-      transactionHistory: false,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: false,
-      showInWalletList: true,
-      enabledInProd: false,
-      enabledInDev: true,
-      advancedOnly: true,
-    },
-    group: 'substrate-mainnet',
-    parentChain: 'polkadot',
-  },
-  {
-    id: 'uniqueSubstrate',
-    name: 'Unique Network',
-    symbol: 'UNQ',
-    description: 'Unique Network Parachain',
-    type: 'substrate',
-    isTestnet: false,
-    category: 'parachain',
-    visible: false,
-    icon: SubstrateFallback,
-    priority: 52,
-    color: '#FF6B00',
-    capabilities: {
-      walletConnect: false,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: false,
-      transactionHistory: false,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: false,
-      showInWalletList: true,
-      enabledInProd: false,
-      enabledInDev: true,
-      advancedOnly: true,
-    },
-    group: 'substrate-mainnet',
-    parentChain: 'polkadot',
   },
 
   // ========================================
@@ -701,7 +562,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
     isTestnet: true,
     category: 'parachain',
     visible: false,
-    icon: SubstrateFallback,
+    icon: Ethereum, // Using Ethereum icon as fallback for EVM testnet
     priority: 200,
     color: '#53CBC9',
     capabilities: {
@@ -735,7 +596,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
     isTestnet: true,
     category: 'parachain',
     visible: false,
-    icon: SubstrateFallback,
+    icon: Ethereum, // Using Ethereum icon as fallback for EVM testnet
     priority: 201,
     color: '#0AE2FF',
     capabilities: {
@@ -768,7 +629,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
     isTestnet: true,
     category: 'parachain',
     visible: false,
-    icon: SubstrateFallback,
+    icon: Ethereum, // Using Ethereum icon as fallback for EVM testnet
     priority: 202,
     capabilities: {
       walletConnect: true,
@@ -789,69 +650,6 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
       advancedOnly: true,
     },
     group: 'evm-testnet',
-    parentChain: 'paseo',
-  },
-  {
-    id: 'paseo',
-    name: 'Paseo',
-    symbol: 'PAS',
-    description: 'Paseo Testnet (Substrate)',
-    type: 'substrate',
-    isTestnet: true,
-    category: 'layer1',
-    visible: false,
-    icon: SubstrateFallback,
-    priority: 203,
-    capabilities: {
-      walletConnect: false,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: false,
-      transactionHistory: false,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: false,
-      showInWalletList: true,
-      enabledInProd: false,
-      enabledInDev: true,
-      advancedOnly: true,
-    },
-    group: 'substrate-testnet',
-  },
-  {
-    id: 'paseoAssethub',
-    name: 'Paseo Asset Hub',
-    symbol: 'PAS',
-    description: 'Paseo Asset Hub (Substrate)',
-    type: 'substrate',
-    isTestnet: true,
-    category: 'parachain',
-    visible: false,
-    icon: SubstrateFallback,
-    priority: 204,
-    capabilities: {
-      walletConnect: false,
-      send: true,
-      receive: true,
-      copy: true,
-      balanceFetch: false,
-      transactionHistory: false,
-      nativeToken: true,
-      tokenTransfers: true,
-      lightningNodes: false,
-    },
-    features: {
-      showInSelector: false,
-      showInWalletList: true,
-      enabledInProd: false,
-      enabledInDev: true,
-      advancedOnly: true,
-    },
-    group: 'substrate-testnet',
     parentChain: 'paseo',
   },
 ];
@@ -1032,14 +830,14 @@ export const getWalletConfigs = (filter?: WalletConfigFilter): WalletConfig[] =>
 
 /**
  * Get visible wallet configurations for the selector
- * MVP: Only show Ethereum, Base, Polkadot, and Aptos in the horizontal selector
- * Full list (all gasless EVMs + Polkadot + Aptos) is available in the modal
+ * MVP: Only show Ethereum, Base, and Aptos in the horizontal selector
+ * Full list (all gasless EVMs + Aptos) is available in the modal
  */
 export const getVisibleWalletConfigs = (environment: 'development' | 'production' = 'production'): WalletConfig[] => {
   const isDev = environment === 'development';
   
-  // MVP: Only show these 4 chains in the horizontal selector
-  const mvpChainIds = ['ethereumErc4337', 'baseErc4337', 'polkadot', 'aptos'];
+  // MVP: Only show these 3 chains in the horizontal selector (removed Polkadot)
+  const mvpChainIds = ['ethereumErc4337', 'baseErc4337', 'aptos'];
   
   // Filter configs manually for more control
   return WALLET_CONFIGS.filter((config) => {

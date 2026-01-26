@@ -18,7 +18,6 @@ import { walletStorage } from "@/lib/walletStorage";
 import { useBrowserFingerprint } from "@/hooks/useBrowserFingerprint";
 import { useAuth } from "@/hooks/useAuth";
 import { walletApi } from "@/lib/api";
-import { WalletConnectModal } from "../modals/walletconnect-modal";
 import { EvmWalletConnectModal } from "../modals/evm-walletconnect-modal";
 import { WalletHistoryModal } from "./wallet-history-modal";
 import { SendCryptoModal } from "../modals/send-crypto-modal";
@@ -38,7 +37,6 @@ const WalletInfo = () => {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [selectedChainId, setSelectedChainId] = useState(DEFAULT_CHAIN.id);
-  const [substrateWalletConnectOpen, setSubstrateWalletConnectOpen] = useState(false);
   const [evmWalletConnectOpen, setEvmWalletConnectOpen] = useState(false);
   const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
   const [sendModalOpen, setSendModalOpen] = useState(false);
@@ -101,20 +99,6 @@ const WalletInfo = () => {
     }
     
     if (userId) {
-      // Clear cache if it doesn't have Substrate addresses (one-time migration)
-      const cachedAddresses = walletStorage.getAddresses(userId);
-      if (cachedAddresses) {
-        const hasSubstrate = cachedAddresses.auxiliary?.some(
-          (e) => e.category === 'substrate' && e.address
-        );
-        if (!hasSubstrate) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Clearing cache - missing Substrate addresses');
-          }
-          walletStorage.clearAddresses();
-        }
-      }
-      
       // Track loading state
       loadingRef.current = true;
       lastUserIdRef.current = userId;
@@ -239,9 +223,8 @@ const WalletInfo = () => {
       if (selectedChain.hasWalletConnect) {
         if (selectedChain.type === 'evm') {
           setEvmWalletConnectOpen(true);
-        } else if (selectedChain.type === 'substrate') {
-          setSubstrateWalletConnectOpen(true);
         }
+        // Note: Substrate/Polkadot WalletConnect support has been removed
       }
     }
   };
@@ -343,12 +326,6 @@ const WalletInfo = () => {
       />
 
       {/* WalletConnect Modals */}
-      {/* Substrate/Polkadot WalletConnect */}
-      <WalletConnectModal 
-        open={substrateWalletConnectOpen} 
-        onOpenChange={setSubstrateWalletConnectOpen} 
-      />
-      
       {/* EVM WalletConnect */}
       <EvmWalletConnectModal 
         open={evmWalletConnectOpen} 

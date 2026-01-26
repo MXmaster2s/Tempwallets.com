@@ -20,21 +20,15 @@ interface TokenListFile {
 
 /**
  * Service to load and manage token lists from JSON files
- * Only for Polkadot EVM chains: moonbeamTestnet, astarShibuya, paseoPassetHub
  */
 @Injectable()
 export class TokenListService {
   private readonly logger = new Logger(TokenListService.name);
 
   // Chain mapping: internal chain names to JSON file chain identifiers
-  private readonly chainMapping: Record<string, string[]> = {
-    moonbeamTestnet: ['moonbase', 'moonbeam-testnet', 'moonbeam', 'mainnet'], // mainnet might be Moonbeam mainnet
-    astarShibuya: ['astar-zkevm', 'astar-shibuya', 'astar', 'shibuya'],
-    paseoPassetHub: ['paseo', 'passethub', 'paseo-passethub'],
-  };
+  private readonly chainMapping: Record<string, string[]> = {};
 
   // Cached token lists
-  private polkadotEvmTokens: TokenEntry[] = [];
   private allTokens: TokenEntry[] = [];
   private tokensByChain: Map<string, TokenEntry[]> = new Map();
 
@@ -47,25 +41,12 @@ export class TokenListService {
    */
   private loadTokenLists(): void {
     try {
-      // Load polkadot-evm-tokens.json
-      // Use import.meta.url to get the current file's directory in ES modules
+      // Load all-tokens.json
       const currentFileUrl = import.meta.url;
       const currentFilePath = fileURLToPath(currentFileUrl);
-      const currentDir = path.dirname(currentFilePath); // e.g., /path/to/wallet/services
+      const currentDir = path.dirname(currentFilePath);
       const tokensDir = path.join(currentDir, '..', 'tokens');
-      const polkadotEvmPath = path.join(tokensDir, 'polkadot-evm-tokens.json');
-      if (fs.existsSync(polkadotEvmPath)) {
-        const fileContent = fs.readFileSync(polkadotEvmPath, 'utf-8');
-        const data: TokenListFile = JSON.parse(fileContent);
-        this.polkadotEvmTokens = data.tokens || [];
-        this.logger.debug(
-          `Loaded ${this.polkadotEvmTokens.length} tokens from polkadot-evm-tokens.json`,
-        );
-      } else {
-        this.logger.warn(`Token list file not found: ${polkadotEvmPath}`);
-      }
-
-      // Load all-tokens.json (as fallback)
+      
       const allTokensPath = path.join(tokensDir, 'all-tokens.json');
       if (fs.existsSync(allTokensPath)) {
         const fileContent = fs.readFileSync(allTokensPath, 'utf-8');
@@ -91,7 +72,7 @@ export class TokenListService {
    * Build index of tokens by chain identifier
    */
   private buildChainIndex(): void {
-    const allTokensList = [...this.polkadotEvmTokens, ...this.allTokens];
+    const allTokensList = [...this.allTokens];
     const chainMap = new Map<string, TokenEntry[]>();
 
     for (const token of allTokensList) {

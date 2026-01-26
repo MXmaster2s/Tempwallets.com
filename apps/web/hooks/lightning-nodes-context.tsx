@@ -10,8 +10,17 @@ const LightningNodesContext = createContext<LightningNodesContextValue | null>(n
 export function LightningNodesProvider({ children }: { children: React.ReactNode }) {
   const value = useLightningNodesImpl();
   // Stable identity to avoid needless rerenders
+  // Include authentication state in dependencies to ensure UI updates
   const memoValue = useMemo(() => value, [
+    value.authenticated,
+    value.authenticating,
+    value.walletAddress,
+    value.unifiedBalance,
+    value.balanceLoading,
     value.nodes,
+    value.allSessions,
+    value.activeSessions,
+    value.invitations,
     value.loading,
     value.error,
     value.lastFetched,

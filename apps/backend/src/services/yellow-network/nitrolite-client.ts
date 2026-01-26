@@ -92,7 +92,13 @@ export class NitroliteClient {
     this.mainWallet = options.mainWallet;
     this.publicClient = options.publicClient;
     this.walletClient = options.walletClient;
-    this.useSDK = options.useSDK ?? false; // TEMPORARILY DISABLED: SDK appears to be for Sepolia only
+    // ENABLED: Yellow team recommends using NitroliteClient from @erc7824/nitrolite
+    // for all Custody contract interactions. The SDK handles:
+    // - Correct state hash computation
+    // - Proper signature formatting
+    // - ABI encoding that matches contract expectations
+    // See: YELLOW_CHANNEL_FIX_ANALYSIS.md for details
+    this.useSDK = options.useSDK ?? true;
 
     // Initialize WebSocket Manager
     this.ws = new WebSocketManager({
@@ -146,9 +152,9 @@ export class NitroliteClient {
 
     // Step 1: Connect to WebSocket
     // Set up reconnection handlers for post-reconnect sync
-    // DEFENSIVE GUARD: Handle WebSocket disconnects with re-sync
+    // DEFENSIVE GUARD: Handle WebSocket disconnects
     this.ws.on('connect', async () => {
-      // After reconnection, re-sync state
+      // After reconnection, re-sync state if needed
       if (this.initialized) {
         // Only sync if we were already initialized (this is a reconnect, not initial connect)
         await this.postReconnectSync();
@@ -156,11 +162,15 @@ export class NitroliteClient {
     });
     
     this.ws.on('disconnect', () => {
-      console.warn('[NitroliteClient] WebSocket disconnected. Will attempt reconnection...');
+      // Silently handle disconnect - no spam logs
+      // Application will use cached sessions instead of reconnecting
     });
     
     this.ws.on('error', (error) => {
-      console.error('[NitroliteClient] WebSocket error:', error);
+      // Only log actual errors, not connection issues
+      if (error && error.message && !error.message.includes('ECONNREFUSED')) {
+        console.error('[NitroliteClient] WebSocket error:', error);
+      }
     });
     
     await this.ws.connect();

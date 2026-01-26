@@ -1,17 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Loader2, Zap, Info } from 'lucide-react';
+import { Loader2, Zap } from 'lucide-react';
 import { useWalletData } from '@/hooks/useWalletData';
 import { TokenBalanceItem } from './token-balance-item';
 import { NormalizedBalance } from '@/types/wallet-data';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@repo/ui/components/ui/tooltip';
+import { FundChannelModal } from '../modals/fund-channel-modal';
 
 const CHAIN_NAMES: Record<string, string> = {
   // Zerion canonical chain ids
@@ -45,6 +40,7 @@ const CHAIN_NAMES: Record<string, string> = {
  */
 export function BalanceView() {
   const { balances, loading, errors } = useWalletData();
+  const [fundChannelModalOpen, setFundChannelModalOpen] = useState(false);
 
   // Group balances by chain and filter to show only non-zero balances
   const groupedBalances = useMemo(() => {
@@ -114,56 +110,47 @@ export function BalanceView() {
 
   // Render balances grouped by chain
   return (
-    <div className="space-y-6">
-      {/* Unified Balance Button with Tooltip */}
-      <div className="flex justify-end">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                disabled
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-500 bg-gray-100 rounded-lg cursor-not-allowed opacity-60 border border-gray-200"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                Unified Balance
-                <Info className="h-3 w-3" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="max-w-xs">
-              <p className="text-xs">
-                Add funds to your Lightning Network unified balance for gasless transfers. Coming soon!
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+    <>
+      <div className="space-y-6">
+        {groupedBalances.map(({ chain, balances: chainBalances }) => (
+          <div key={chain} className="space-y-2">
+            <div className="space-y-2">
+              {chainBalances.map((balance, index) => {
+                // Only non-zero balances are shown (filtered in groupedBalances)
+                const key = balance.isNative
+                  ? `${chain}-native`
+                  : `${chain}-${balance.address || balance.symbol}-${index}`;
+                
+                return (
+                  <TokenBalanceItem
+                    key={key}
+                    chain={balance.chain}
+                    symbol={balance.symbol}
+                    balance={balance.balance}
+                    decimals={balance.decimals}
+                    balanceHuman={balance.balanceHuman}
+                    isNative={balance.isNative}
+                    chainName={CHAIN_NAMES[chain] || chain}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {groupedBalances.map(({ chain, balances: chainBalances }) => (
-        <div key={chain} className="space-y-2">
-          <div className="space-y-2">
-            {chainBalances.map((balance, index) => {
-              // Only non-zero balances are shown (filtered in groupedBalances)
-              const key = balance.isNative
-                ? `${chain}-native`
-                : `${chain}-${balance.address || balance.symbol}-${index}`;
-              
-              return (
-                <TokenBalanceItem
-                  key={key}
-                  chain={balance.chain}
-                  symbol={balance.symbol}
-                  balance={balance.balance}
-                  decimals={balance.decimals}
-                  balanceHuman={balance.balanceHuman}
-                  isNative={balance.isNative}
-                  chainName={CHAIN_NAMES[chain] || chain}
-                />
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
+      {/* Fund Channel Modal */}
+      <FundChannelModal
+        open={fundChannelModalOpen}
+        onOpenChange={setFundChannelModalOpen}
+        chain="base"
+        asset="usdc"
+        onFundComplete={() => {
+          // Refresh balances after funding
+          console.log('Unified balance funded successfully');
+        }}
+      />
+    </>
   );
 }
 

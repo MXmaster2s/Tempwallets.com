@@ -45,7 +45,7 @@ interface BalancePayload {
 
 /**
  * Map backend chain name to wallet config ID
- * Backend uses names like 'ethereum', 'base', 'arbitrum', 'polkadot', etc.
+ * Backend uses names like 'ethereum', 'base', 'arbitrum', etc.
  * We map to config IDs like 'ethereumErc4337', 'baseErc4337', etc.
  */
 function mapChainNameToConfigId(chainName: string): string {
@@ -58,19 +58,6 @@ function mapChainNameToConfigId(chainName: string): string {
     'avalanche': 'avalancheErc4337',
   };
   
-  // Substrate chains
-  const substrateMappings: Record<string, string> = {
-    'polkadot': 'polkadot',
-    'hydration': 'hydrationSubstrate',
-    'bifrost': 'bifrostSubstrate',
-    'unique': 'uniqueSubstrate',
-    'moonbeam-testnet': 'moonbeamTestnet',
-    'astar-shibuya': 'astarShibuya',
-    'paseo-passet-hub': 'paseoPassetHub',
-    'paseo': 'paseo',
-    'paseo-assethub': 'paseoAssethub',
-  };
-  
   // Other chains (Bitcoin, Solana, Tron)
   const otherMappings: Record<string, string> = {
     'bitcoin': 'bitcoin',
@@ -78,7 +65,7 @@ function mapChainNameToConfigId(chainName: string): string {
     'tron': 'tron',
   };
   
-  return evmMappings[chainName] || substrateMappings[chainName] || otherMappings[chainName] || chainName;
+  return evmMappings[chainName] || otherMappings[chainName] || chainName;
 }
 
 /**
@@ -269,54 +256,6 @@ export function useStreamingBalances(): UseStreamingBalancesReturn {
           } catch (err) {
             console.error('Error fetching EVM balances:', err);
             evmConfigs.forEach((config) => {
-              updateBalance(config.id, {
-                loading: false,
-                error: err instanceof Error ? err.message : 'Failed to fetch balance',
-              });
-            });
-          }
-        }
-
-        // Fetch balances for Substrate chains
-        const substrateConfigs = configs.filter((config) => config.type === 'substrate');
-        
-        if (substrateConfigs.length > 0) {
-          try {
-            const substrateBalances = await walletApi.getSubstrateBalances(userId, false);
-            
-            Object.entries(substrateBalances).forEach(([chain, balanceInfo]) => {
-              // Map chain name to config ID
-              const configId = mapChainNameToConfigId(chain);
-              const config = substrateConfigs.find((c) => c.id === configId);
-              
-              if (config && balanceInfo.balance) {
-                const balanceData: BalanceData = {
-                  configId: config.id,
-                  native: {
-                    balance: balanceInfo.balance,
-                    formatted: balanceInfo.balance, // TODO: Format properly
-                    symbol: balanceInfo.token,
-                    decimals: balanceInfo.decimals,
-                    usdValue: undefined,
-                  },
-                  tokens: [],
-                  totalUsdValue: undefined,
-                  lastUpdated: new Date(),
-                  error: null,
-                };
-
-                updateBalance(config.id, {
-                  loading: false,
-                  balanceData,
-                  error: null,
-                  lastUpdated: new Date(),
-                  cacheTTL: DEFAULT_CACHE_TTL,
-                });
-              }
-            });
-          } catch (err) {
-            console.error('Error fetching Substrate balances:', err);
-            substrateConfigs.forEach((config) => {
               updateBalance(config.id, {
                 loading: false,
                 error: err instanceof Error ? err.message : 'Failed to fetch balance',
@@ -595,40 +534,6 @@ export function useStreamingBalances(): UseStreamingBalancesReturn {
               lastUpdated: new Date(),
               cacheTTL: DEFAULT_CACHE_TTL,
             });
-          }
-        } else if (config.type === 'substrate') {
-          const substrateBalances = await walletApi.getSubstrateBalances(userId, false);
-          // Find balance for this config - try to reverse map from configId
-          const balanceEntry = Object.entries(substrateBalances).find(
-            ([chain]) => mapChainNameToConfigId(chain) === configId
-          );
-          
-          if (balanceEntry) {
-            const [_, balanceInfo] = balanceEntry;
-            if (balanceInfo.balance) {
-              const balanceData: BalanceData = {
-                configId,
-                native: {
-                  balance: balanceInfo.balance,
-                  formatted: balanceInfo.balance,
-                  symbol: balanceInfo.token,
-                  decimals: balanceInfo.decimals,
-                  usdValue: undefined,
-                },
-                tokens: [],
-                totalUsdValue: undefined,
-                lastUpdated: new Date(),
-                error: null,
-              };
-
-              updateBalance(configId, {
-                loading: false,
-                balanceData,
-                error: null,
-                lastUpdated: new Date(),
-                cacheTTL: DEFAULT_CACHE_TTL,
-              });
-            }
           }
         } else if (config.type === 'aptos') {
           const network = config.isTestnet ? 'testnet' : 'mainnet';

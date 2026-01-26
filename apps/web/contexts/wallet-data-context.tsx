@@ -147,21 +147,6 @@ export function WalletDataProvider({
         // Fetch EVM and other chain assets
   const assets = await walletApi.getAssetsAny(fingerprint, forceRefresh);
 
-        // Fetch Substrate balances
-        let substrateBalances: Record<string, {
-          balance: string;
-          address: string | null;
-          token: string;
-          decimals: number;
-        }> = {};
-        
-        try {
-          substrateBalances = await walletApi.getSubstrateBalances(fingerprint, false);
-        } catch (substrateErr) {
-          console.warn('Failed to load Substrate balances:', substrateErr);
-          // Don't fail the whole fetch if Substrate fails
-        }
-
         // Fetch Aptos balances (testnet and mainnet)
         const aptosBalances: AnyChainAsset[] = [];
         try {
@@ -215,8 +200,8 @@ export function WalletDataProvider({
         // Combine all assets including Aptos
         const allAssets = [...assets, ...aptosBalances];
 
-        // Merge and normalize all balances
-        const normalized = mergeAndNormalizeBalances(allAssets, substrateBalances);
+        // Merge and normalize all balances (no Substrate support)
+        const normalized = mergeAndNormalizeBalances(allAssets, {});
 
         setBalances(normalized);
         setLastFetched((prev) => ({ ...prev, balances: Date.now() }));
@@ -307,67 +292,8 @@ export function WalletDataProvider({
         // Fetch aggregated any-chain transactions
         const allTransactions = await walletApi.getTransactionsAny(fingerprint, 100);
 
-        // Load Substrate transactions for all Substrate chains
-        const SUBSTRATE_CHAINS = [
-          'polkadot',
-          'hydrationSubstrate',
-          'bifrostSubstrate',
-          'uniqueSubstrate',
-          'paseo',
-          'paseoAssethub',
-        ];
-        const substrateTransactions: Transaction[] = [];
-
-        // Fetch Substrate transactions in parallel
-        const substratePromises = SUBSTRATE_CHAINS.map(async (chain) => {
-          try {
-            const history = await walletApi.getSubstrateTransactions(
-              fingerprint,
-              chain,
-              false,
-              10
-            );
-            // Transform Substrate transactions to Transaction format
-            return history.transactions.map(
-              (tx) =>
-                ({
-                  txHash: tx.txHash,
-                  from: tx.from,
-                  to: tx.to || null,
-                  value: tx.amount || '0',
-                  timestamp: tx.timestamp
-                    ? Math.floor(tx.timestamp / 1000)
-                    : null, // Convert ms to seconds if needed
-                  blockNumber: tx.blockNumber || null,
-                  status:
-                    tx.status === 'finalized' || tx.status === 'inBlock'
-                      ? 'success'
-                      : tx.status === 'failed' || tx.status === 'error'
-                      ? 'failed'
-                      : 'pending',
-                  chain: chain,
-                  tokenSymbol: undefined,
-                } as Transaction)
-            );
-          } catch (chainErr) {
-            console.warn(`Failed to load transactions for ${chain}:`, chainErr);
-            return [];
-          }
-        });
-
-        try {
-          const substrateResults = await Promise.allSettled(substratePromises);
-          substrateResults.forEach((result) => {
-            if (result.status === 'fulfilled' && result.value) {
-              substrateTransactions.push(...result.value);
-            }
-          });
-        } catch (substrateErr) {
-          console.warn('Failed to load Substrate transactions:', substrateErr);
-        }
-
-        // Combine EVM and Substrate transactions
-        const combinedTransactions = [...allTransactions, ...substrateTransactions];
+        // Combine all transactions (no Substrate support)
+        const combinedTransactions = [...allTransactions];
 
         // Filter out transactions with invalid/missing data
         const validTransactions = combinedTransactions.filter(

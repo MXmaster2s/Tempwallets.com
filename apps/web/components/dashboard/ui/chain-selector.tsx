@@ -80,8 +80,6 @@ export function ChainSelector({
       } else if (chain.type === 'evm') {
         // Include EOA wallets in EVM Chains group
         groups['EVM Chains']!.push(chain);
-      } else if (chain.type === 'substrate') {
-        groups['Substrate']!.push(chain);
       } else if (chain.type === 'aptos') {
         groups['Aptos']!.push(chain);
       } else {

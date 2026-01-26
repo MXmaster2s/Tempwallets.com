@@ -8,6 +8,7 @@ import { useLightningNodes } from '@/hooks/lightning-nodes-context';
 import { CreateLightningNodeModal } from './create-lightning-node-modal';
 import { LightningNodeDetails } from './lightning-node-details';
 import { FundChannelModal } from '../modals/fund-channel-modal';
+import { ClearnodeStatus } from './clearnode-status';
 import { LightningNode } from '@/lib/api';
 
 const LAST_SELECTED_LN_NODE_ID_KEY = 'tempwallets:lastSelectedLightningNodeId';
@@ -22,126 +23,6 @@ const CHAIN_NAMES: Record<string, string> = {
   polygon: 'Polygon',
   polygonErc4337: 'Polygon Gasless',
 };
-
-/**
- * Authentication Status Banner Component
- * Shows wallet authentication status at the top
- */
-function AuthenticationBanner({
-  authenticated,
-  authenticating,
-  walletAddress,
-  error,
-}: {
-  authenticated: boolean;
-  authenticating: boolean;
-  walletAddress: string | null;
-  error: string | null;
-}) {
-  const [copiedAddress, setCopiedAddress] = useState(false);
-
-  const handleCopyAddress = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (walletAddress) {
-      navigator.clipboard.writeText(walletAddress);
-      setCopiedAddress(true);
-      setTimeout(() => setCopiedAddress(false), 2000);
-    }
-  };
-
-  if (authenticating) {
-    return (
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex items-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
-        <div>
-          <p className="font-rubik-medium text-gray-900">Authenticating Wallet</p>
-          <p className="text-sm text-gray-700">Establishing clearnode connection...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !authenticated) {
-    return (
-      <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 mb-4 flex items-center gap-3">
-        <AlertCircle className="h-5 w-5 text-gray-700" />
-        <div>
-          <p className="font-rubik-medium text-gray-900">Authentication Failed</p>
-          <p className="text-sm text-gray-700">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (authenticated && walletAddress) {
-    return (
-      <div className="space-y-3 mb-4">
-        {/* Wallet Status */}
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-gray-700" />
-          <div className="flex-1">
-            <p className="font-rubik-medium text-gray-900">
-              Wallet Authenticated
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <p 
-                className="text-sm text-gray-700 font-mono cursor-pointer hover:text-gray-900 transition-colors"
-                onClick={handleCopyAddress}
-                title="Click to copy full address"
-              >
-                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
-              </p>
-              <button
-                onClick={handleCopyAddress}
-                className="text-gray-600 hover:text-gray-900 transition-colors p-1 rounded hover:bg-gray-200"
-                title="Copy wallet address"
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-              {copiedAddress && (
-                <span className="text-xs text-green-600 font-medium">Copied!</span>
-              )}
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {/* Unified Balance tile (Coming Soon) */}
-            <TooltipProvider>
-              <Tooltip delayDuration={150}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-black text-white text-xs font-rubik-medium cursor-not-allowed opacity-80"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Unified Balance
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="top"
-                  className="bg-black/85 text-white text-xs px-3 py-2 rounded-md border border-white/10 max-w-xs space-y-1.5"
-                >
-                  <p className="font-semibold">Unified Balance</p>
-                  <p className="text-[11px] font-medium text-gray-200">Coming soon</p>
-                  <p className="text-[11px]">
-                    Unified balance funding is disabled in production right now. This feature will be available soon.
-                  </p>
-                  <p className="pt-1 text-[11px] text-white/80">
-                    Add Funds to Unified Balance
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-// Join search input removed; join is now inside the Create modal.
 
 /**
  * Lightning Node Card Component
@@ -310,26 +191,21 @@ export function LightningNodesView() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  // OPTIMIZATION: On-demand authentication and session discovery
-  // Trigger authentication when component mounts (user navigates to Lightning section)
+  // OPTIMIZATION: On-demand session discovery
+  // Authentication happens automatically in useLightningNodes when userId is available
+  // After authentication, fetch sessions
   useEffect(() => {
     const initializeLightningNodes = async () => {
-      if (!authenticated && !authenticating) {
-        console.log('[LightningNodesView] User navigated to Lightning section - initializing...');
-        await authenticate('base');
-        
-        // After authentication, fetch sessions
-        await discoverSessions('base');
-      } else if (authenticated && allSessions.length === 0 && !loading) {
-        // Already authenticated but no sessions loaded yet
-        console.log('[LightningNodesView] Authenticated but no sessions loaded - fetching...');
+      if (authenticated && allSessions.length === 0 && !loading) {
+        // Authenticated but no sessions loaded yet
+        console.log('[LightningNodesView] Authenticated - fetching sessions...');
         await discoverSessions('base');
       }
     };
 
     initializeLightningNodes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+  }, [authenticated]); // Run when authentication state changes
 
   // Restore last-opened node after refresh
   useEffect(() => {
@@ -413,13 +289,8 @@ export function LightningNodesView() {
   if (!hasAnySessions && !loading) {
     return (
       <>
-        {/* Authentication Banner */}
-        <AuthenticationBanner
-          authenticated={authenticated}
-          authenticating={authenticating}
-          walletAddress={walletAddress}
-          error={error}
-        />
+        {/* Clearnode Connection Status */}
+        <ClearnodeStatus onAddToUnifiedBalance={() => setFundChannelModalOpen(true)} />
 
         {/* Empty State */}
         <div className="flex flex-col items-center justify-center py-16 md:py-20">
@@ -471,13 +342,8 @@ export function LightningNodesView() {
   // Show list of Lightning Nodes
   return (
     <>
-      {/* Authentication Banner */}
-      <AuthenticationBanner
-        authenticated={authenticated}
-        authenticating={authenticating}
-        walletAddress={walletAddress}
-        error={error}
-      />
+      {/* Clearnode Connection Status */}
+      <ClearnodeStatus onAddToUnifiedBalance={() => setFundChannelModalOpen(true)} />
 
       <div className="space-y-6">
         {/* New Invitations Section */}

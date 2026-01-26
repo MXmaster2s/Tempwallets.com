@@ -24,7 +24,7 @@ async function bootstrap() {
     'http://localhost:5555', // Prisma Studio
     'http://localhost:5173', // Vite (if you use it)
     'https://www.tempwallets.com', // Production frontend
-    'https://tempwallets.com', // Production frontend without
+    'https://tempwallets.com', // Production frontend without www
   ];
 
   // Add production frontend URL if set
@@ -33,7 +33,23 @@ async function bootstrap() {
   }
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Allow all Vercel preview deployments
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      
+      // Block all other origins
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

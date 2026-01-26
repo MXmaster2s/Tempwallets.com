@@ -16,12 +16,8 @@ import { Eip7702AccountFactory } from './factories/eip7702-account.factory.js';
 import { Eip7702DelegationRepository } from './repositories/eip7702-delegation.repository.js';
 // Import Pimlico service for bundler/paymaster operations
 import { PimlicoService } from './services/pimlico.service.js';
-// Import Polkadot EVM RPC service
-import { PolkadotEvmRpcService } from './services/polkadot-evm-rpc.service.js';
 // Import Token List service
 import { TokenListService } from './services/token-list.service.js';
-// Import Substrate module
-import { SubstrateModule } from './substrate/substrate.module.js';
 // Import EVM module
 import { EvmModule } from './evm/evm.module.js';
 // Import Aptos module
@@ -43,7 +39,6 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
   imports: [
     PrismaModule,
     CryptoModule,
-    SubstrateModule,
     EvmModule,
     AptosModule,
   ],
@@ -74,8 +69,6 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     AptosFaucetService,
     // Pimlico bundler/paymaster service
     PimlicoService,
-    // Polkadot EVM RPC service
-    PolkadotEvmRpcService,
     // Token List service
     TokenListService,
     // Cache repositories
@@ -105,8 +98,6 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
   Eip7702DelegationRepository,
     // Export Pimlico service
     PimlicoService,
-    // Export Polkadot EVM RPC service
-    PolkadotEvmRpcService,
     // Export Token List service
     TokenListService,
     // Export cache repositories

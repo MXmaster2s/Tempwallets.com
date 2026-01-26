@@ -242,48 +242,8 @@ const RecentTransactions = ({ showAll = false, transactions: propTransactions, h
       // Fetch aggregated any-chain transactions in one call
       const allTransactions = await walletApi.getTransactionsAny(fingerprint, showAll ? 100 : 20);
       
-      // Load Substrate transactions for all Substrate chains
-      const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
-      const substrateTransactions: Transaction[] = [];
-      
-      // Fetch Substrate transactions in parallel with proper error handling
-      const substratePromises = SUBSTRATE_CHAINS.map(async (chain) => {
-        try {
-          const history = await walletApi.getSubstrateTransactions(fingerprint, chain, false, 10);
-          // Transform Substrate transactions to Transaction format
-          return history.transactions.map(tx => ({
-            txHash: tx.txHash,
-            from: tx.from,
-            to: tx.to || null,
-            value: tx.amount || '0',
-            timestamp: tx.timestamp ? Math.floor(tx.timestamp / 1000) : null, // Convert ms to seconds if needed
-            blockNumber: tx.blockNumber || null,
-            status: tx.status === 'finalized' || tx.status === 'inBlock' ? 'success' : 
-                    tx.status === 'failed' || tx.status === 'error' ? 'failed' : 'pending',
-            chain: chain,
-            tokenSymbol: undefined, // Substrate native token symbol would need to be fetched separately
-          } as Transaction));
-        } catch (chainErr) {
-          console.warn(`Failed to load transactions for ${chain}:`, chainErr);
-          return []; // Return empty array on error
-        }
-      });
-      
-      try {
-        // Wait for all Substrate chain queries to complete (or fail)
-        const substrateResults = await Promise.allSettled(substratePromises);
-        substrateResults.forEach(result => {
-          if (result.status === 'fulfilled' && result.value) {
-            substrateTransactions.push(...result.value);
-          }
-        });
-      } catch (substrateErr) {
-        console.warn('Failed to load Substrate transactions:', substrateErr);
-        // Don't fail the whole load if Substrate fails
-      }
-      
-      // Combine EVM and Substrate transactions
-      const combinedTransactions = [...allTransactions, ...substrateTransactions];
+      // No Substrate support - use only EVM transactions
+      const combinedTransactions = [...allTransactions];
       
       // Filter out transactions with invalid/missing data
       const validTransactions = combinedTransactions.filter(tx => 

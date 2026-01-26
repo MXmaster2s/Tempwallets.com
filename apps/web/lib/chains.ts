@@ -2,7 +2,6 @@ import { ComponentType, SVGProps } from 'react';
 import Ethereum from '@thirdweb-dev/chain-icons/dist/ethereum';
 import Bitcoin from '@thirdweb-dev/chain-icons/dist/bitcoin';
 import Solana from '@thirdweb-dev/chain-icons/dist/solana';
-import Polkadot from '@thirdweb-dev/chain-icons/dist/polkadot-new';
 import Polygon from '@thirdweb-dev/chain-icons/dist/polygon';
 import Avalanche from '@thirdweb-dev/chain-icons/dist/avalanche';
 import Tron from '@thirdweb-dev/chain-icons/dist/tron';
@@ -14,7 +13,7 @@ const Base = Ethereum;
 /**
  * Chain types that determine wallet compatibility and functionality
  */
-export type ChainType = 'evm' | 'bitcoin' | 'substrate' | 'solana' | 'tron' | 'aptos';
+export type ChainType = 'evm' | 'bitcoin' | 'solana' | 'tron' | 'aptos';
 
 /**
  * Chain category for organizing chains
@@ -71,17 +70,6 @@ export const chains: Chain[] = [
     icon: Bitcoin,
     type: 'bitcoin',
     hasWalletConnect: false,
-    isTestnet: false,
-    category: 'layer1',
-    featured: true,
-  },
-  {
-    id: 'polkadot',
-    name: 'Polkadot',
-    symbol: 'DOT',
-    icon: Polkadot,
-    type: 'substrate',
-    hasWalletConnect: true, // Polkadot has WalletConnect support
     isTestnet: false,
     category: 'layer1',
     featured: true,
@@ -231,7 +219,7 @@ export const chains: Chain[] = [
 export const mainnetChains = chains.filter((chain) => !chain.isTestnet);
 
 /**
- * Get featured chains (Ethereum, Bitcoin, Polkadot, Solana)
+ * Get featured chains (Ethereum, Bitcoin, Solana)
  */
 export const featuredChains = mainnetChains.filter((chain) => chain.featured);
 
@@ -270,10 +258,6 @@ export const mapWalletCategoryToChainType = (category?: string): ChainType | nul
     case 'bitcoin':
     case 'btc':
       return 'bitcoin';
-    case 'substrate':
-    case 'polkadot':
-    case 'dot':
-      return 'substrate';
     case 'solana':
     case 'sol':
     case 'tron':
