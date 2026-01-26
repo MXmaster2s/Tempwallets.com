@@ -6,6 +6,17 @@ import type {
 } from '@repo/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
+// Wallet expiry time options (in hours)
+export const WALLET_EXPIRY_OPTIONS = [
+  { label: '10 minutes', hours: 10 / 60 },      
+  { label: '30 minutes', hours: 0.5 },
+  { label: '1 hour', hours: 1 },
+  { label: '6 hours', hours: 6 },
+  { label: '12 hours', hours: 12 },
+  { label: '1 day', hours: 24 },
+] as const;
+
+export const DEFAULT_WALLET_EXPIRY_HOURS = 24; // Default: 1 day
 
 export interface SmartAccountSummary {
   key: 'evmSmartAccount';
@@ -91,6 +102,7 @@ export interface CreateOrImportSeedRequest {
   userId: string;
   mode: 'random' | 'mnemonic';
   mnemonic?: string;
+  ttlHours?: number;
 }
 
 export interface CreateOrImportSeedResponse {

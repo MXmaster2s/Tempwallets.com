@@ -17,6 +17,7 @@ model User {
   xp              Int              @default(0) // Experience points
   createdAt       DateTime         @default(now())
   lastLoginAt     DateTime         @updatedAt
+  walletExpiresAt DateTime?
   wallets         Wallet[]
   preferences     UserPreferences?
   activities      UserActivity[]
@@ -63,8 +64,10 @@ model WalletSeed {
   authTag    String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  expiresAt  DateTime?
 
   @@index([userId])
+  @@index([expiresAt])
 }
 
 // Stores wallet history for authenticated users (Google login)

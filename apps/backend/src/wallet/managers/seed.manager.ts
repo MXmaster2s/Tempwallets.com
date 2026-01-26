@@ -43,12 +43,20 @@ export class SeedManager implements ISeedManager {
    * @param userId - The user ID
    * @param seedPhrase - The seed phrase to store
    */
-  async storeSeed(userId: string, seedPhrase: string): Promise<void> {
-    // Validate before storing
+  async storeSeed(
+    userId: string,
+    seedPhrase: string,
+    expiresAt?: Date,
+  ): Promise<void> {
     this.validateMnemonic(seedPhrase);
 
-    await this.seedRepository.createOrUpdateSeed(userId, seedPhrase);
-    this.logger.log(`Stored seed phrase for user ${userId}`);
+    await this.seedRepository.createOrUpdateSeed(userId, seedPhrase, expiresAt);
+
+    const expiryMsg = expiresAt
+      ? ` (expires: ${expiresAt.toISOString()})`
+      : ' (permanent)';
+
+    this.logger.log(`Stored seed phrase for user ${userId}${expiryMsg}`);
   }
 
   /**
@@ -74,11 +82,13 @@ export class SeedManager implements ISeedManager {
    * @param userId - The user ID
    * @param mode - 'random' to generate new, 'mnemonic' to import
    * @param mnemonic - Optional mnemonic to import
+   * @param ttlHours - Optional timer for wallet expiry(hr)
    */
   async createOrImportSeed(
     userId: string,
     mode: 'random' | 'mnemonic',
     mnemonic?: string,
+    ttlHours?: number,
   ): Promise<void> {
     let seedPhrase: string;
 
@@ -95,7 +105,15 @@ export class SeedManager implements ISeedManager {
     } else {
       throw new Error('Mode must be either "random" or "mnemonic"');
     }
+    let expiresAt: Date | undefined;
+    if (ttlHours !== undefined && ttlHours > 0) {
+      const millisecondsToAdd = ttlHours * 60 * 60 * 1000;
+      expiresAt = new Date(Date.now() + millisecondsToAdd);
+      this.logger.log(
+        `Wallet will expire at ${expiresAt.toISOString()} (in ${ttlHours} hours)`,
+      );
+    }
 
-    await this.storeSeed(userId, seedPhrase);
+    await this.storeSeed(userId, seedPhrase, expiresAt);
   }
 }
