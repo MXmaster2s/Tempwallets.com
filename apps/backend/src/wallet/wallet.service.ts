@@ -156,12 +156,14 @@ export class WalletService {
    * @param mode - Either 'random' to generate or 'mnemonic' to import
    * @param mnemonic - The mnemonic phrase (required if mode is 'mnemonic')
    * @param saveHistory - Whether to save current wallet to history (default: true for authenticated users)
+   * @param ttlHours - optional hours for wallet expiry
    */
   async createOrImportSeed(
     userId: string,
     mode: 'random' | 'mnemonic',
     mnemonic?: string,
     saveHistory: boolean = true,
+    ttlHours?: number,
   ): Promise<void> {
     // For authenticated users (non-temp IDs), save current wallet to history
     const isAuthenticatedUser = !userId.startsWith('temp-');
@@ -186,7 +188,12 @@ export class WalletService {
     await this.addressManager.clearAddressCache(userId);
 
     // Use the SeedManager for all seed operations
-    return this.seedManager.createOrImportSeed(userId, mode, mnemonic);
+    return this.seedManager.createOrImportSeed(
+      userId,
+      mode,
+      mnemonic,
+      ttlHours,
+    );
   }
 
   /**
@@ -1954,12 +1961,7 @@ export class WalletService {
     if (evmChains.includes(chain)) {
       return this.nativeEoaFactory.createAccount(
         seedPhrase,
-        chain as
-          | 'ethereum'
-          | 'base'
-          | 'arbitrum'
-          | 'polygon'
-          | 'avalanche',
+        chain as 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche',
         0,
       );
     }

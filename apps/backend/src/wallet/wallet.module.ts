@@ -27,6 +27,7 @@ import { EvmModule } from './evm/evm.module.js';
 // Import Aptos module
 import { AptosModule } from './aptos/aptos.module.js';
 // Import cache repositories
+
 import { AddressCacheRepository } from './repositories/address-cache.repository.js';
 import { BalanceCacheRepository } from './repositories/balance-cache.repository.js';
 import { WalletHistoryRepository } from './repositories/wallet-history.repository.js';
@@ -34,6 +35,10 @@ import { WalletHistoryRepository } from './repositories/wallet-history.repositor
 import { AptosAddressManager } from './aptos/managers/aptos-address.manager.js';
 import { AptosAccountFactory } from './aptos/factories/aptos-account.factory.js';
 import { AptosRpcService } from './aptos/services/aptos-rpc.service.js';
+//imported scheduled call and wallet cleanup service
+import { ScheduleModule } from '@nestjs/schedule';
+
+import { WalletCleanupService } from './services/wallet.cleanup.service.js';
 import { AptosAccountService } from './aptos/services/aptos-account.service.js';
 import { AptosSequenceManager } from './aptos/managers/aptos-sequence.manager.js';
 import { AptosTransactionService } from './aptos/services/aptos-transaction.service.js';
@@ -41,6 +46,7 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     CryptoModule,
     SubstrateModule,
@@ -50,6 +56,7 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
   controllers: [WalletController],
   providers: [
     WalletService,
+    WalletCleanupService,
     SeedRepository,
     ZerionService,
     // Configuration services
@@ -62,11 +69,11 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     AptosSequenceManager,
     // Factories
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAccountFactory,
-  // Delegation repository for EIP-7702
-  Eip7702DelegationRepository,
+    // Delegation repository for EIP-7702
+    Eip7702DelegationRepository,
     // Aptos Services
     AptosRpcService,
     AptosAccountService,
@@ -94,15 +101,15 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     SeedManager,
     AddressManager,
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAddressManager,
     AptosAccountFactory,
     AptosRpcService,
     AptosAccountService,
     AptosTransactionService,
     AptosSequenceManager,
-  Eip7702DelegationRepository,
+    Eip7702DelegationRepository,
     // Export Pimlico service
     PimlicoService,
     // Export Polkadot EVM RPC service

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import { EncryptionService } from '../crypto/encryption.service.js';
 
@@ -14,7 +18,11 @@ export class SeedRepository {
    * @param userId - The user ID
    * @param seedPhrase - The mnemonic seed phrase to encrypt and store
    */
-  async createOrUpdateSeed(userId: string, seedPhrase: string): Promise<void> {
+  async createOrUpdateSeed(
+    userId: string,
+    seedPhrase: string,
+    expiresAt?: Date,
+  ): Promise<void> {
     const encrypted = this.encryptionService.encrypt(seedPhrase);
 
     await this.prisma.walletSeed.upsert({
@@ -24,11 +32,13 @@ export class SeedRepository {
         ciphertext: encrypted.ciphertext,
         iv: encrypted.iv,
         authTag: encrypted.authTag,
+        expiresAt,
       },
       update: {
         ciphertext: encrypted.ciphertext,
         iv: encrypted.iv,
         authTag: encrypted.authTag,
+        expiresAt,
       },
     });
   }
@@ -45,6 +55,11 @@ export class SeedRepository {
 
     if (!seed) {
       throw new NotFoundException(`No wallet seed found for user ${userId}`);
+    }
+    if (seed.expiresAt && seed.expiresAt < new Date()) {
+      throw new ForbiddenException(
+        `Wallet expired at ${seed.expiresAt.toISOString()}. Please create a new wallet.`,
+      );
     }
 
     return this.encryptionService.decrypt({
