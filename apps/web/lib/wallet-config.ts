@@ -67,7 +67,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'baseErc4337',
     name: 'Base',
-    symbol: 'ETH',
+    symbol: 'BASE',
     description: 'Base Smart Account',
     type: 'evm',
     chainId: 8453,
@@ -548,7 +548,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'baseEoa',
     name: 'Base',
-    symbol: 'ETH',
+    symbol: 'BASE',
     description: 'Base EOA Wallet',
     type: 'evm',
     chainId: 8453,
