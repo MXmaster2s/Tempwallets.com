@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { CheckCircle2, AlertCircle, Loader2, Copy, Plus, RefreshCw, Wallet } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, Copy, Plus, RefreshCw, Wallet, ArrowRightLeft } from 'lucide-react';
 import { useLightningNodes } from '@/hooks/lightning-nodes-context';
 
 interface ClearnodeStatusProps {
   onAddToUnifiedBalance?: () => void;
+  onMoveFunds?: () => void;
+  custodyBalance?: string;
+  unifiedBalance?: string;
+  balancesLoading?: boolean;
 }
 
 /**
@@ -21,7 +25,13 @@ interface ClearnodeStatusProps {
  * 
  * Integrated with useLightningNodes hook for production use
  */
-export function ClearnodeStatus({ onAddToUnifiedBalance }: ClearnodeStatusProps) {
+export function ClearnodeStatus({ 
+  onAddToUnifiedBalance,
+  onMoveFunds,
+  custodyBalance: externalCustodyBalance,
+  unifiedBalance: externalUnifiedBalance,
+  balancesLoading: externalBalancesLoading,
+}: ClearnodeStatusProps) {
   const {
     authenticated,
     authenticating,
@@ -33,8 +43,13 @@ export function ClearnodeStatus({ onAddToUnifiedBalance }: ClearnodeStatusProps)
 
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedTimestamp, setCopiedTimestamp] = useState(false);
-  const [custodyBalance, setCustodyBalance] = useState<string | null>(null);
+  const [internalCustodyBalance, setInternalCustodyBalance] = useState<string | null>(null);
   const [custodyLoading, setCustodyLoading] = useState(false);
+  
+  // Use external balances if provided, otherwise use internal
+  const custodyBalance = externalCustodyBalance || internalCustodyBalance;
+  const unifiedBalance = externalUnifiedBalance || '0.000000';
+  const balancesLoading = externalBalancesLoading || custodyLoading;
   
   // Track if we've already fetched custody balance to prevent infinite loops
   const hasFetchedCustodyBalance = useRef(false);
@@ -76,7 +91,7 @@ export function ClearnodeStatus({ onAddToUnifiedBalance }: ClearnodeStatusProps)
       setCustodyLoading(true);
       const result = await fetchCustodyBalance('base', 'usdc');
       if (result) {
-        setCustodyBalance(result.balanceFormatted);
+        setInternalCustodyBalance(result.balanceFormatted);
       }
       setCustodyLoading(false);
     }
@@ -89,7 +104,7 @@ export function ClearnodeStatus({ onAddToUnifiedBalance }: ClearnodeStatusProps)
       setCustodyLoading(true);
       fetchCustodyBalance('base', 'usdc').then(result => {
         if (result) {
-          setCustodyBalance(result.balanceFormatted);
+          setInternalCustodyBalance(result.balanceFormatted);
         }
         setCustodyLoading(false);
       });
@@ -205,32 +220,104 @@ export function ClearnodeStatus({ onAddToUnifiedBalance }: ClearnodeStatusProps)
               </div>
 
               {/* Custody Balance (only show if there's a balance) */}
-              {custodyBalance && parseFloat(custodyBalance) > 0 && (
-                <div className="flex items-center gap-2 pt-1 border-t border-gray-200">
-                  <Wallet className="h-3.5 w-3.5 text-blue-600" />
-                  <span className="text-xs text-gray-500">Available (Custody SC):</span>
-                  {custodyLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                  ) : (
-                    <span className="text-xs font-rubik-medium text-blue-700">
-                      {custodyBalance} USDC
-                    </span>
-                  )}
-                  <div 
-                    className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 cursor-help"
-                    title="Funds deposited to Custody smart contract. Create a channel to move to Unified Balance."
-                  >
-                    On-chain
+              {(() => {
+                const hasCustodyBalance = custodyBalance && parseFloat(custodyBalance) > 0;
+                console.log('[ClearnodeStatus] Balance check:', {
+                  custodyBalance,
+                  hasCustodyBalance,
+                  onMoveFunds: !!onMoveFunds,
+                  authenticated,
+                  walletAddress,
+                });
+                return hasCustodyBalance;
+              })() && (
+                <>
+                  <div className="flex items-center gap-2 pt-1 border-t border-gray-200">
+                    <Wallet className="h-3.5 w-3.5 text-blue-600" />
+                    <span className="text-xs text-gray-500">Available (Custody SC):</span>
+                    {balancesLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                    ) : (
+                      <span className="text-xs font-rubik-medium text-blue-700">
+                        {custodyBalance} USDC
+                      </span>
+                    )}
+                    <div 
+                      className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 cursor-help"
+                      title="Funds deposited to Custody smart contract. Create a channel to move to Unified Balance."
+                    >
+                      On-chain
+                    </div>
+                    <button
+                      onClick={handleRefreshBalance}
+                      disabled={balancesLoading}
+                      className="p-0.5 hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
+                      title="Refresh custody balance"
+                    >
+                      <RefreshCw className={`h-3 w-3 text-gray-500 ${balancesLoading ? 'animate-spin' : ''}`} />
+                    </button>
                   </div>
-                  <button
-                    onClick={handleRefreshBalance}
-                    disabled={custodyLoading}
-                    className="p-0.5 hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
-                    title="Refresh custody balance"
-                  >
-                    <RefreshCw className={`h-3 w-3 text-gray-500 ${custodyLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
+
+                  {/* Balance Bar with Move Funds Button */}
+                  {(() => {
+                    console.log('[ClearnodeStatus] Move Funds button check:', {
+                      onMoveFunds: !!onMoveFunds,
+                      shouldShow: !!onMoveFunds
+                    });
+                    return onMoveFunds;
+                  })() && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Balance Display */}
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-500">Custody:</span>
+                            {balancesLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <span className="text-xs font-bold text-blue-700">{custodyBalance} USDC</span>
+                            )}
+                          </div>
+                          
+                          <ArrowRightLeft className="h-3 w-3 text-gray-400" />
+                          
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-500">Unified:</span>
+                            {balancesLoading ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <span className="text-xs font-bold text-purple-700">{unifiedBalance} USDC</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Move Funds Button */}
+                        <button
+                          onClick={(e) => {
+                            console.log('[ClearnodeStatus] 🚀 BUTTON CLICKED!', {
+                              event: e.type,
+                              disabled: balancesLoading,
+                              onMoveFundsType: typeof onMoveFunds,
+                              hasCallback: !!onMoveFunds
+                            });
+                            if (onMoveFunds) {
+                              console.log('[ClearnodeStatus] 🎯 Calling onMoveFunds callback...');
+                              onMoveFunds();
+                              console.log('[ClearnodeStatus] ✅ onMoveFunds callback executed');
+                            } else {
+                              console.error('[ClearnodeStatus] ❌ No onMoveFunds callback!');
+                            }
+                          }}
+                          disabled={balancesLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-rubik-medium text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ArrowRightLeft className="h-3 w-3" />
+                          Move Funds
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

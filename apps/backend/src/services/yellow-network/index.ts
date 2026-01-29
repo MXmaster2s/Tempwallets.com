@@ -46,7 +46,8 @@ export {
   MainWalletAuth,
   type MainWallet,
 } from './session-auth.js';
-export { ChannelService } from './channel-service.js';
+// export { ChannelService } from './channel-service.js'; // Removed: Using SDKChannelService only
+export { SDKChannelService } from './sdk-channel-service.js';
 export { AppSessionService } from './app-session-service.js';
 export { QueryService } from './query-service.js';
 

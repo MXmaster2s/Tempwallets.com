@@ -11,7 +11,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { LightningNodeService } from './lightning-node.service.js';
-import { FundChannelDto } from './dto/index.js';
+import { FundChannelDto, CreateChannelDto, ResizeChannelDto } from './dto/index.js';
 
 @Controller('lightning-node')
 export class LightningNodeController {
@@ -58,6 +58,37 @@ export class LightningNodeController {
     return await this.lightningNodeService.fundChannel(dto);
   }
 
+  /**
+   * Create Payment Channel
+   *
+   * Creates a 2-party payment channel between the user and Clearnode.
+   * This is required before you can move funds to unified balance.
+   *
+   * @param dto CreateChannelDto
+   * @returns Channel ID and details
+   */
+  @Post('create-channel')
+  @HttpCode(HttpStatus.OK)
+  async createChannel(@Body(ValidationPipe) dto: CreateChannelDto) {
+    return await this.lightningNodeService.createChannel(dto);
+  }
+
+  /**
+   * Resize channel - Move funds between Custody and Unified Balance
+   * 
+   * Flow:
+   * - destination='unified': Moves funds from Custody → Off-chain unified balance (allocate)
+   * - destination='custody': Moves funds from Off-chain unified balance → Custody (deallocate)
+   * 
+   * @param dto ResizeChannelDto
+   * @returns Updated balances
+   */
+  @Post('resize-channel')
+  @HttpCode(HttpStatus.OK)
+  async resizeChannel(@Body(ValidationPipe) dto: ResizeChannelDto) {
+    return await this.lightningNodeService.resizeChannel(dto);
+  }
+
   @Get('custody-balance')
   @HttpCode(HttpStatus.OK)
   async getCustodyBalance(
@@ -81,5 +112,21 @@ export class LightningNodeController {
       throw new BadRequestException('userId and chain are required');
     }
     return await this.lightningNodeService.getUnifiedBalance(userId, chain);
+  }
+
+  /**
+   * Close Channel
+   * 
+   * Closes a payment channel and returns funds to custody.
+   * If channelId is provided, closes that specific channel.
+   * Otherwise, auto-detects and closes the user's channel for the given chain/asset.
+   * 
+   * @param dto { userId, chain, asset, channelId? }
+   * @returns Closure status and details
+   */
+  @Post('close-channel')
+  @HttpCode(HttpStatus.OK)
+  async closeChannel(@Body() dto: { userId: string; chain: string; asset: string; channelId?: string }) {
+    return await this.lightningNodeService.closeChannel(dto);
   }
 }

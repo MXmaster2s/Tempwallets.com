@@ -5,5 +5,7 @@ export * from './close-lightning-node.dto.js';
 export * from './authenticate-wallet.dto.js';
 export * from './search-session.dto.js';
 export * from './fund-channel.dto.js';
+export * from './create-channel.dto.js';
+export * from './resize-channel.dto.js';
 export * from './withdraw-funds.dto.js';
 export * from './join-lightning-node.dto.js';

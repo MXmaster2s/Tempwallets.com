@@ -277,6 +277,25 @@ export interface GetCustodyBalanceResponse {
   walletAddress: string;
 }
 
+// Resize Channel
+export interface ResizeChannelRequest {
+  userId: string;
+  chain: string;
+  asset: string;
+  amount: string;
+  destination: 'unified' | 'custody';
+}
+
+export interface ResizeChannelResponse {
+  success: boolean;
+  message: string;
+  txHash?: string;
+  channelId: string;
+  custodyBalance: string;
+  custodyBalanceFormatted: string;
+  unifiedBalance: Array<{ asset: string; amount: string }>;
+}
+
 // Deposit Funds
 export interface DepositFundsRequest {
   userId: string;
@@ -1319,6 +1338,53 @@ export const lightningNodeApi = {
       `/lightning-node/custody-balance?userId=${encodeURIComponent(userId)}&chain=${encodeURIComponent(chain)}&asset=${encodeURIComponent(asset)}`,
       { timeout: 30000 } // 30 seconds
     );
+  },
+
+  /**
+   * Create Payment Channel
+   *
+   * Creates a 2-party channel between user and Clearnode.
+   * Required before moving funds to unified balance.
+   *
+   * This is an on-chain transaction, requires 120s timeout
+   */
+  async createChannel(data: {
+    userId: string;
+    chain: string;
+    asset: string;
+    initialDeposit?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    channelId: string;
+    chainId: number;
+    participants: [string, string];
+    custodyBalance: string;
+    custodyBalanceFormatted: string;
+    unifiedBalance: any[];
+  }> {
+    return fetchApi('/lightning-node/create-channel', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeout: 120000, // 120 seconds - on-chain transaction
+    });
+  },
+
+  /**
+   * Resize channel - Move funds between Custody and Unified Balance
+   *
+   * Flow:
+   * - destination='unified': Moves funds from Custody SC → Off-chain unified balance (allocate)
+   * - destination='custody': Moves funds from Off-chain unified balance → Custody SC (deallocate)
+   *
+   * This is an on-chain transaction, requires 120s timeout
+   */
+  async resizeChannel(data: ResizeChannelRequest): Promise<ResizeChannelResponse> {
+    return fetchApi<ResizeChannelResponse>('/lightning-node/resize-channel', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeout: 120000, // 120 seconds - on-chain transaction
+    });
   },
 
   /**

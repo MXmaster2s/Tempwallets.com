@@ -12,6 +12,7 @@
  */
 
 import type { Address, Hash, PublicClient, WalletClient } from 'viem';
+import { getAddress } from 'viem';
 import { NitroliteClient, WalletStateSigner } from '@erc7824/nitrolite';
 import type { WebSocketManager } from './websocket-manager.js';
 import type { SessionKeyAuth } from './session-auth.js';
@@ -118,47 +119,62 @@ export class SDKChannelService {
 
     if (initialDeposit && initialDeposit > BigInt(0)) {
       console.log('[SDKChannelService] ═══════════════════════════════════════════════════════');
-      console.log('[SDKChannelService] Step 0: Depositing funds to Custody contract');
+      console.log('[SDKChannelService] Step 0: Smart Deposit Check');
       console.log('[SDKChannelService] ═══════════════════════════════════════════════════════');
 
       try {
-        // Step 0a: Check and approve token allowance
-        console.log('[SDKChannelService] Checking token allowance...');
-        const currentAllowance = await this.sdkClient.getTokenAllowance(token);
-        console.log(`[SDKChannelService] Current allowance: ${currentAllowance.toString()}`);
+        // Check current custody balance FIRST
+        const currentCustodyBalance = await this.sdkClient.getAccountBalance(token);
+        console.log(`[SDKChannelService] Current custody balance: ${currentCustodyBalance.toString()}`);
+        console.log(`[SDKChannelService] Requested for channel: ${initialDeposit.toString()}`);
 
-        if (currentAllowance < initialDeposit) {
-          console.log(`[SDKChannelService] Approving ${initialDeposit.toString()} tokens...`);
-          const approveHash = await this.sdkClient.approveTokens(token, initialDeposit);
-          console.log(`[SDKChannelService] Approval tx: ${approveHash}`);
-
-          const approveReceipt = await this.publicClient.waitForTransactionReceipt({
-            hash: approveHash
-          });
-          console.log(`[SDKChannelService] ✅ Approval confirmed in block ${approveReceipt.blockNumber}`);
+        // Smart deposit: only deposit what's missing
+        if (currentCustodyBalance >= initialDeposit) {
+          // Funds already available in custody - no deposit needed
+          console.log(`[SDKChannelService] ✅ Sufficient funds in custody. Skipping deposit.`);
         } else {
-          console.log('[SDKChannelService] ✅ Sufficient allowance already exists');
+          // Need to deposit the difference
+          const missingAmount = initialDeposit - currentCustodyBalance;
+          console.log(`[SDKChannelService] ⚠️ Need to deposit missing amount: ${missingAmount.toString()}`);
+
+          // Check and approve token allowance for missing amount
+          console.log('[SDKChannelService] Checking token allowance...');
+          const currentAllowance = await this.sdkClient.getTokenAllowance(token);
+          console.log(`[SDKChannelService] Current allowance: ${currentAllowance.toString()}`);
+
+          if (currentAllowance < missingAmount) {
+            console.log(`[SDKChannelService] Approving ${missingAmount.toString()} tokens...`);
+            const approveHash = await this.sdkClient.approveTokens(token, missingAmount);
+            console.log(`[SDKChannelService] Approval tx: ${approveHash}`);
+
+            const approveReceipt = await this.publicClient.waitForTransactionReceipt({
+              hash: approveHash
+            });
+            console.log(`[SDKChannelService] ✅ Approval confirmed in block ${approveReceipt.blockNumber}`);
+          } else {
+            console.log('[SDKChannelService] ✅ Sufficient allowance already exists');
+          }
+
+          // Deposit only the missing amount
+          console.log(`[SDKChannelService] Depositing ${missingAmount.toString()} to Custody...`);
+          const depositHash = await this.sdkClient.deposit(token, missingAmount);
+          console.log(`[SDKChannelService] Deposit tx: ${depositHash}`);
+
+          const depositReceipt = await this.publicClient.waitForTransactionReceipt({
+            hash: depositHash
+          });
+          console.log(`[SDKChannelService] ✅ Deposit confirmed in block ${depositReceipt.blockNumber}`);
         }
 
-        // Step 0b: Deposit to Custody contract
-        console.log(`[SDKChannelService] Depositing ${initialDeposit.toString()} to Custody...`);
-        const depositHash = await this.sdkClient.deposit(token, initialDeposit);
-        console.log(`[SDKChannelService] Deposit tx: ${depositHash}`);
-
-        const depositReceipt = await this.publicClient.waitForTransactionReceipt({
-          hash: depositHash
-        });
-        console.log(`[SDKChannelService] ✅ Deposit confirmed in block ${depositReceipt.blockNumber}`);
-
-        // Verify account balance in custody
-        const accountBalance = await this.sdkClient.getAccountBalance(token);
-        console.log(`[SDKChannelService] ✅ Account balance in Custody: ${accountBalance.toString()}`);
+        // Verify final custody balance
+        const finalBalance = await this.sdkClient.getAccountBalance(token);
+        console.log(`[SDKChannelService] ✅ Final custody balance: ${finalBalance.toString()}`);
 
       } catch (depositError) {
         const err = depositError as Error;
-        console.error('[SDKChannelService] ❌ Failed to deposit to Custody:', err.message);
+        console.error('[SDKChannelService] ❌ Deposit check failed:', err.message);
         throw new Error(
-          `Failed to deposit funds to Custody contract: ${err.message}. ` +
+          `Failed to prepare custody funds: ${err.message}. ` +
           `Ensure you have sufficient ${token} balance and the token is approved.`
         );
       }
@@ -251,32 +267,42 @@ export class SDKChannelService {
     });
     console.log('  Server Signature:', serverSignature.slice(0, 20) + '...');
 
-    // Step 4: Use SDK to create channel on-chain
-    // Per SDK tutorial: https://github.com/stevenzeiler/yellow-sdk-tutorials/blob/main/scripts/create_channel.ts
-    // The SDK's createChannel handles:
-    // - Correct state hash computation
-    // - Proper signature formatting
-    // - ABI encoding that matches the Custody contract
-    console.log('[SDKChannelService] 🧬 Calling SDK createChannel() for on-chain creation...');
+    // Step 4: Use SDK Standard Method (Aligned with Yellow Team Examples)
+    // Following the exact pattern from Yellow's create_channel.ts tutorial
+    // Trust the SDK to handle participant sorting and signature alignment
+    console.log('[SDKChannelService] 🧬 Calling SDK createChannel() with RPC Data...');
 
-    // Build channel object matching SDK's Channel type
-    const channelForSDK = {
-      participants: [
-        channel.participants[0] as Address,
-        channel.participants[1] as Address,
-      ] as [Address, Address],
-      adjudicator: channel.adjudicator as Address,
-      challenge: BigInt(channel.challenge),
-      nonce: BigInt(channel.nonce),
-    };
+    // 1. Ensure State Signer is properly initialized
+    if (!(this.sdkClient as any).stateSigner) {
+        console.log('[SDKChannelService] ⚠️ Re-initializing State Signer...');
+        const { WalletStateSigner } = await import('@erc7824/nitrolite');
+        (this.sdkClient as any).stateSigner = new WalletStateSigner(this.walletClient as any);
+    }
 
+    // 2. Pass the EXACT channel object from RPC to SDK
+    // DO NOT manually sort - trust the server's response
+    // The server returns participants in canonical sorted order
+    console.log('[SDKChannelService] Participants from Server (exact order):', channel.participants);
+    console.log('[SDKChannelService] My wallet address:', this.walletClient.account!.address);
+
+    // 3. Call SDK's createChannel with server data (Yellow Team's approach)
     const result = await this.sdkClient.createChannel({
-      channel: channelForSDK,
-      unsignedInitialState,
+      channel: {
+          participants: channel.participants as [Address, Address], // Pass exactly as received
+          adjudicator: channel.adjudicator as Address,
+          challenge: BigInt(channel.challenge),
+          nonce: BigInt(channel.nonce)
+      },
+      unsignedInitialState: {
+          intent: unsignedInitialState.intent,
+          version: unsignedInitialState.version,
+          data: unsignedInitialState.data,
+          allocations: unsignedInitialState.allocations  // SDK will handle sorting
+      },
       serverSignature: serverSignature as `0x${string}`,
     });
 
-    console.log('[SDKChannelService] ✅ Channel created successfully!');
+    console.log('[SDKChannelService] ✅ Channel created successfully via SDK!');
     console.log('[SDKChannelService] Channel ID:', result.channelId);
     console.log('[SDKChannelService] Transaction:', result.txHash);
 
@@ -418,11 +444,25 @@ export class SDKChannelService {
       serverSignature: resizeData.server_signature as `0x${string}`,
     };
 
-    console.log('[SDKChannelService] Calling SDK resizeChannel()...');
+    console.log('[SDKChannelService] Fetching previous channel state for proof...');
 
+    // CRITICAL: Fetch previous channel state
+    // Per tutorial: https://github.com/stevenzeiler/yellow-sdk-tutorials/blob/main/scripts/resize_channel.ts
+    const previousChannelData = await this.sdkClient.getChannelData(channelId);
+
+    if (!previousChannelData || !previousChannelData.lastValidState) {
+      throw new Error('Cannot resize: previous channel state not found');
+    }
+
+    console.log('[SDKChannelService] Previous state version:', previousChannelData.lastValidState.version);
+    console.log('[SDKChannelService] New state version:', resizeState.version);
+
+    console.log('[SDKChannelService] Calling SDK resizeChannel() with proof states...');
+
+    // Call SDK with proper proof states
     const result = await this.sdkClient.resizeChannel({
       resizeState,
-      proofStates: [], // No proof states needed for cooperative resize
+      proofStates: [previousChannelData.lastValidState], // ✅ CORRECT
     });
 
     console.log('[SDKChannelService] ✅ Channel resized!');

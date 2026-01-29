@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Loader2, Zap, Copy, ChevronRight, Mail, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
+import { Loader2, Zap, Copy, ChevronRight, Mail, CheckCircle2, AlertCircle, Plus, ArrowRightLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/ui/components/ui/tooltip';
 import { useLightningNodes } from '@/hooks/lightning-nodes-context';
+import { useAuth } from '@/hooks/useAuth';
 import { CreateLightningNodeModal } from './create-lightning-node-modal';
 import { LightningNodeDetails } from './lightning-node-details';
 import { FundChannelModal } from '../modals/fund-channel-modal';
+import { ResizeChannelModal } from '../modals/resize-channel-modal';
 import { ClearnodeStatus } from './clearnode-status';
-import { LightningNode } from '@/lib/api';
+import { LightningNode, lightningNodeApi } from '@/lib/api';
 
 const LAST_SELECTED_LN_NODE_ID_KEY = 'tempwallets:lastSelectedLightningNodeId';
 
@@ -172,6 +174,9 @@ function LightningNodeCard({
  * Main dashboard view with authentication, invitations, search, and active sessions
  */
 export function LightningNodesView() {
+  // Get userId from auth context (this is the correct user identifier)
+  const { userId } = useAuth();
+  
   const {
     authenticated,
     authenticating,
@@ -188,8 +193,15 @@ export function LightningNodesView() {
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [fundChannelModalOpen, setFundChannelModalOpen] = useState(false);
+  const [resizeChannelModalOpen, setResizeChannelModalOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  
+  // Balance state for resize modal
+  const [custodyBalance, setCustodyBalance] = useState('0.000000');
+  const [unifiedBalance, setUnifiedBalance] = useState('0.000000');
+  const [currentChannelId, setCurrentChannelId] = useState<string | null>(null);
+  const [balancesLoading, setBalancesLoading] = useState(false);
 
   // OPTIMIZATION: On-demand session discovery
   // Authentication happens automatically in useLightningNodes when userId is available
@@ -206,6 +218,114 @@ export function LightningNodesView() {
     initializeLightningNodes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated]); // Run when authentication state changes
+
+  // Fetch balances for resize modal
+  useEffect(() => {
+    if (authenticated && userId) {
+      console.log('[LightningNodesView] ✅ Authenticated with userId:', userId);
+      fetchBalances();
+    } else {
+      console.log('[LightningNodesView] ⏳ Waiting for authentication...', { authenticated, userId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, userId]);
+
+  const fetchBalances = async () => {
+    if (!userId) {
+      console.log('[LightningNodesView] ❌ No userId available');
+      return;
+    }
+
+    console.log('[LightningNodesView] 🔄 Fetching balances for userId:', userId);
+    setBalancesLoading(true);
+    try {
+      const [custodyRes, unifiedRes] = await Promise.all([
+        lightningNodeApi.getCustodyBalance(userId, 'base', 'usdc'),
+        lightningNodeApi.getUnifiedBalance(userId, 'base'),
+      ]);
+
+      console.log('[LightningNodesView] 💰 Custody balance:', custodyRes.balanceFormatted);
+      setCustodyBalance(custodyRes.balanceFormatted);
+
+      // Find USDC in unified balance
+      const usdcBalance = unifiedRes.balances.find(b =>
+        b.asset.toLowerCase().includes('0x833589fcd6edb6e08f4c7c32d4f71b54bda02913')
+      );
+      const unifiedBalanceFormatted = usdcBalance ? (Number(usdcBalance.amount) / 1e6).toFixed(6) : '0.000000';
+      console.log('[LightningNodesView] 💰 Unified balance:', unifiedBalanceFormatted);
+      setUnifiedBalance(unifiedBalanceFormatted);
+
+      // Set channel ID for resize modal display
+      // Note: Backend fetches the actual channel ID automatically via nitroliteClient.getChannels()
+      // This is just for UI display purposes in the modal
+      console.log('[LightningNodesView] ℹ️ Channel ID will be fetched automatically by backend during resize');
+      setCurrentChannelId('auto-fetch'); // Placeholder - backend handles channel lookup
+
+      console.log('[LightningNodesView] ✅ Balances fetched successfully');
+    } catch (error) {
+      console.error('[LightningNodesView] ❌ Failed to fetch balances:', error);
+    } finally {
+      setBalancesLoading(false);
+    }
+  };
+
+  const pollForChannel = async (maxAttempts = 10, delayMs = 1000) => {
+    if (!userId) return false;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const unifiedRes = await lightningNodeApi.getUnifiedBalance(userId, 'base');
+        const hasChannel = unifiedRes?.balances?.length > 0;
+        if (hasChannel) return true;
+      } catch (e) {
+        // ignore
+      }
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+    return false;
+  };
+
+  const handleMoveFunds = async () => {
+    if (!userId) {
+      alert('No user ID found. Please log in again.');
+      return;
+    }
+
+    setBalancesLoading(true);
+
+    try {
+      // Try to fetch balances (will fail if no channel)
+      await fetchBalances();
+      setResizeChannelModalOpen(true);
+    } catch (error: any) {
+      // Check for "no channel" error
+      if (error?.error === 'CHANNEL_NOT_FOUND' || error?.message?.includes('No channel found')) {
+        try {
+          setBalancesLoading(true);
+          // Create channel
+          const result = await lightningNodeApi.createChannel({
+            userId,
+            chain: 'base',
+            asset: 'usdc',
+          });
+          setCurrentChannelId(result.channelId);
+          // Poll for channel to appear
+          const found = await pollForChannel();
+          if (!found) {
+            alert('Channel creation is taking longer than expected. Please try again in a moment.');
+            return;
+          }
+          await fetchBalances();
+          setResizeChannelModalOpen(true);
+        } catch (createError) {
+          alert('Failed to create payment channel. Please try again.');
+        }
+      } else {
+        alert('Unexpected error: ' + (error?.message || error));
+      }
+    } finally {
+      setBalancesLoading(false);
+    }
+  };
 
   // Restore last-opened node after refresh
   useEffect(() => {
@@ -289,8 +409,29 @@ export function LightningNodesView() {
   if (!hasAnySessions && !loading) {
     return (
       <>
+        {/* Debug indicator */}
+        {resizeChannelModalOpen && (
+          <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+            Modal State: OPEN (Empty State)
+          </div>
+        )}
+
         {/* Clearnode Connection Status */}
-        <ClearnodeStatus onAddToUnifiedBalance={() => setFundChannelModalOpen(true)} />
+        <ClearnodeStatus
+          onAddToUnifiedBalance={() => setFundChannelModalOpen(true)}
+          onMoveFunds={() => {
+            console.log('[LightningNodesView] 🔵 Move Funds button clicked!');
+            setResizeChannelModalOpen(true);
+            console.log('[LightningNodesView] 🟢 Modal state set to true');
+            // Fetch balances in background (don't block modal opening)
+            fetchBalances().catch(err => {
+              console.error('[LightningNodesView] Balance fetch failed:', err);
+            });
+          }}
+          custodyBalance={custodyBalance}
+          unifiedBalance={unifiedBalance}
+          balancesLoading={balancesLoading}
+        />
 
         {/* Empty State */}
         <div className="flex flex-col items-center justify-center py-16 md:py-20">
@@ -335,15 +476,77 @@ export function LightningNodesView() {
             // Optionally refresh data after funding
           }}
         />
+
+        {/* Resize Channel Modal - Also needed in empty state */}
+        {userId && (
+          <ResizeChannelModal
+            isOpen={resizeChannelModalOpen}
+            onClose={() => {
+              console.log('[LightningNodesView] 🔴 Closing resize modal (empty state)');
+              setResizeChannelModalOpen(false);
+            }}
+            userId={userId}
+            chain="base"
+            asset="USDC"
+            channelId={currentChannelId || undefined}
+            custodyBalance={custodyBalance}
+            unifiedBalance={unifiedBalance}
+            onSuccess={() => {
+              fetchBalances();
+              discoverSessions('base');
+            }}
+          />
+        )}
       </>
     );
   }
 
   // Show list of Lightning Nodes
+  console.log('[LightningNodesView] 🎨 Render state:', {
+    userId,
+    authenticated,
+    authenticating,
+    walletAddress,
+    custodyBalance,
+    unifiedBalance,
+    balancesLoading,
+    hasAnySessions,
+    currentChannelId,
+  });
+
   return (
     <>
-      {/* Clearnode Connection Status */}
-      <ClearnodeStatus onAddToUnifiedBalance={() => setFundChannelModalOpen(true)} />
+      {/* Debug indicator */}
+      {resizeChannelModalOpen && (
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          Modal State: OPEN
+        </div>
+      )}
+
+      {/* Clearnode Connection Status with Balance Management */}
+      <ClearnodeStatus 
+        onAddToUnifiedBalance={() => setFundChannelModalOpen(true)}
+        onMoveFunds={() => {
+          console.log('[LightningNodesView] 🔵 Move Funds clicked!');
+          console.log('[LightningNodesView] Current state:', {
+            userId,
+            authenticated,
+            resizeChannelModalOpen,
+            custodyBalance,
+            unifiedBalance,
+            currentChannelId
+          });
+          console.log('[LightningNodesView] 🟢 Setting resizeChannelModalOpen = true');
+          setResizeChannelModalOpen(true);
+          // Fetch balances in background (don't block modal opening)
+          fetchBalances().catch(err => {
+            console.error('[LightningNodesView] Balance fetch failed:', err);
+          });
+        }}
+        custodyBalance={custodyBalance}
+        unifiedBalance={unifiedBalance}
+        balancesLoading={balancesLoading}
+      />
 
       <div className="space-y-6">
         {/* New Invitations Section */}
@@ -422,9 +625,40 @@ export function LightningNodesView() {
         chain="base"
         asset="usdc"
         onFundComplete={() => {
-          // Optionally refresh data after funding
+          // Refresh balances after funding
+          fetchBalances();
         }}
       />
+
+      {/* Resize Channel Modal */}
+      {(() => {
+        console.log('[LightningNodesView] 🎭 Resize Modal Render Check:', {
+          userId: !!userId,
+          resizeChannelModalOpen,
+          shouldRender: !!userId
+        });
+        return userId;
+      })() && (
+        <ResizeChannelModal
+          isOpen={resizeChannelModalOpen}
+          onClose={() => {
+            console.log('[LightningNodesView] 🔴 Closing resize modal');
+            setResizeChannelModalOpen(false);
+          }}
+          userId={userId || ''}
+          chain="base"
+          asset="USDC"
+          channelId={currentChannelId || undefined}
+          custodyBalance={custodyBalance}
+          unifiedBalance={unifiedBalance}
+          onSuccess={() => {
+            // Refresh balances after successful resize
+            fetchBalances();
+            // Optionally refresh sessions
+            discoverSessions('base');
+          }}
+        />
+      )}
     </>
   );
 }

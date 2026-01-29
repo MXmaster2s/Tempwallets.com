@@ -33,7 +33,7 @@ import type { Address, Hash, PublicClient, WalletClient } from 'viem';
 import { WebSocketManager } from './websocket-manager.js';
 import { SessionKeyAuth, MainWallet } from './session-auth.js';
 import { ConfigLoader } from './config-loader.js';
-import { ChannelService } from './channel-service.js';
+// import { ChannelService } from './channel-service.js';
 import { SDKChannelService } from './sdk-channel-service.js';
 import { AppSessionService } from './app-session-service.js';
 import { QueryService } from './query-service.js';
@@ -63,7 +63,7 @@ export class NitroliteClient {
   private ws: WebSocketManager;
   private auth: SessionKeyAuth;
   private configLoader: ConfigLoader;
-  private channelService: ChannelService | SDKChannelService;
+  private channelService: SDKChannelService;
   private appSessionService: AppSessionService;
   private queryService: QueryService;
 
@@ -115,10 +115,20 @@ export class NitroliteClient {
     // Initialize Config Loader
     this.configLoader = new ConfigLoader(this.config.wsUrl);
 
-    // Services will be initialized after config is loaded
-    this.channelService = null as any;
+  // Services will be initialized after config is loaded
+  this.channelService = null as any;
     this.appSessionService = new AppSessionService(this.ws, this.auth);
     this.queryService = new QueryService(this.ws, this.auth);
+  }
+
+  /**
+   * Return the canonical signer address used for all Yellow Network authentication
+   * and on-chain signatures. This is the address provided to the SessionKeyAuth
+   * and to the SDK state signer, so consumers should prefer this over any cached
+   * wallet address strings to avoid signature/participant mismatches.
+   */
+  getSignerAddress(): Address {
+    return this.mainWallet.address;
   }
 
   /**
@@ -189,40 +199,24 @@ export class NitroliteClient {
       {} as Record<number, Address>,
     );
 
-    // Initialize Channel Service (SDK or Custom)
-    if (this.useSDK) {
-      console.log('[NitroliteClient] Using Yellow Network SDK for channel operations');
-
-      // For SDK, we need to pick a primary chain. We'll use the first one or Base (8453) if available.
-      const baseNetwork = this.clearnodeConfig.networks.find(n => n.chain_id === 8453);
-      const primaryNetwork = baseNetwork || this.clearnodeConfig.networks[0];
-
-      if (!primaryNetwork) {
-        throw new Error('No networks found in config');
-      }
-
-      this.channelService = new SDKChannelService(
-        this.ws,
-        this.auth,
-        this.publicClient,
-        this.walletClient,
-        custodyAddresses,
-        primaryNetwork.adjudicator_address,
-        primaryNetwork.chain_id,
-      );
-
-      console.log(`[NitroliteClient] SDK initialized for chain ${primaryNetwork.chain_id}`);
-    } else {
-      console.log('[NitroliteClient] Using custom implementation for channel operations');
-
-      this.channelService = new ChannelService(
-        this.ws,
-        this.auth,
-        this.publicClient,
-        this.walletClient,
-        custodyAddresses,
-      );
+    // Always use SDKChannelService
+    console.log('[NitroliteClient] Using Yellow Network SDK for channel operations');
+    // For SDK, we need to pick a primary chain. We'll use the first one or Base (8453) if available.
+    const baseNetwork = this.clearnodeConfig.networks.find(n => n.chain_id === 8453);
+    const primaryNetwork = baseNetwork || this.clearnodeConfig.networks[0];
+    if (!primaryNetwork) {
+      throw new Error('No networks found in config');
     }
+    this.channelService = new SDKChannelService(
+      this.ws,
+      this.auth,
+      this.publicClient,
+      this.walletClient,
+      custodyAddresses,
+      primaryNetwork.adjudicator_address,
+      primaryNetwork.chain_id,
+    );
+    console.log(`[NitroliteClient] SDK initialized for chain ${primaryNetwork.chain_id}`);
 
     // Step 3: Authenticate with session key (if enabled)
     if (this.config.useSessionKeys) {
@@ -313,6 +307,40 @@ export class NitroliteClient {
       token,
       participants,
     );
+  }
+
+  /**
+   * Deposit funds to Custody contract (SDK method)
+   * 
+   * This is the FIRST step when adding funds to Yellow Network.
+   * After depositing, use resizeChannel() to move funds to unified balance.
+   *
+   * @param token - Token address
+   * @param amount - Amount to deposit (in smallest units)
+   * @returns Transaction hash
+   */
+  async depositToCustody(token: Address, amount: bigint): Promise<`0x${string}`> {
+    this.ensureInitialized();
+    if (!this.useSDK || !(this.channelService instanceof SDKChannelService)) {
+      throw new Error('depositToCustody requires SDK mode (useSDK: true)');
+    }
+    return await this.channelService.depositToCustody(token, amount);
+  }
+
+  /**
+   * Get custody balance (SDK method)
+   * 
+   * Returns the balance in the Custody smart contract.
+   *
+   * @param token - Token address
+   * @returns Balance in smallest units
+   */
+  async getCustodyBalance(token: Address): Promise<bigint> {
+    this.ensureInitialized();
+    if (!this.useSDK || !(this.channelService instanceof SDKChannelService)) {
+      throw new Error('getCustodyBalance requires SDK mode (useSDK: true)');
+    }
+    return await this.channelService.getCustodyBalance(token);
   }
 
   // ============================================================================
@@ -499,9 +527,9 @@ export class NitroliteClient {
   /**
    * Get payment channels
    */
-  async getChannels(): Promise<ChannelWithState[]> {
+  async getChannels(participant?: string): Promise<ChannelWithState[]> {
     this.ensureInitialized();
-    return await this.queryService.getChannels();
+    return await this.queryService.getChannels(participant);
   }
 
   /**

@@ -165,77 +165,65 @@ export class QueryService {
   }
 
   /**
-   * Get payment channels
+   * Get all payment channels (unfiltered)
+   * Use this to detect stale/invisible channels that might block new channel creation
    *
-   * @returns Array of payment channels
+   * @returns Array of all payment channels in the system
    */
-  async getChannels(): Promise<ChannelWithState[]> {
-    console.log('[QueryService] Fetching payment channels...');
+  async getAllChannelsUnfiltered(): Promise<ChannelWithState[]> {
+    console.log('[QueryService] Fetching ALL payment channels (unfiltered)...');
 
     const requestId = this.ws.getNextRequestId();
     let request: RPCRequest = {
-      req: [requestId, 'get_channels', {}, Date.now()],
+      req: [requestId, 'get_channels', {}, Date.now()], // Empty params = no filter
       sig: [] as string[],
     };
 
     request = await this.auth.signRequest(request);
     const response = await this.ws.send(request);
 
-    // Log full response for debugging
     console.log(
-      '[QueryService] Full get_channels response:',
+      '[QueryService] Full get_channels (unfiltered) response:',
       JSON.stringify(response, null, 2),
     );
 
-    // Check for errors in response
     if (response.error) {
-      console.error(
-        '[QueryService] Error in get_channels response:',
-        response.error.message,
-      );
       throw new Error(`Yellow Network error: ${response.error.message}`);
     }
 
     if (response.res && response.res[1] === 'error') {
-      console.error(
-        '[QueryService] Error in get_channels response:',
-        response.res[2],
-      );
-      throw new Error(
-        `Yellow Network error: ${JSON.stringify(response.res[2])}`,
-      );
+      throw new Error(`Yellow Network error: ${JSON.stringify(response.res[2])}`);
     }
 
     const channelsData = response.res[2] as { channels?: any[] };
 
-    if (!channelsData) {
-      console.warn(
-        '[QueryService] No channels data in response. Returning empty array.',
-      );
+    if (!channelsData?.channels || !Array.isArray(channelsData.channels)) {
+      console.warn('[QueryService] No channels in unfiltered response');
       return [];
     }
 
-    // Check if channels array exists
-    if (!channelsData.channels || !Array.isArray(channelsData.channels)) {
-      console.warn(
-        `[QueryService] Invalid response structure: 'channels' is missing or not an array. ` +
-          `Response keys: ${Object.keys(channelsData).join(', ')}. ` +
-          `Returning empty array.`,
-      );
-      return [];
-    }
+    // Return raw channels - let caller handle filtering
+    console.log(`[QueryService] Found ${channelsData.channels.length} total channels (unfiltered)`);
+    
+    // Use same parsing logic as getChannels
+    return this.parseChannels(channelsData.channels);
+  }
 
-    const channels: ChannelWithState[] = Array.isArray(channelsData.channels)
-      ? channelsData.channels.map((c) => {
-          // Participants
-          let participants: [Address, Address];
-          if (
-            c &&
-            Array.isArray((c as { participants?: unknown[] }).participants) &&
-            (c as { participants: unknown[] }).participants.length >= 2
-          ) {
-            const p = (c as { participants: [Address, Address] }).participants;
-            participants = [p[0], p[1]];
+  /**
+   * Parse channels from API response
+   * Shared by getChannels and getAllChannelsUnfiltered
+   */
+  private parseChannels(channelsArray: any[]): ChannelWithState[] {
+    return channelsArray.map((c) => {
+      // Participants
+      let participants: [Address, Address];
+      if (
+        c &&
+        Array.isArray((c as { participants?: unknown[] }).participants) &&
+        (c as { participants: unknown[] }).participants.length >= 2
+      ) {
+        const p = (c as { participants: [Address, Address] }).participants;
+        participants = [p[0], p[1]];
           } else if (
             c &&
             typeof (c as { participant?: unknown }).participant === 'string'
@@ -389,11 +377,62 @@ export class QueryService {
             chainId,
             status,
           };
-        })
-      : [];
+        });
+  }
 
+  /**
+   * Get payment channels (filtered by participant)
+   *
+   * @param participant - Optional participant address to filter by
+   * @returns Array of payment channels
+   */
+  async getChannels(participant?: string): Promise<ChannelWithState[]> {
+    const participantLabel = participant ? ` for ${participant}` : '';
+    console.log(`[QueryService] Fetching payment channels${participantLabel}...`);
+
+    const requestId = this.ws.getNextRequestId();
+    const params: Record<string, unknown> = {};
+    if (participant) {
+      params.participant = participant;
+      console.log(`[QueryService] Filtering channels by participant: ${participant}`);
+    }
+
+    let request: RPCRequest = {
+      req: [requestId, 'get_channels', params, Date.now()],
+      sig: [] as string[],
+    };
+
+    request = await this.auth.signRequest(request);
+    const response = await this.ws.send(request);
+
+    // Check for errors in response
+    if (response.error) {
+      console.error(
+        '[QueryService] Error in get_channels response:',
+        response.error.message,
+      );
+      throw new Error(`Yellow Network error: ${response.error.message}`);
+    }
+
+    if (response.res && response.res[1] === 'error') {
+      console.error(
+        '[QueryService] Error in get_channels response:',
+        response.res[2],
+      );
+      throw new Error(
+        `Yellow Network error: ${JSON.stringify(response.res[2])}`,
+      );
+    }
+
+    const channelsData = response.res[2] as { channels?: any[] };
+
+    if (!channelsData?.channels || !Array.isArray(channelsData.channels)) {
+      console.warn('[QueryService] No channels in response');
+      return [];
+    }
+
+    const channels = this.parseChannels(channelsData.channels);
     console.log(`[QueryService] Found ${channels.length} payment channels`);
-
     return channels;
   }
 
