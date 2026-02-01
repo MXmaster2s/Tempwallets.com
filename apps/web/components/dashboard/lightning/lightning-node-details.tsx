@@ -8,7 +8,7 @@ import { lightningNodeApi, LightningNode, LightningNodeParticipant, walletApi } 
 import { TransferFundsModal } from '../modals/transfer-funds-modal';
 import { DepositFundsModal } from '../modals/deposit-funds-modal';
 import { WithdrawFundsModal } from '../modals/withdraw-funds-modal';
-import { FundChannelModal } from '../modals/fund-channel-modal';
+import { CustodyDepositModal } from '../modals/custody-deposit-modal';
 import { useAuth } from '@/hooks/useAuth';
 
 interface LightningNodeDetailsProps {
@@ -510,13 +510,13 @@ export function LightningNodeDetails({ lightningNodeId, onClose }: LightningNode
       {/* Modals */}
       {currentParticipant && (
         <>
-          {/* Fund Channel Modal (On-Chain) */}
-          <FundChannelModal
+          {/* Custody Deposit Modal (On-Chain - Credits Unified Balance) */}
+          <CustodyDepositModal
             open={fundChannelModalOpen}
             onOpenChange={setFundChannelModalOpen}
             chain={lightningNode.chain}
-            asset={lightningNode.token}
-            onFundComplete={refreshDetails}
+            asset={lightningNode.token.toLowerCase()}
+            onDepositComplete={refreshDetails}
           />
 
           {/* Deposit Modal */}

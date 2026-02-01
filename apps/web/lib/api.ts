@@ -221,7 +221,29 @@ export interface JoinLightningNodeResponse {
   node: LightningNode;
 }
 
-// Fund Channel (Add to Unified Balance)
+// Custody Deposit (ON-CHAIN - Credits Unified Balance)
+export interface CustodyDepositRequest {
+  userId: string;
+  chain: string;
+  asset: string;
+  amount: string;
+}
+
+export interface CustodyDepositResponse {
+  ok: boolean;
+  data: {
+    success: boolean;
+    approveTxHash: string;
+    depositTxHash: string;
+    chainId: number;
+    amount: string;
+    asset: string;
+    unifiedBalance: string;
+    message: string;
+  };
+}
+
+// Fund Channel (Moves from Unified Balance to Payment Channel)
 export interface FundChannelRequest {
   userId: string;
   chain: string;
@@ -1341,6 +1363,63 @@ export function subscribeToSSE<T>(
     }
   };
 }
+
+// ============================================================================
+// CUSTODY API
+// Handles on-chain custody deposits that credit unified balance
+// This is the FIRST step in the Yellow Network flow
+// ============================================================================
+export const custodyApi = {
+  /**
+   * Deposit funds to custody contract (ON-CHAIN)
+   * 
+   * This is the CRITICAL step that credits unified balance!
+   * 
+   * Flow:
+   * 1. USDC.approve(custodyAddress, amount) - on-chain
+   * 2. Custody.deposit(asset, amount, recipient) - on-chain
+   * 3. Yellow Network indexes the deposit
+   * 4. Unified balance is credited
+   * 
+   * Use longer timeout (180s) as this involves:
+   * - 2 on-chain transactions (approve + deposit)
+   * - Transaction confirmations
+   * - Waiting for Yellow Network indexing (up to 30s)
+   */
+  async depositToCustody(data: CustodyDepositRequest): Promise<CustodyDepositResponse> {
+    return fetchApi<CustodyDepositResponse>('/custody/deposit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeout: 180000, // 180 seconds - 2 on-chain transactions + indexing
+    });
+  },
+};
+
+// ============================================================================
+// CHANNEL API
+// Handles payment channel operations (unified balance → channel)
+// This is the SECOND step in the Yellow Network flow (optional)
+// ============================================================================
+export const channelApi = {
+  /**
+   * Fund a payment channel
+   * 
+   * Moves funds from unified balance to a 2-party payment channel.
+   * Prerequisites: User must have deposited to custody first (POST /custody/deposit)
+   * 
+   * Flow:
+   * 1. Authenticate with Yellow Network
+   * 2. Create or resize channel with clearnode
+   * 3. Channel balance is credited
+   */
+  async fundChannel(data: FundChannelRequest): Promise<FundChannelResponse> {
+    return fetchApi<FundChannelResponse>('/channel/fund', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      timeout: 120000, // 120 seconds - state channel operation
+    });
+  },
+};
 
 export const lightningNodeApi = {
   /**

@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/
 import { useLightningNodes } from '@/hooks/lightning-nodes-context';
 import { CreateLightningNodeModal } from './create-lightning-node-modal';
 import { LightningNodeDetails } from './lightning-node-details';
-import { FundChannelModal } from '../modals/fund-channel-modal';
+import { CustodyDepositModal } from '../modals/custody-deposit-modal';
 import { LightningNode } from '@/lib/api';
 
 const LAST_SELECTED_LN_NODE_ID_KEY = 'tempwallets:lastSelectedLightningNodeId';
@@ -32,11 +32,13 @@ function AuthenticationBanner({
   authenticating,
   walletAddress,
   error,
+  onAddFunds,
 }: {
   authenticated: boolean;
   authenticating: boolean;
   walletAddress: string | null;
   error: string | null;
+  onAddFunds?: () => void;
 }) {
   const [copiedAddress, setCopiedAddress] = useState(false);
 
@@ -104,17 +106,17 @@ function AuthenticationBanner({
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {/* Unified Balance tile (Coming Soon) */}
+            {/* Unified Balance - Add Funds Button */}
             <TooltipProvider>
               <Tooltip delayDuration={150}>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    disabled
-                    className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-black text-white text-xs font-rubik-medium cursor-not-allowed opacity-80"
+                    onClick={onAddFunds}
+                    className="inline-flex items-center justify-center px-3 py-1 rounded-lg bg-black text-white text-xs font-rubik-medium hover:bg-gray-800 transition-colors active:scale-[0.98]"
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    Unified Balance
+                    Add to Unified Balance
                   </button>
                 </TooltipTrigger>
                 <TooltipContent
@@ -122,12 +124,12 @@ function AuthenticationBanner({
                   className="bg-black/85 text-white text-xs px-3 py-2 rounded-md border border-white/10 max-w-xs space-y-1.5"
                 >
                   <p className="font-semibold">Unified Balance</p>
-                  <p className="text-[11px] font-medium text-gray-200">Coming soon</p>
                   <p className="text-[11px]">
-                    Unified balance funding is disabled in production right now. This feature will be available soon.
+                    Deposit funds from your on-chain wallet to Yellow Network custody.
+                    This credits your unified balance for Lightning Node operations.
                   </p>
                   <p className="pt-1 text-[11px] text-white/80">
-                    Add Funds to Unified Balance
+                    Requires on-chain transaction (gas fees apply)
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -419,6 +421,7 @@ export function LightningNodesView() {
           authenticating={authenticating}
           walletAddress={walletAddress}
           error={error}
+          onAddFunds={() => setFundChannelModalOpen(true)}
         />
 
         {/* Empty State */}
@@ -455,13 +458,14 @@ export function LightningNodesView() {
           }}
         />
 
-        <FundChannelModal
+        <CustodyDepositModal
           open={fundChannelModalOpen}
           onOpenChange={setFundChannelModalOpen}
           chain="base"
           asset="usdc"
-          onFundComplete={() => {
-            // Optionally refresh data after funding
+          onDepositComplete={() => {
+            // Optionally refresh data after deposit
+            discoverSessions('base');
           }}
         />
       </>
@@ -477,6 +481,7 @@ export function LightningNodesView() {
         authenticating={authenticating}
         walletAddress={walletAddress}
         error={error}
+        onAddFunds={() => setFundChannelModalOpen(true)}
       />
 
       <div className="space-y-6">
@@ -550,13 +555,14 @@ export function LightningNodesView() {
         }}
       />
 
-      <FundChannelModal
+      <CustodyDepositModal
         open={fundChannelModalOpen}
         onOpenChange={setFundChannelModalOpen}
         chain="base"
         asset="usdc"
-        onFundComplete={() => {
-          // Optionally refresh data after funding
+        onDepositComplete={() => {
+          // Optionally refresh data after deposit
+          discoverSessions('base');
         }}
       />
     </>
