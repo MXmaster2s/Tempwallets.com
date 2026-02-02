@@ -24,6 +24,7 @@ import {
 } from '@nestjs/common';
 
 import { FundChannelUseCase } from '../../../application/channel/use-cases/fund-channel/fund-channel.use-case.js';
+import { FundChannelRequestDto } from './dto/fund-channel-request.dto.js';
 
 @Controller('channel')
 export class ChannelController {
@@ -43,12 +44,7 @@ export class ChannelController {
    */
   @Post('fund')
   @HttpCode(HttpStatus.OK)
-  async fundChannel(@Body(ValidationPipe) request: {
-    userId: string;
-    chain: string;
-    asset: string;
-    amount: string;
-  }) {
+  async fundChannel(@Body(ValidationPipe) request: FundChannelRequestDto) {
     const result = await this.fundChannelUseCase.execute({
       userId: request.userId,
       chain: request.chain,

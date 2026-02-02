@@ -8,6 +8,11 @@ import { LightningNodeModule } from './lightning-node/lightning-node.module.js';
 import { WalletConnectModule } from './walletconnect/walletconnect.module.js';
 import { HealthController } from './health.controller.js';
 
+// Clean Architecture Modules (Yellow Network)
+import { AppSessionModule } from './presentation/http/app-session/app-session.module.js';
+import { CustodyModule } from './presentation/http/custody/custody.module.js';
+import { ChannelModule } from './presentation/http/channel/channel.module.js';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -21,6 +26,10 @@ import { HealthController } from './health.controller.js';
     UserModule,
     LightningNodeModule,
     WalletConnectModule,
+    // Clean Architecture modules
+    AppSessionModule,
+    CustodyModule,
+    ChannelModule,
   ],
   controllers: [HealthController],
   providers: [],

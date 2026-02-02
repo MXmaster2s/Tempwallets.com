@@ -12,15 +12,16 @@ import { ConfigModule } from '@nestjs/config';
 import { YellowNetworkAdapter } from './yellow-network.adapter.js';
 import { YELLOW_NETWORK_PORT } from '../../application/app-session/ports/yellow-network.port.js';
 import { CHANNEL_MANAGER_PORT } from '../../application/channel/ports/channel-manager.port.js';
-import { SeedRepository } from '../../wallet/seed.repository.js';
-import { PrismaService } from '../../database/prisma.service.js';
+import { WalletModule } from '../../wallet/wallet.module.js';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    ConfigModule,
+    // Import WalletModule which provides SeedRepository and its dependencies
+    WalletModule,
+  ],
   providers: [
     YellowNetworkAdapter,
-    SeedRepository,
-    PrismaService,
     // Register adapter as implementation of Yellow Network port
     {
       provide: YELLOW_NETWORK_PORT,

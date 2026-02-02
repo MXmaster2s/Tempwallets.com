@@ -32,7 +32,7 @@ import {
   ChannelInfo,
 } from '../../application/channel/ports/channel-manager.port.js';
 import { NitroliteClient, type MainWallet } from '../../services/yellow-network/index.js';
-import { createPublicClient, http, type PublicClient, type WalletClient, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address } from 'viem';
 import { base } from 'viem/chains';
 import { mnemonicToAccount } from 'viem/accounts';
 import { SeedRepository } from '../../wallet/seed.repository.js';
@@ -57,11 +57,22 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
    * Authenticate wallet with Yellow Network
    * Creates NitroliteClient and establishes connection
    */
-  async authenticate(userId: string, walletAddress: string): Promise<void> {
+  async authenticate(userId: string, walletAddress: string): Promise<{
+    sessionId: string;
+    expiresAt: number;
+    authSignature: string;
+  }> {
+    // Generate session ID from userId and wallet
+    const sessionId = `${userId}:${walletAddress.toLowerCase()}`;
+
+    // Session expires in 24 hours
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+
     // If already authenticated for this wallet, reuse client
     if (this.currentClient && this.currentWallet === walletAddress) {
       if (this.currentClient.isInitialized()) {
-        return;
+        const authSignature = this.currentClient.getAuthSignature() || '';
+        return { sessionId, expiresAt, authSignature };
       }
     }
 
@@ -71,17 +82,18 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     // Create viem account
     const account = mnemonicToAccount(seedPhrase);
 
-    // Create public client
+    // Create public client (for reading blockchain state)
     const publicClient = createPublicClient({
       chain: base,
       transport: http(this.configService.get<string>('BASE_RPC_URL') || 'https://mainnet.base.org'),
     }) as PublicClient;
 
-    // Create wallet client
-    const walletClient = createPublicClient({
+    // Create wallet client (for signing transactions) - MUST include account!
+    const walletClient = createWalletClient({
+      account,  // <-- CRITICAL: Include the account for signing capability
       chain: base,
       transport: http(this.configService.get<string>('BASE_RPC_URL') || 'https://mainnet.base.org'),
-    }) as unknown as WalletClient;
+    }) as WalletClient;
 
     // Create MainWallet interface
     const mainWallet: MainWallet = {
@@ -97,6 +109,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     };
 
     // Create NitroliteClient
+    // Use the official SDK for channel operations - it handles ABI encoding correctly
     this.currentClient = new NitroliteClient({
       wsUrl: this.wsUrl,
       mainWallet,
@@ -104,10 +117,16 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
       walletClient,
       useSessionKeys: true,
       application: 'tempwallets-lightning',
+      useSDK: true,  // Enable SDK for correct on-chain operations
     });
 
     await this.currentClient.initialize();
     this.currentWallet = walletAddress;
+
+    // Get authentication signature
+    const authSignature = this.currentClient.getAuthSignature() || '';
+
+    return { sessionId, expiresAt, authSignature };
   }
 
   /**
@@ -294,15 +313,20 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
       throw new BadRequestException('Not authenticated with Yellow Network');
     }
 
-    // Ensure participants is exactly 2 elements
-    if (params.participants.length !== 2) {
-      throw new BadRequestException('Channel requires exactly 2 participants');
+    // Resolve participants - if not provided, they will be null
+    // The channel service will use the channel's own participants from its state
+    let participantsTuple: [Address, Address] | undefined;
+    
+    if (params.participants.length >= 2) {
+      participantsTuple = [
+        params.participants[0] as Address,
+        params.participants[1] as Address,
+      ];
+    } else {
+      // Let the channel service resolve participants from channel data
+      console.log(`[YellowNetworkAdapter] Participants not provided, will resolve from channel data`);
+      participantsTuple = undefined;
     }
-
-    const participantsTuple: [Address, Address] = [
-      params.participants[0] as Address,
-      params.participants[1] as Address,
-    ];
 
     await this.currentClient.resizeChannel(
       params.channelId as `0x${string}`,
@@ -316,6 +340,9 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
 
   /**
    * Get existing channels for user
+   * 
+   * CRITICAL: Filter channels by user address to prevent trying to operate
+   * on channels owned by other users (which causes "invalid signature" errors)
    */
   async getChannels(userAddress: string): Promise<ChannelInfo[]> {
     if (!this.currentClient) {
@@ -324,7 +351,28 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
 
     const channels = await this.currentClient.getChannels();
 
-    return (channels || []).map((ch: any) => ({
+    // Normalize user address for comparison
+    const normalizedUserAddress = userAddress.toLowerCase();
+
+    // Filter channels to only include those owned by this user
+    // The query service maps 'participant' from API to 'participants[0]'
+    const userChannels = (channels || []).filter((ch: any) => {
+      // Check participants array (from transformed response)
+      if (Array.isArray(ch.participants) && ch.participants.length > 0) {
+        const channelOwner = (ch.participants[0] || '').toLowerCase();
+        return channelOwner === normalizedUserAddress;
+      }
+      // Fallback: check raw 'participant' or 'wallet' fields
+      const channelOwner = (ch.participant || ch.wallet || '').toLowerCase();
+      return channelOwner === normalizedUserAddress;
+    });
+
+    console.log(
+      `[YellowNetworkAdapter] Found ${channels?.length || 0} total channels, ` +
+      `${userChannels.length} belong to user ${userAddress}`
+    );
+
+    return userChannels.map((ch: any) => ({
       channelId: ch.channelId,
       chainId: ch.chainId || 0,
       balance: ch.balance || '0',

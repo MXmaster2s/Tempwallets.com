@@ -39,10 +39,12 @@ import type {
  */
 interface SessionKeyData {
   account: PrivateKeyAccount; // Session key account (address + signer)
+  privateKey: string; // Session key private key (for SDK signing)
   jwtToken: string; // JWT token from clearnode
   expiresAt: number; // Expiration timestamp (ms)
   allowances: SessionKeyAllowance[]; // Spending limits
   application: string; // Application identifier
+  authSignature?: string; // Main wallet signature from auth_verify
 }
 
 /**
@@ -111,7 +113,7 @@ export class SessionKeyAuth {
     console.log('[SessionKeyAuth] Starting authentication flow...');
 
     // Step 1: Generate session key
-    const sessionKeyAccount = this.generateSessionKey();
+    const { account: sessionKeyAccount, privateKey: sessionKeyPrivateKey } = this.generateSessionKey();
     // Yellow docs are inconsistent on expires_at units (seconds vs ms). The clearnode JWT exp
     // expects seconds, so keep ms locally for expiry checks but send seconds to the server.
     const expiresAtMs = Date.now() + expiryHours * 60 * 60 * 1000;
@@ -345,10 +347,12 @@ export class SessionKeyAuth {
       // Store session key data
       this.sessionKey = {
         account: sessionKeyAccount,
+        privateKey: sessionKeyPrivateKey,
         jwtToken: authResult.jwt_token,
         expiresAt: expiresAtMs,
         allowances,
         application,
+        authSignature: mainWalletSig,
       };
 
       console.log('[SessionKeyAuth] ✅ Authentication successful');
@@ -468,6 +472,23 @@ export class SessionKeyAuth {
   }
 
   /**
+   * Get authentication signature
+   */
+  getAuthSignature(): string | null {
+    return this.sessionKey?.authSignature || null;
+  }
+
+  /**
+   * Get session key private key (for SDK signing)
+   */
+  getSessionKeyPrivateKey(): `0x${string}` {
+    if (!this.sessionKey) {
+      throw new Error('Session key not available');
+    }
+    return this.sessionKey.privateKey as `0x${string}`;
+  }
+
+  /**
    * Get session expiration timestamp
    */
   getExpiresAt(): number | null {
@@ -498,9 +519,12 @@ export class SessionKeyAuth {
   /**
    * Generate a new session key pair
    */
-  private generateSessionKey(): PrivateKeyAccount {
+  private generateSessionKey(): { account: PrivateKeyAccount; privateKey: string } {
     const privateKey = generatePrivateKey();
-    return privateKeyToAccount(privateKey);
+    return {
+      account: privateKeyToAccount(privateKey),
+      privateKey,
+    };
   }
 
   /**

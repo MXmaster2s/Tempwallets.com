@@ -91,36 +91,46 @@ export class FundChannelUseCase {
       );
     }
 
-    // 5. Check if channel exists
+    // 5. Check if channel exists for this user
+    console.log(`[FundChannel] Checking for existing channels for user ${userAddress}...`);
     const existingChannels = await this.channelManager.getChannels(userAddress);
+    console.log(`[FundChannel] Found ${existingChannels.length} existing channels for this user`);
+    
     let channelId: string;
 
     if (existingChannels.length === 0) {
       // 6. Create new channel if doesn't exist
+      console.log(`[FundChannel] No channels found - creating new channel...`);
       const newChannel = await this.channelManager.createChannel({
         userAddress,
         chainId,
         tokenAddress,
-        initialBalance: BigInt(0), // Create with 0 balance
+        initialBalance: BigInt(0), // Create with 0 balance (Yellow Network 0.5.x requirement)
       });
       channelId = newChannel.channelId;
+      console.log(`[FundChannel] Created new channel: ${channelId}`);
     } else {
-      // Use first existing channel
+      // Use first existing channel that belongs to this user
       const firstChannel = existingChannels[0];
       if (!firstChannel) {
-        throw new BadRequestException('No channels found');
+        throw new BadRequestException('No channels found after filtering');
       }
       channelId = firstChannel.channelId;
+      console.log(`[FundChannel] Using existing channel: ${channelId}`);
     }
 
     // 7. Resize channel to add funds
+    // NOTE: For resize operations, the participants will be resolved from the channel data
+    // by the channel service. We pass empty array as placeholder - the actual participants
+    // (user + clearnode) are determined by the channel itself.
+    console.log(`[FundChannel] Resizing channel to add ${amountInSmallestUnits} smallest units...`);
     await this.channelManager.resizeChannel({
       channelId,
       chainId,
       amount: amountInSmallestUnits,
-      userAddress,
+      userAddress,  // This will be used as funds_destination for deallocation
       tokenAddress,
-      participants: [userAddress, userAddress], // User and clearnode
+      participants: [], // Will be resolved from channel data
     });
 
     // 8. Return result

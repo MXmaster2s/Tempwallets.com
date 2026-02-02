@@ -38,14 +38,17 @@ export class AuthenticateWalletUseCase {
     );
 
     // 2. Authenticate with Yellow Network
-    await this.yellowNetwork.authenticate(dto.userId, walletAddress);
+    const { sessionId, expiresAt, authSignature } = await this.yellowNetwork.authenticate(dto.userId, walletAddress);
 
     // 3. Return result
     return {
       authenticated: true,
+      sessionId,
       walletAddress,
       chain: dto.chain,
       timestamp: Date.now(),
+      expiresAt,
+      authSignature,
     };
   }
 }

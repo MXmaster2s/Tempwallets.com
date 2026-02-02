@@ -92,7 +92,7 @@ export class NitroliteClient {
     this.mainWallet = options.mainWallet;
     this.publicClient = options.publicClient;
     this.walletClient = options.walletClient;
-    this.useSDK = options.useSDK ?? false; // TEMPORARILY DISABLED: SDK appears to be for Sepolia only
+    this.useSDK = options.useSDK ?? true; // Use SDK by default - it handles ABI encoding correctly for on-chain operations
 
     // Initialize WebSocket Manager
     this.ws = new WebSocketManager({
@@ -538,6 +538,13 @@ export class NitroliteClient {
    */
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Get authentication signature (main wallet signature from auth_verify)
+   */
+  getAuthSignature(): string | null {
+    return this.auth.getAuthSignature();
   }
 
   /**

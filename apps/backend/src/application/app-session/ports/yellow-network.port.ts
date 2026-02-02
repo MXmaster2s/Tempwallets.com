@@ -73,8 +73,13 @@ export interface IYellowNetworkPort {
    *
    * @param userId - User ID for seed phrase lookup
    * @param walletAddress - Wallet address to authenticate
+   * @returns Session ID, expiry time, and auth signature
    */
-  authenticate(userId: string, walletAddress: string): Promise<void>;
+  authenticate(userId: string, walletAddress: string): Promise<{
+    sessionId: string;
+    expiresAt: number;
+    authSignature: string;
+  }>;
 
   /**
    * Create a new app session

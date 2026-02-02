@@ -79,9 +79,12 @@ export class AppSessionController {
     return {
       ok: true,
       authenticated: result.authenticated,
+      sessionId: result.sessionId,
       walletAddress: result.walletAddress,
       chain: result.chain,
       timestamp: result.timestamp,
+      expiresAt: result.expiresAt,
+      authSignature: result.authSignature,
     };
   }
 

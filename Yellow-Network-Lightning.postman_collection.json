@@ -1,0 +1,578 @@
+{
+	"info": {
+		"_postman_id": "yellow-network-lightning-testing",
+		"name": "Yellow Network Lightning - Testing",
+		"description": "Complete Postman collection for testing Yellow Network Lightning Node implementation.\n\n**Test User:** temp-1766240037810-99mxh253d\n**Available Balance:** 0.6 USDC in custody + USDC in Base wallet\n**Base URL:** http://localhost:5005\n\n## Quick Start:\n1. Import this collection into Postman\n2. Make sure backend is running (cd apps/backend && pnpm run dev)\n3. Run requests in order:\n   - Get Wallet → Authenticate → Check Balance → Discover Sessions → Create Session → Transfer → Close Session\n\n## Variables Used:\n- `{{baseUrl}}` = http://localhost:5005\n- `{{userId}}` = temp-1766240037810-99mxh253d\n- `{{chain}}` = base\n- `{{asset}}` = USDC\n- `{{walletAddress}}` = (auto-saved from Get Wallet)\n- `{{sessionId}}` = (auto-saved from Create Session)\n- `{{authToken}}` = (auto-saved from Authenticate)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health Check",
+			"item": [
+				{
+					"name": "Backend Health",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Check if backend is running and healthy."
+					},
+					"response": []
+				}
+			],
+			"description": "Verify backend is running"
+		},
+		{
+			"name": "2. Wallet Operations",
+			"item": [
+				{
+					"name": "Get Wallet Address",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Auto-save wallet address for later use",
+									"const response = pm.response.json();",
+									"if (response.ok && response.data && response.data.length > 0) {",
+									"    const wallet = response.data.find(w => w.chain === 'base');",
+									"    if (wallet && wallet.address) {",
+									"        pm.collectionVariables.set('walletAddress', wallet.address);",
+									"        console.log('✅ Wallet address saved:', wallet.address);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/wallet/addresses?userId={{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"wallet",
+								"addresses"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}",
+									"description": "User ID"
+								}
+							]
+						},
+						"description": "Get wallet address for the test user. This will auto-save the Base wallet address for use in other requests."
+					},
+					"response": []
+				}
+			],
+			"description": "Get wallet information"
+		},
+		{
+			"name": "3. Authentication",
+			"item": [
+				{
+					"name": "Authenticate with Yellow Network",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Verify authentication success",
+									"const response = pm.response.json();",
+									"pm.test('Authentication successful', function() {",
+									"    pm.expect(response.ok).to.be.true;",
+									"    pm.expect(response.authenticated).to.be.true;",
+									"});",
+									"",
+									"// Save session ID and expiry",
+									"if (response.sessionId) {",
+									"    pm.collectionVariables.set('authSessionId', response.sessionId);",
+									"    pm.collectionVariables.set('authExpiresAt', response.expiresAt);",
+									"    console.log('✅ Auth session saved:', response.sessionId);",
+									"    console.log('✅ Session expires at:', new Date(response.expiresAt).toISOString());",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/app-session/authenticate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"authenticate"
+							]
+						},
+						"description": "Authenticate user wallet with Yellow Network. Required before creating sessions or transfers."
+					},
+					"response": []
+				}
+			],
+			"description": "Authenticate with Yellow Network"
+		},
+		{
+			"name": "4. Balance & Discovery",
+			"item": [
+				{
+					"name": "Check Wallet Balances",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/wallet/balances?userId={{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"wallet",
+								"balances"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								}
+							]
+						},
+						"description": "Check wallet balances across all chains. Note: Unified balance (custody) is checked via Yellow Network internally."
+					},
+					"response": []
+				},
+				{
+					"name": "Discover Sessions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/app-session/discover/{{userId}}?chain={{chain}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"discover",
+								"{{userId}}"
+							],
+							"query": [
+								{
+									"key": "chain",
+									"value": "{{chain}}"
+								}
+							]
+						},
+						"description": "Discover all existing app sessions for this user. May return empty array if no sessions exist."
+					},
+					"response": []
+				}
+			],
+			"description": "Check balances and discover existing sessions"
+		},
+		{
+			"name": "5. App Session (Lightning Node)",
+			"item": [
+				{
+					"name": "Create App Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Auto-save session ID for later use",
+									"const response = pm.response.json();",
+									"if (response.ok && response.data && response.data.sessionId) {",
+									"    pm.collectionVariables.set('sessionId', response.data.sessionId);",
+									"    console.log('✅ Session ID saved:', response.data.sessionId);",
+									"}",
+									"",
+									"pm.test('Session created successfully', function() {",
+									"    pm.expect(response.ok).to.be.true;",
+									"    pm.expect(response.data.sessionId).to.exist;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"participants\": [\n    \"{{walletAddress}}\",\n    \"{{participant2Address}}\"\n  ],\n  \"token\": \"{{asset}}\",\n  \"initialAllocations\": [\n    {\n      \"participant\": \"{{walletAddress}}\",\n      \"amount\": \"0.1\"\n    },\n    {\n      \"participant\": \"{{participant2Address}}\",\n      \"amount\": \"0.1\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/app-session",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session"
+							]
+						},
+						"description": "Create a new app session (Lightning Node) with multiple participants. IMPORTANT: Set {{participant2Address}} variable first! This allocates 0.2 USDC total (0.1 each). Session ID is auto-saved for later use."
+					},
+					"response": []
+				},
+				{
+					"name": "Query Session",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/app-session/{{sessionId}}?userId={{userId}}&chain={{chain}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "chain",
+									"value": "{{chain}}"
+								}
+							]
+						},
+						"description": "Get details of a specific app session including current allocations, version, and status."
+					},
+					"response": []
+				},
+				{
+					"name": "Transfer (Gasless) - Equal Split",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"intent\": \"OPERATE\",\n  \"allocations\": [\n    {\n      \"participant\": \"{{walletAddress}}\",\n      \"amount\": \"0.1\",\n      \"asset\": \"{{asset}}\"\n    },\n    {\n      \"participant\": \"{{participant2Address}}\",\n      \"amount\": \"0.1\",\n      \"asset\": \"{{asset}}\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/app-session/{{sessionId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"{{sessionId}}"
+							]
+						},
+						"description": "Transfer funds within session (gasless!). This splits 0.2 USDC equally. Should be instant (< 1 second) with no gas fees."
+					},
+					"response": []
+				},
+				{
+					"name": "Transfer - Send 0.05 to Participant",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"intent\": \"OPERATE\",\n  \"allocations\": [\n    {\n      \"participant\": \"{{walletAddress}}\",\n      \"amount\": \"0.05\",\n      \"asset\": \"{{asset}}\"\n    },\n    {\n      \"participant\": \"{{participant2Address}}\",\n      \"amount\": \"0.15\",\n      \"asset\": \"{{asset}}\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/app-session/{{sessionId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"{{sessionId}}"
+							]
+						},
+						"description": "Transfer 0.05 USDC from your wallet to participant. Shows how allocations can be adjusted freely within session."
+					},
+					"response": []
+				},
+				{
+					"name": "Close Session",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/app-session/{{sessionId}}?userId={{userId}}&chain={{chain}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"app-session",
+								"{{sessionId}}"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "chain",
+									"value": "{{chain}}"
+								}
+							]
+						},
+						"description": "Close the app session and return funds to unified balance (custody)."
+					},
+					"response": []
+				}
+			],
+			"description": "Create and manage app sessions (Lightning Nodes)"
+		},
+		{
+			"name": "6. Custody Operations",
+			"item": [
+				{
+					"name": "Deposit to Custody",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"asset\": \"{{asset}}\",\n  \"amount\": \"0.1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/custody/deposit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"custody",
+								"deposit"
+							]
+						},
+						"description": "Deposit USDC from wallet to custody contract. This COSTS GAS. Takes 60-90 seconds for indexing. Increases unified balance."
+					},
+					"response": []
+				},
+				{
+					"name": "Withdraw from Custody",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"asset\": \"{{asset}}\",\n  \"amount\": \"0.05\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/custody/withdraw",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"custody",
+								"withdraw"
+							]
+						},
+						"description": "Withdraw USDC from custody contract back to wallet. This COSTS GAS. Decreases unified balance."
+					},
+					"response": []
+				}
+			],
+			"description": "Custody contract operations (on-chain, costs gas)"
+		},
+		{
+			"name": "7. Payment Channels (Optional)",
+			"item": [
+				{
+					"name": "Fund Payment Channel",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"chain\": \"{{chain}}\",\n  \"asset\": \"{{asset}}\",\n  \"amount\": \"0.05\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/channel/fund",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"channel",
+								"fund"
+							]
+						},
+						"description": "Fund a 2-party payment channel with Yellow Network clearnode. Automatically creates/resizes channel. Uses unified balance (must deposit to custody first). No need to specify counterparty - it's always the clearnode."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Channel Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/channel?userId={{userId}}&chain={{chain}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"channel"
+							],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "chain",
+									"value": "{{chain}}"
+								}
+							]
+						},
+						"description": "Get all payment channels for this user."
+					},
+					"response": []
+				}
+			],
+			"description": "2-party payment channel operations (optional)"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-set timestamps if needed",
+					"pm.collectionVariables.set('timestamp', Date.now());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test for all requests",
+					"pm.test('Response time is acceptable', function() {",
+					"    pm.expect(pm.response.responseTime).to.be.below(10000); // 10s",
+					"});",
+					"",
+					"pm.test('Status code is 2xx', function() {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5005",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "temp-1766240037810-99mxh253d",
+			"type": "string"
+		},
+		{
+			"key": "chain",
+			"value": "base",
+			"type": "string"
+		},
+		{
+			"key": "asset",
+			"value": "USDC",
+			"type": "string"
+		},
+		{
+			"key": "walletAddress",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "sessionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "timestamp",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "participant2Address",
+			"value": "",
+			"type": "string",
+			"description": "Second participant address for app sessions (set this before creating a session)"
+		},
+		{
+			"key": "authSessionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "authExpiresAt",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

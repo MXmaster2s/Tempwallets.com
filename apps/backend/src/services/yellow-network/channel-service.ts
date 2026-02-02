@@ -37,6 +37,10 @@ import {
   toHex,
   hexToBytes,
 } from 'viem';
+import {
+  createResizeChannelMessage,
+  createECDSAMessageSigner,
+} from '@erc7824/nitrolite';
 import type { WebSocketManager } from './websocket-manager.js';
 import type { SessionKeyAuth } from './session-auth.js';
 import type {
@@ -1278,25 +1282,41 @@ export class ChannelService {
     console.log(`  - resize_amount: ${resizeAmount} (${resizeAmount > 0 ? 'deposit to channel' : 'withdraw from channel'})`);
     console.log(`  - allocate_amount: ${allocateAmount} (${allocateAmount < 0 ? 'from unified balance' : 'to unified balance'})`);
 
-    // Request resize from clearnode
-    const requestId = this.ws.getNextRequestId();
-    let request: RPCRequest = {
-      req: [
-        requestId,
-        'resize_channel',
-        {
-          channel_id: channelId,
-          resize_amount: resizeAmount.toString(),
-          allocate_amount: allocateAmount.toString(),
-          funds_destination: fundsDestination,
-        },
-        Date.now(),
-      ],
-      sig: [] as string[],
-    };
+    // Create session key signer for SDK
+    const sessionKeyAddress = this.auth.getSessionKeyAddress();
+    if (!sessionKeyAddress) {
+      throw new Error('Session key not available');
+    }
 
-    request = await this.auth.signRequest(request);
-    const response = await this.ws.send(request);
+    // Verify session is still authenticated
+    if (!this.auth.isAuthenticated()) {
+      throw new Error('Session expired. Please re-authenticate.');
+    }
+
+    console.log(`[ChannelService] Using session key: ${sessionKeyAddress}`);
+
+    // Get session key private key (we need to add this method to SessionKeyAuth)
+    const sessionKeyPrivateKey = await this.auth.getSessionKeyPrivateKey();
+    const sessionSigner = createECDSAMessageSigner(sessionKeyPrivateKey);
+
+    console.log(`[ChannelService] Created signer for resize_channel request`);
+
+    // Use SDK to create properly signed resize message
+    const resizeMessageString = await createResizeChannelMessage(sessionSigner, {
+      channel_id: channelId,
+      resize_amount: BigInt(resizeAmount),
+      allocate_amount: BigInt(allocateAmount),
+      funds_destination: fundsDestination,
+    });
+
+    // Log the message for debugging
+    console.log(`[ChannelService] Resize message created by SDK:`, resizeMessageString.substring(0, 200) + '...');
+
+    // Parse the SDK message string to JSON and send it as RPCRequest
+    const resizeMessage = JSON.parse(resizeMessageString) as RPCRequest;
+
+    // Send the properly formatted message
+    const response = await this.ws.send(resizeMessage);
 
     // Log full response for debugging
     console.log('[ChannelService] resize_channel response:', JSON.stringify(response, null, 2));

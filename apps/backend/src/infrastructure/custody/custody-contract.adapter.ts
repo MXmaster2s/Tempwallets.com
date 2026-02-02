@@ -64,9 +64,9 @@ const CUSTODY_ABI = [
   },
 ] as const;
 
-// Custody contract addresses (Yellow Network)
+// Custody contract addresses (Yellow Network - from yellow-sdk-tutorials)
 const CUSTODY_ADDRESSES: Record<number, Address> = {
-  8453: '0x...' as Address, // Base Mainnet - TODO: Get from Yellow Network docs
+  8453: '0x490fb189DdE3a01B00be9BA5F41e3447FbC838b6' as Address, // Base Mainnet
   42161: '0x...' as Address, // Arbitrum - TODO: Get from Yellow Network docs
   84532: '0x...' as Address, // Base Sepolia (testnet)
 };

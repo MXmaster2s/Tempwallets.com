@@ -10,20 +10,19 @@
 import { Module } from '@nestjs/common';
 import { WalletProviderAdapter } from './wallet-provider.adapter.js';
 import { WALLET_PROVIDER_PORT } from '../../application/app-session/ports/wallet-provider.port.js';
-import { WalletService } from '../../wallet/wallet.service.js';
-import { PrismaService } from '../../database/prisma.service.js';
-import { SeedRepository } from '../../wallet/seed.repository.js';
+import { WalletModule } from '../../wallet/wallet.module.js';
 
 @Module({
+  imports: [
+    // Import WalletModule which provides WalletService and all its dependencies
+    WalletModule,
+  ],
   providers: [
     // Register adapter as implementation of port
     {
       provide: WALLET_PROVIDER_PORT,
       useClass: WalletProviderAdapter,
     },
-    WalletService,
-    PrismaService,
-    SeedRepository,
   ],
   exports: [WALLET_PROVIDER_PORT],
 })

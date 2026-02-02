@@ -14,7 +14,10 @@ export class AuthenticateWalletDto {
 
 export class AuthenticateWalletResultDto {
   authenticated!: boolean;
+  sessionId!: string;
   walletAddress!: string;
   chain!: string;
   timestamp!: number;
+  expiresAt!: number;
+  authSignature!: string;
 }

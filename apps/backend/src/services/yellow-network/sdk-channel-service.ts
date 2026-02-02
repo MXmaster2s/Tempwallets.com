@@ -127,28 +127,51 @@ export class SDKChannelService {
     }
 
     console.log('[SDKChannelService] Received channel data from Yellow Network');
-    console.log('[SDKChannelService] Channel ID:', channelData.channel_id);
+    console.log('[SDKChannelService] Raw response keys:', Object.keys(channelData));
+    console.log('[SDKChannelService] Channel ID (from Yellow):', channelData.channel_id || channelData.channelId);
+    
+    // Log FULL channelData to see exact structure from Yellow Network
+    console.log('[SDKChannelService] FULL channelData from Yellow Network:');
+    console.log(JSON.stringify(channelData, null, 2));
 
     // Step 2: Parse channel and state from response
+    // Handle both camelCase and snake_case field names from Yellow Network
     const channel = channelData.channel;
     const state = channelData.state;
-    const serverSignature = channelData.server_signature;
+    // Try both serverSignature (camelCase) and server_signature (snake_case)
+    const serverSignature = channelData.serverSignature || channelData.server_signature;
 
     if (!channel || !state || !serverSignature) {
+      console.error('[SDKChannelService] Missing data in response:');
+      console.error('  channel:', !!channel);
+      console.error('  state:', !!state);
+      console.error('  serverSignature:', !!serverSignature);
+      console.error('  Full channelData:', JSON.stringify(channelData, null, 2));
       throw new Error('Invalid channel data structure');
     }
 
+    // Log state field names to debug camelCase vs snake_case
+    console.log('[SDKChannelService] State object keys:', Object.keys(state));
+    console.log('[SDKChannelService] State raw values:');
+    console.log('  state.stateData:', state.stateData);
+    console.log('  state.state_data:', state.state_data);
+    console.log('  state.data:', state.data);
+
     // Step 3: Build unsigned initial state
+    // Try stateData (camelCase from tutorial) first, then snake_case, then 'data'
+    const stateDataValue = state.stateData || state.state_data || state.data || '0x';
     const unsignedInitialState = {
       intent: state.intent,
       version: BigInt(state.version),
-      data: state.state_data || state.data || '0x',
+      data: stateDataValue,
       allocations: state.allocations.map((a: any) => ({
         destination: a.destination as Address,
         token: a.token as Address,
         amount: BigInt(a.amount || 0),
       })),
     };
+    
+    console.log('[SDKChannelService] Using stateData value:', stateDataValue);
 
     console.log('[SDKChannelService] Channel parameters:');
     console.log('  Participants:', channel.participants);
@@ -164,17 +187,99 @@ export class SDKChannelService {
 
     // Step 4: Use SDK to create channel on-chain
     console.log('[SDKChannelService] Calling SDK createChannel()...');
+    
+    // Build the channel object exactly as SDK expects
+    // Convert challenge and nonce to bigint as required by SDK
+    const channelForSDK = {
+      participants: channel.participants as [Address, Address],
+      adjudicator: channel.adjudicator as Address,
+      challenge: BigInt(channel.challenge),
+      nonce: BigInt(channel.nonce),
+    };
+    
+    console.log('[SDKChannelService] SDK Channel object:', JSON.stringify({
+      ...channelForSDK,
+      challenge: channelForSDK.challenge.toString(),
+      nonce: channelForSDK.nonce.toString(),
+    }, null, 2));
+    console.log('[SDKChannelService] SDK unsignedInitialState:', JSON.stringify({
+      ...unsignedInitialState,
+      version: unsignedInitialState.version.toString(),
+      allocations: unsignedInitialState.allocations.map(a => ({
+        ...a,
+        amount: a.amount.toString(),
+      })),
+    }, null, 2));
+    console.log('[SDKChannelService] Server signature:', serverSignature);
+    
+    // Debug: Check wallet client account address vs participants[0]
+    const walletClientAccount = (this.walletClient as any).account;
+    console.log('[SDKChannelService] DEBUG - Address comparison:');
+    console.log('  walletClient.account.address:', walletClientAccount?.address);
+    console.log('  participants[0]:', channelForSDK.participants[0]);
+    console.log('  Address match (strict):', walletClientAccount?.address === channelForSDK.participants[0]);
+    console.log('  Address match (lowercase):', walletClientAccount?.address?.toLowerCase() === channelForSDK.participants[0].toLowerCase());
+    
+    // Debug: Check channelId computation
+    // Import from SDK or compute manually to compare with Yellow Network's channel_id
+    const { encodeAbiParameters, keccak256 } = await import('viem');
+    const computedChannelId = keccak256(encodeAbiParameters(
+      [
+        { name: 'participants', type: 'address[]' },
+        { name: 'adjudicator', type: 'address' },
+        { name: 'challenge', type: 'uint64' },
+        { name: 'nonce', type: 'uint64' },
+        { name: 'chainId', type: 'uint256' },
+      ],
+      [channelForSDK.participants, channelForSDK.adjudicator, channelForSDK.challenge, channelForSDK.nonce, BigInt(chainId)]
+    ));
+    console.log('[SDKChannelService] DEBUG - ChannelId comparison:');
+    console.log('  Yellow Network channel_id:', channelData.channel_id);
+    console.log('  SDK computed channelId:   ', computedChannelId);
+    console.log('  ChannelIds match:', channelData.channel_id === computedChannelId);
+    
+    // Debug: Compute state hash to see what Yellow Network signed
+    const stateHash = keccak256(encodeAbiParameters(
+      [
+        { name: 'channelId', type: 'bytes32' },
+        { name: 'intent', type: 'uint8' },
+        { name: 'version', type: 'uint256' },
+        { name: 'data', type: 'bytes' },
+        { name: 'allocations', type: 'tuple[]', components: [
+          { name: 'destination', type: 'address' },
+          { name: 'token', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+        ]},
+      ],
+      [
+        computedChannelId,
+        unsignedInitialState.intent,
+        unsignedInitialState.version,
+        unsignedInitialState.data as `0x${string}`,
+        unsignedInitialState.allocations,
+      ]
+    ));
+    console.log('[SDKChannelService] DEBUG - State hash computation:');
+    console.log('  State hash:', stateHash);
+    console.log('  This is what Yellow Network signed with server_signature');
+    
+    // Debug: Verify signatures to see who actually signed
+    const { recoverMessageAddress } = await import('viem');
+    try {
+      const recoveredFromServerSig = await recoverMessageAddress({
+        message: { raw: stateHash },
+        signature: serverSignature as `0x${string}`,
+      });
+      console.log('[SDKChannelService] DEBUG - Server signature verification:');
+      console.log('  Recovered address:', recoveredFromServerSig);
+      console.log('  Expected (clearnode):', channelForSDK.participants[1]); // participants[1] is clearnode
+      console.log('  Match:', recoveredFromServerSig.toLowerCase() === channelForSDK.participants[1].toLowerCase());
+    } catch (error: any) {
+      console.error('[SDKChannelService] ERROR - Failed to recover address from server signature:', error.message);
+    }
 
     const result = await this.sdkClient.createChannel({
-      channel: {
-        participants: [
-          channel.participants[0] as Address,
-          channel.participants[1] as Address,
-        ],
-        adjudicator: channel.adjudicator as Address,
-        challenge: BigInt(channel.challenge),
-        nonce: BigInt(channel.nonce),
-      },
+      channel: channelForSDK,
       unsignedInitialState,
       serverSignature: serverSignature as `0x${string}`,
     });
