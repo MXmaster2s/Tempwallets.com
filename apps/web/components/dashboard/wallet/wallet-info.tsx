@@ -1,6 +1,6 @@
 import { Copy, Check, Loader2, QrCode, Send, History, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@repo/ui/components/ui/tooltip";
-import { toast } from 'sonner';
+// import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from "@repo/ui/components/ui/alert-dialog";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+// // // import { useRouter } from "next/navigation";
 import { useWalletV2 } from "@/hooks/useWalletV2";
 import { walletStorage } from "@/lib/walletStorage";
 import { useBrowserFingerprint } from "@/hooks/useBrowserFingerprint";
@@ -41,9 +41,7 @@ interface WalletInfoProps {
 }
 
 const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoProps) => {
-  const router = useRouter();
   const [copied, setCopied] = useState(false);
-  // Removed local state: const [selectedChainId, setSelectedChainId] = useState(DEFAULT_CHAIN.id);
   const [substrateWalletConnectOpen, setSubstrateWalletConnectOpen] = useState(false);
   const [evmWalletConnectOpen, setEvmWalletConnectOpen] = useState(false);
   const [walletHistoryOpen, setWalletHistoryOpen] = useState(false);
@@ -52,7 +50,7 @@ const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoPr
   const walletConfig = useWalletConfig();
 
   // Auth - use Google user ID when authenticated
-  const { user, isAuthenticated, userId: authUserId, loading: authLoading, login } = useAuth();
+  const { isAuthenticated, userId: authUserId, loading: authLoading, login } = useAuth();
 
   // XP system - disabled for now
   // const { awardXP, awardXPOptimistic } = useXP();
@@ -66,7 +64,7 @@ const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoPr
   };
 
   // Use browser fingerprint as unique user ID (fallback when not authenticated)
-  const { fingerprint, loading: fingerprintLoading, generateNewWallet } = useBrowserFingerprint();
+  const { loading: fingerprintLoading, generateNewWallet } = useBrowserFingerprint();
 
   // KISS: Use Google user ID when authenticated (from useAuth), otherwise fingerprint
   // authUserId already handles this logic in useAuth hook
@@ -88,7 +86,7 @@ const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoPr
     if (currentWallet && !loading && !error) {
       trackUserJourney.walletViewed(selectedChainId);
     }
-  }, [currentWallet, loading, error, selectedChainId]);
+  }, [currentWallet, loading, error, selectedChainId]); // loadWallets is stable from hook
 
   // Track loading state to prevent duplicate calls
   const loadingRef = useRef(false);
@@ -130,7 +128,7 @@ const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoPr
         loadingRef.current = false;
       });
     }
-  }, [userId, authLoading]); // Only depend on userId and authLoading
+  }, [userId, authLoading, loadWallets]); // Only depend on userId and authLoading
 
   // History button is always visible (blurred when not authenticated)
   const actions = [
@@ -158,10 +156,10 @@ const WalletInfo = ({ onOpenSend, selectedChainId, onChainChange }: WalletInfoPr
     }
   };
 
-  const truncateAddress = (address: string) => {
-    if (address.length <= 15) return address;
-    return `${address.slice(0, 7)}...${address.slice(-5)}`;
-  };
+  // const truncateAddress = (address: string) => {
+  //   if (!address) return '';
+  //   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  // };
 
   const handleActionClick = async (action: string) => {
     if (action === 'change') {

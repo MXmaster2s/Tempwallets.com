@@ -1282,7 +1282,11 @@ export class LightningNodeService {
     const nodes = await this.prisma.lightningNode.findMany({
       where: {
         participants: {
-          some: { address: { in: addresses, mode: 'insensitive' } },
+          some: {
+            OR: addresses.map((address) => ({
+              address: { equals: address, mode: 'insensitive' },
+            })),
+          },
         },
       },
       include: { participants: true, transactions: true },

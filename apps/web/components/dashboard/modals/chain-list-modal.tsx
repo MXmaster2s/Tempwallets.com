@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
-import { X, CircleHelp } from 'lucide-react';
+import { useMemo } from 'react';
+import { CircleHelp } from 'lucide-react';
 import { useWalletConfig } from '@/hooks/useWalletConfig';
 import { cn } from '@repo/ui/lib/utils';
 import {

@@ -1,4 +1,4 @@
-import { ComponentType, SVGProps } from 'react';
+// import { ComponentType, SVGProps } from 'react'; // Removed unused imports
 import Ethereum from '@thirdweb-dev/chain-icons/dist/ethereum';
 import Bitcoin from '@thirdweb-dev/chain-icons/dist/bitcoin';
 import Solana from '@thirdweb-dev/chain-icons/dist/solana';

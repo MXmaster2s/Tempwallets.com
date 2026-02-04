@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, ArrowUpRight, ArrowDownLeft, RefreshCcw, Loader2, CheckCircle2, XCircle, ChevronDown, ListFilter } from 'lucide-react';
+import { ExternalLink, ArrowUp, ArrowDown, RefreshCcw, Loader2, CheckCircle2, ListFilter } from 'lucide-react';
 import { useWalletData } from '@/hooks/useWalletData';
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
@@ -89,14 +89,16 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 ];
 
 export function TransactionList() {
-    const { transactions: realTransactions, loading, errors } = useWalletData();
+    const { transactions: realTransactions, loading } = useWalletData(); // removed errors
     const [filterType, setFilterType] = useState<'date' | 'month' | 'year'>('date');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // 1. Process Real Transactions
     const processedRealTransactions: Transaction[] = useMemo(() => {
         return realTransactions
-            .filter((tx: any) => tx.type !== 'swap') // Explicitly exclude swaps
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .filter((tx: any) => tx.type !== 'swap')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .map((tx: any) => {
                 const type = tx.type === 'receive' ? 'receive' :
                     tx.type === 'send' ? 'send' : 'unknown';
@@ -126,7 +128,7 @@ export function TransactionList() {
 
     // 2. Decide Mock Data Fallback
     const isDev = process.env.NODE_ENV === 'development';
-    // const showMockData = isDev && (processedRealTransactions.length === 0 || errors.transactions);
+    // const showMockData = false; // Force empty state as requested
     const showMockData = false; // Force empty state as requested
 
     const transactions = showMockData ? MOCK_TRANSACTIONS : processedRealTransactions;
@@ -143,6 +145,7 @@ export function TransactionList() {
             if (filterType === 'date') {
                 const today = new Date();
                 const yesterday = new Date();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 yesterday.setDate(yesterday.getDate() - 1);
 
                 if (date.toDateString() === today.toDateString()) {
@@ -237,6 +240,7 @@ export function TransactionList() {
                                     <button
                                         key={option.id}
                                         onClick={() => {
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             setFilterType(option.id as any);
                                             setIsDropdownOpen(false);
                                         }}
@@ -307,8 +311,8 @@ export function TransactionList() {
                                                     ${tx.type === 'receive' ? 'bg-emerald-100 text-emerald-600' :
                                                         tx.type === 'send' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}
                                                 >
-                                                    {tx.type === 'receive' && <ArrowDownLeft className="w-3 h-3" />}
-                                                    {tx.type === 'send' && <ArrowUpRight className="w-3 h-3" />}
+                                                    {tx.type === 'receive' && <ArrowDown className="w-3 h-3" />}
+                                                    {tx.type === 'send' && <ArrowUp className="w-3 h-3" />}
                                                     {(tx.type === 'approve' || tx.type === 'unknown') && <RefreshCcw className="w-2.5 h-2.5" />}
                                                 </div>
                                             </div>

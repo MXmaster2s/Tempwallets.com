@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
@@ -13,14 +12,23 @@ import { Input } from "@repo/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select";
 import { ChainListModal } from '@/components/dashboard/modals/chain-list-modal';
 import { Label } from "@repo/ui/components/ui/label";
-import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Clipboard } from "lucide-react";
+import {
+  Loader2,
+  ChevronDown,
+  Search,
+  AlertCircle,
+  ExternalLink,
+  Info,
+  X,
+  Wallet,
+  ArrowRight,
+} from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
+import { DEFAULT_CHAIN, WALLET_CONFIGS, chains } from "@/lib/chains";
 import { useTokenIcon } from "@/lib/token-icons";
 import { trackTransaction } from "@/lib/tempwallets-analytics";
 import { useWalletConfig } from "@/hooks/useWalletConfig";
-import { ChevronDown, Check } from "lucide-react";
 import Image from "next/image";
-import { chains } from "@/lib/chains";
 
 interface SendCryptoModalProps {
   open: boolean;
@@ -305,11 +313,11 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess, 
   // Determine the active chain (starts with prop, but can change)
   const [currentChainId, setCurrentChainId] = useState(chain);
   const walletConfig = useWalletConfig();
-  const visibleChains = walletConfig.getVisible();
+  // const visibleChains = chains.filter(c => c.visible);
 
   // Get current chain config
   const CurrentChainIcon = useTokenIcon(currentChainId);
-  const currentChainName = CHAIN_NAMES[currentChainId] || currentChainId;
+  // const currentChainName = CHAIN_NAMES[currentChainId] || currentChainId;
 
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
@@ -325,6 +333,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess, 
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
 
   // Helper for chain data with robust fallback for logos
+  // const currentChainName = chains.find(c => c.id === chain)?.name || chain;
   const rawChainData = chains.find(c => c.id === currentChainId);
   const chainData = rawChainData || chains.find(c => {
     const id = c.id.toLowerCase();

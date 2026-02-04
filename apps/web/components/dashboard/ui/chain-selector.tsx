@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { X, Plus, CircleHelp } from 'lucide-react';
+import { ChevronDown, Search, Loader2, Plus } from "lucide-react";
 import { useWalletConfig } from '@/hooks/useWalletConfig';
 import { cn } from '@repo/ui/lib/utils';
 import { ChainListModal } from '@/components/dashboard/modals/chain-list-modal';
