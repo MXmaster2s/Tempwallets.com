@@ -22,9 +22,11 @@ import {
   X,
   Wallet,
   ArrowRight,
+  Clipboard,
+  CheckCircle2,
 } from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
-import { DEFAULT_CHAIN, WALLET_CONFIGS, chains } from "@/lib/chains";
+import { DEFAULT_CHAIN, chains } from "@/lib/chains";
 import { useTokenIcon } from "@/lib/token-icons";
 import { trackTransaction } from "@/lib/tempwallets-analytics";
 import { useWalletConfig } from "@/hooks/useWalletConfig";
