@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2, RotateCw } from 'lucide-react';
 import { BalanceView } from './balance-view';
-import RecentTransactions from './recent-transactions';
+import { TransactionList } from '../transactions/transaction-list';
 import { LightningNodesView } from '../lightning/lightning-nodes-view';
 import { useWalletData } from '@/hooks/useWalletData';
 import { LightningNodesProvider } from '@/hooks/lightning-nodes-context';
@@ -17,12 +17,16 @@ type ViewType = 'balance' | 'transactions' | 'lightningNodes';
  * and LightningNodesView when lightningNodes is active
  * Default to "Balance" view on mount
  */
-export function BalanceTransactionsToggle() {
+interface BalanceTransactionsToggleProps {
+  onOpenSend?: (chain: string, tokenSymbol?: string) => void;
+  selectedChainId: string;
+}
+
+export function BalanceTransactionsToggle({ onOpenSend, selectedChainId }: BalanceTransactionsToggleProps) {
   const [activeView, setActiveView] = useState<ViewType>('balance');
   const { loading, refreshBalances, refreshTransactions } = useWalletData();
   const { loading: lightningLoading, refreshNodes } = useLightningNodes();
   const isLoading = loading.balances || loading.transactions || lightningLoading;
-
   const handleRefresh = () => {
     if (activeView === 'balance') {
       refreshBalances();
@@ -32,7 +36,6 @@ export function BalanceTransactionsToggle() {
       refreshNodes();
     }
   };
-
   return (
     <div className="w-full bg-white rounded-3xl pt-4 border-t border-gray-200 shadow-sm md:max-w-2xl md:mx-auto mt-2 mb-4 flex-1 flex flex-col">
       {/* Top Divider */}
@@ -41,17 +44,16 @@ export function BalanceTransactionsToggle() {
       </div>
 
       {/* Header with Toggle Buttons and Refresh */}
-      <div className="flex items-center justify-between mb-6 mx-4 md:mx-6 relative z-10">
+      <div className="flex items-center justify-between mb-4 mx-4 md:mx-6 relative z-10">
         {/* Toggle Buttons on Left */}
         <div className="flex items-center gap-6">
           <button
             onClick={() => setActiveView('balance')}
             type="button"
-            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-3 -mx-3 rounded-lg relative z-10 ${
-              activeView === 'balance'
-                ? 'text-gray-800 font-semibold'
-                : 'text-gray-300 hover:text-gray-400'
-            }`}
+            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-3 -mx-3 rounded-lg relative z-10 ${activeView === 'balance'
+              ? 'text-gray-800 font-semibold'
+              : 'text-gray-300 hover:text-gray-400'
+              }`}
             style={{ touchAction: 'manipulation' }}
           >
             Balance
@@ -59,11 +61,10 @@ export function BalanceTransactionsToggle() {
           <button
             onClick={() => setActiveView('transactions')}
             type="button"
-            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-3 -mx-3 rounded-lg relative z-10 ${
-              activeView === 'transactions'
-                ? 'text-gray-800 font-semibold'
-                : 'text-gray-300 hover:text-gray-400'
-            }`}
+            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-3 -mx-3 rounded-lg relative z-10 ${activeView === 'transactions'
+              ? 'text-gray-800 font-semibold'
+              : 'text-gray-300 hover:text-gray-400'
+              }`}
             style={{ touchAction: 'manipulation' }}
           >
             Transactions
@@ -71,11 +72,10 @@ export function BalanceTransactionsToggle() {
           <button
             onClick={() => setActiveView('lightningNodes')}
             type="button"
-            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-2 -mx-2 rounded-lg relative z-10 text-sm sm:text-base ${
-              activeView === 'lightningNodes'
-                ? 'text-gray-800 font-semibold'
-                : 'text-gray-300 hover:text-gray-400'
-            }`}
+            className={`font-rubik-medium transition-all cursor-pointer select-none py-2 px-2 -mx-2 rounded-lg relative z-10 text-sm sm:text-base ${activeView === 'lightningNodes'
+              ? 'text-gray-800 font-semibold'
+              : 'text-gray-300 hover:text-gray-400'
+              }`}
             style={{ touchAction: 'manipulation' }}
           >
             Lightning Nodes
@@ -102,9 +102,9 @@ export function BalanceTransactionsToggle() {
       {/* Content Area */}
       <div className="mx-4 md:mx-6 mb-4 flex-1">
         {activeView === 'balance' ? (
-          <BalanceView />
+          <BalanceView onOpenSend={onOpenSend} selectedChainId={selectedChainId} />
         ) : activeView === 'transactions' ? (
-          <RecentTransactions showAll={false} hideHeader />
+          <TransactionList />
         ) : (
           <LightningNodesProvider>
             <LightningNodesView />

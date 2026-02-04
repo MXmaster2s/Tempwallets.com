@@ -11,6 +11,7 @@ export interface NormalizedBalance {
   balanceHuman?: string; // human-readable balance
   isNative: boolean; // true for native tokens, false for ERC-20/SPL/etc.
   address?: string | null; // token contract address (null for native)
+  valueUsd?: number; // USD value
 }
 
 /**
@@ -119,6 +120,7 @@ export function normalizeAssets(assets: AnyChainAsset[]): NormalizedBalance[] {
     balanceHuman: asset.balanceHuman,
     isNative: asset.address === null,
     address: asset.address,
+    valueUsd: asset.valueUsd,
   }));
 }
 

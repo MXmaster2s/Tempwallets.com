@@ -52,6 +52,7 @@ export interface AnyChainAsset {
   balance: string; // smallest units (wei, satoshi, lamports, etc.)
   decimals: number; // actual token decimals (e.g., 6 for USDC, 18 for ETH/WETH, 8 for WBTC)
   balanceHuman?: string; // human-readable balance already converted by backend
+  valueUsd?: number; // USD value of the asset
 }
 
 export interface Transaction {
@@ -320,10 +321,10 @@ async function fetchApi<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const timeout = options?.timeout ?? 30000; // Default 30 seconds, can be overridden
-  
+
   // Get auth token from localStorage if available
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -1434,7 +1435,7 @@ export const lightningNodeApi = {
   /**
    * Best-effort presence heartbeat for a node.
    */
-  async heartbeatLightningNode(appSessionId: string, userId: string): Promise<{ ok: boolean }>{
+  async heartbeatLightningNode(appSessionId: string, userId: string): Promise<{ ok: boolean }> {
     return fetchApi<{ ok: boolean }>(
       `/lightning-node/presence/${encodeURIComponent(appSessionId)}/${encodeURIComponent(userId)}`,
       { method: 'POST' }
