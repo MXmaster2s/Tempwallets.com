@@ -161,7 +161,7 @@ export function TransactionList() {
             if (!groups[key]) {
                 groups[key] = [];
             }
-            groups[key].push(tx);
+            groups[key]?.push(tx);
         });
 
         return groups;
@@ -287,7 +287,7 @@ export function TransactionList() {
                                 {dateKey}
                             </h3>
                             <div className="space-y-1">
-                                {groupedTransactions[dateKey].map((tx) => (
+                                {groupedTransactions[dateKey]?.map((tx) => (
                                     <div
                                         key={tx.id}
                                         className="group flex items-center justify-between p-2 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 cursor-default"
