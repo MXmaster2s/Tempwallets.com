@@ -68,7 +68,19 @@ export function useLightningNodes() {
 
     try {
       console.log('[Lightning] Authenticating wallet for user:', userId);
-      const response = await lightningNodeApi.authenticateWallet({ userId, chain });
+
+      console.log('[Lightning] Starting Promise.race with 10s timeout');
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          console.log('[Lightning] Timeout triggered!');
+          reject(new Error('Wallet Authentication failed'));
+        }, 10000);
+      });
+
+      const response = await Promise.race([
+        lightningNodeApi.authenticateWallet({ userId, chain }),
+        timeoutPromise
+      ]) as Awaited<ReturnType<typeof lightningNodeApi.authenticateWallet>>;
 
       if (response.ok && response.authenticated) {
         setAuthenticated(true);
@@ -90,6 +102,7 @@ export function useLightningNodes() {
         throw new Error('Authentication failed');
       }
     } catch (err) {
+      console.log('[Lightning] Caught error in authenticate:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to authenticate wallet';
       setError(errorMessage);
       console.error('[Lightning] Authentication error:', err);
@@ -102,6 +115,7 @@ export function useLightningNodes() {
         errorMessage,
       });
     } finally {
+      console.log('[Lightning] Finally block - setting authenticating to false');
       setAuthenticating(false);
     }
   }, [userId, authenticated]);
@@ -279,7 +293,8 @@ export function useLightningNodes() {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create Lightning Node';
       setError(errorMessage);
       console.error('[Lightning] Create error:', err);
-      return null;
+      // Re-throw so UI can handle specific errors
+      throw err;
     } finally {
       setLoading(false);
     }
