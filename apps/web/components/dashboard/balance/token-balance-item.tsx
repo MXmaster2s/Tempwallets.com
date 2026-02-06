@@ -13,6 +13,7 @@ interface TokenBalanceItemProps {
   chainName?: string;
   isHidden?: boolean;
   onOpenSend?: (chain: string, tokenSymbol?: string) => void;
+  gasFee?: string;
 }
 
 /**
@@ -57,6 +58,7 @@ export function TokenBalanceItem({
   chainName,
   isHidden = false,
   onOpenSend,
+  gasFee,
 }: TokenBalanceItemProps) {
   const Icon = useTokenIcon(chain, symbol);
   const displayBalance = balanceHuman || formatBalance(balance, decimals);
@@ -81,12 +83,12 @@ export function TokenBalanceItem({
 
         {/* Token Details */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-gray-900 group-hover:text-black transition-colors">
-            {symbol}
+          <span className="text-sm font-semibold text-gray-900 group-hover:text-black transition-colors uppercase tracking-wide">
+            {chainName}
           </span>
           <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
             <span className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] uppercase tracking-wider text-gray-600">
-              {chainName}
+              {symbol}
             </span>
           </span>
         </div>
@@ -98,7 +100,11 @@ export function TokenBalanceItem({
           {isHidden ? '••••••' : displayValue}
         </span>
         <span className="text-xs font-medium text-gray-500">
-          {isHidden ? '••••' : displayBalance} <span className="text-gray-400">{symbol}</span>
+          {gasFee ? (
+            <span className="text-gray-500 font-medium">Gas: {gasFee}</span>
+          ) : (
+            <>{isHidden ? '••••' : displayBalance} <span className="text-gray-400">{symbol}</span></>
+          )}
         </span>
       </div>
     </button>

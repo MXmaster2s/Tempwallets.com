@@ -15,6 +15,7 @@ import {
 } from '@repo/ui/components/ui/tooltip';
 
 import { useWalletConfig } from '@/hooks/useWalletConfig';
+import { useGasPrice } from '@/hooks/useGasPrice';
 
 /**
  * Container component that displays token balances
@@ -25,10 +26,29 @@ interface BalanceViewProps {
   selectedChainId: string;
 }
 
+const getGasEstimateStatic = (chainId: string) => {
+  const lower = chainId.toLowerCase();
+  if (lower.includes('ethereum') && !lower.includes('base') && !lower.includes('arbitrum') && !lower.includes('optimism')) return '~$2.50';
+  if (lower.includes('bitcoin')) return '~$1.20';
+  if (lower.includes('solana')) return '< $0.001';
+  if (lower.includes('base') || lower.includes('arbitrum') || lower.includes('optimism') || lower.includes('polygon') || lower.includes('avalanche')) return '< $0.01';
+  return '--';
+};
+
 export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
   const [hideBalance, setHideBalance] = useState(false);
   const { balances: realBalances, loading } = useWalletData();
   const walletConfig = useWalletConfig();
+  const { gasPrice } = useGasPrice(selectedChainId);
+
+  // Determine gas fee to display (Real-time > Static specific > Static general)
+  const getDisplayGasFee = (chainId: string) => {
+    // If we have real-time price for the selected chain, use it
+    if (selectedChainId === chainId && gasPrice !== '--') {
+      return gasPrice;
+    }
+    return getGasEstimateStatic(chainId);
+  };
 
   // Helper to group/filter balances (hoist this logic or reuse it)
   const processBalances = (rawBalances: NormalizedBalance[]) => {
@@ -75,7 +95,11 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
   // Resolve authoritative chain info
   const selectedChainConfig = walletConfig.getById(selectedChainId);
   const selectedChainName = selectedChainConfig?.name || 'Unknown Chain';
-  const chainSymbol = selectedChainConfig?.symbol || 'TOKEN';
+  // Override symbol for L2s that use ETH for gas
+  let chainSymbol = selectedChainConfig?.symbol || 'TOKEN';
+  if (selectedChainId.includes('arbitrum') || selectedChainId.includes('optimism') || selectedChainId.includes('base')) {
+    chainSymbol = 'ETH';
+  }
 
   const displayBalances = [{
     chain: selectedChainId,
@@ -166,6 +190,7 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
               isNative={balance.isNative}
               chainName={walletConfig.getById(balance.chain)?.name || selectedChainName}
               onOpenSend={onOpenSend}
+              gasFee={getDisplayGasFee(balance.chain)}
             />
           );
         })}

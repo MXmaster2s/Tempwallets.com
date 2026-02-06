@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { createPublicClient, http, formatEther } from 'viem';
 import { ConfigService } from '@nestjs/config';
 import { SeedRepository } from './seed.repository.js';
 import { ZerionService, TokenBalance } from './zerion.service.js';
@@ -38,6 +39,7 @@ import {
 } from './utils/conversion.utils.js';
 import { validateAmount, getExplorerUrl } from './utils/validation.utils.js';
 import { PimlicoConfigService } from './config/pimlico.config.js';
+import { ChainConfigService } from './config/chain.config.js';
 
 @Injectable()
 export class WalletService {
@@ -147,6 +149,7 @@ export class WalletService {
     private walletHistoryRepository: WalletHistoryRepository,
     private pimlicoConfig: PimlicoConfigService,
     private eip7702DelegationRepository: Eip7702DelegationRepository,
+    private chainConfig: ChainConfigService,
   ) { }
 
   /**
@@ -3404,5 +3407,41 @@ export class WalletService {
       },
       accountIndex,
     );
+  }
+
+  /**
+   * Get real-time gas price for a chain
+   * Returns estimated fee for a standard transfer (21000 gas) in native units
+   */
+  async getGasPrice(chain: string): Promise<string> {
+    // Handle ERC-4337 chain aliases (e.g., ethereumErc4337 -> ethereum)
+    // This allows Smart Accounts to fetch gas prices from the underlying network
+    const canonicalChain = chain.replace(/Erc4337$/i, '');
+
+    if (!this.chainConfig.isEvmChain(canonicalChain)) {
+      return '--';
+    }
+
+    try {
+      const config = this.chainConfig.getEvmChainConfig(canonicalChain as any);
+
+      const client = createPublicClient({
+        transport: http(config.rpcUrl)
+      });
+
+      const gasPrice = await client.getGasPrice();
+      // Standard transfer is 21000 gas
+      const estimatedCost = gasPrice * 21000n;
+
+      const formatted = formatEther(estimatedCost);
+      // Format to 6 decimal places max
+      const value = parseFloat(formatted);
+
+      if (value < 0.000001) return '< 0.000001 ' + config.nativeCurrency.symbol;
+      return value.toFixed(6) + ' ' + config.nativeCurrency.symbol;
+    } catch (error) {
+      this.logger.error(`Failed to get gas price for ${chain} (canonical: ${canonicalChain}): ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return '--';
+    }
   }
 }

@@ -65,13 +65,13 @@ export function ChainSelector({
       });
   }, [walletConfig]);
 
-  // Track the history of selected chains (Last 3 unique chains)
+  // Track the history of selected chains (Last 4 unique chains)
   const [chainHistory, setChainHistory] = useState<string[]>(() => {
-    // Initial state: Selected Chain + Defaults (Ethereum, Base, Arbitrum)
-    const defaults = ['ethereumErc4337', 'baseErc4337', 'arbitrumErc4337'];
+    // Initial state: Selected Chain + Defaults (Ethereum, Base, Arbitrum, Polygon)
+    const defaults = ['ethereumErc4337', 'baseErc4337', 'arbitrumErc4337', 'polygonErc4337'];
     const initial = [selectedChainId, ...defaults];
     // Remove duplicates
-    return Array.from(new Set(initial)).slice(0, 3);
+    return Array.from(new Set(initial)).slice(0, 4);
   });
 
   // Update history when selection changes
@@ -81,8 +81,8 @@ export function ChainSelector({
       const newHistory = [selectedChainId, ...prev];
       // 2. Remove duplicates (keeping the first occurrence)
       const uniqueHistory = Array.from(new Set(newHistory));
-      // 3. Keep only top 3
-      return uniqueHistory.slice(0, 3);
+      // 3. Keep only top 4
+      return uniqueHistory.slice(0, 4);
     });
   }, [selectedChainId]);
 
@@ -234,40 +234,6 @@ export function ChainSelector({
                 </button>
               );
             })}
-
-            {/* Static "Coming Soon" Placeholders */}
-            <button
-              className={cn(
-                'group flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl transition-all flex-shrink-0 snap-start',
-                'active:scale-95',
-                'w-[calc(25%-0.5625rem)]',
-                'opacity-70 hover:opacity-100'
-              )}
-              style={{
-                minWidth: 'calc(25% - 0.5625rem)',
-              }}
-            >
-              <div className="relative">
-                <div
-                  className={cn(
-                    "w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-300",
-                    "bg-white/5 border border-white/10",
-                    "group-hover:bg-white/10 group-hover:border-white/20 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]",
-                    "group-hover:scale-105"
-                  )}
-                >
-                  <Plus className="w-5 h-5 text-white/40 transition-colors group-hover:text-white/80" />
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-0.5 min-h-[36px]">
-                <span className="text-[11px] md:text-xs font-rubik-medium whitespace-nowrap text-white/50 group-hover:text-white/70 transition-colors">
-                  More
-                </span>
-                <div className="flex flex-col items-center gap-0.5 min-h-[14px]">
-                  <span className="text-[9px] text-white/30 group-hover:text-white/50 transition-colors">Coming Soon</span>
-                </div>
-              </div>
-            </button>
           </div>
         </div>
       </div>

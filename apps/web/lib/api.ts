@@ -453,6 +453,13 @@ export const walletApi = {
   },
 
   /**
+   * Get real-time gas price for a chain
+   */
+  async getGasPrice(chain: string): Promise<{ price: string }> {
+    return fetchApi<{ price: string }>(`/wallet/gas-price?chain=${encodeURIComponent(chain)}`);
+  },
+
+  /**
    * Get transaction history for a specific chain
    */
   async getTransactionHistory(userId: string, chain: string, limit: number = 50): Promise<Transaction[]> {

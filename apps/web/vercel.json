@@ -1,0 +1,6 @@
+{
+    "buildCommand": "cd ../.. && npx turbo run build --filter=web",
+    "outputDirectory": ".next",
+    "framework": "nextjs",
+    "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+}
