@@ -56,4 +56,5 @@ export interface TokenBalance {
   balance: string;
   decimals: number;
   balanceHuman?: string;
+  valueUsd?: number;
 }

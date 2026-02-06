@@ -16,6 +16,8 @@ interface ZerionToken {
       float?: number;
       numeric?: string;
     };
+    value?: number; // USD value
+    price?: number; // USD price per token
     fungible_info?: {
       name?: string;
       symbol?: string;
@@ -119,6 +121,7 @@ export interface TokenBalance {
   decimals: number | null;
   balanceSmallest: string;
   balanceHuman: number;
+  valueUsd?: number;
   name?: string;
 }
 
@@ -283,6 +286,7 @@ export class ZerionService {
           decimals,
           balanceSmallest: quantity?.int || '0',
           balanceHuman: Number(quantity?.float || 0),
+          valueUsd: attributes?.value, // Map USD value
           name: fungibleInfo?.name,
         };
       });

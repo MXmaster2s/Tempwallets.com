@@ -12,6 +12,11 @@ const nextConfig = {
         hostname: '*.googleusercontent.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'cryptologos.cc',
+        pathname: '/**',
+      },
     ],
   },
   // Removed global font preload - WalletConnect SDK loads fonts on-demand
