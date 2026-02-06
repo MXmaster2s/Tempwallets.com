@@ -257,9 +257,7 @@ export function TransactionList() {
                     )}
                 </div>
 
-                <div className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors cursor-pointer">
-                    View All
-                </div>
+
             </div>
 
             <div className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">

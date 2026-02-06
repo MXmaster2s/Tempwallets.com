@@ -15,7 +15,6 @@ import {
 } from '@repo/ui/components/ui/tooltip';
 
 import { useWalletConfig } from '@/hooks/useWalletConfig';
-import { useGasPrice } from '@/hooks/useGasPrice';
 
 /**
  * Container component that displays token balances
@@ -26,31 +25,12 @@ interface BalanceViewProps {
   selectedChainId: string;
 }
 
-const getGasEstimateStatic = (chainId: string) => {
-  const lower = chainId.toLowerCase();
-  if (lower.includes('ethereum') && !lower.includes('base') && !lower.includes('arbitrum') && !lower.includes('optimism')) return '~$2.50';
-  if (lower.includes('bitcoin')) return '~$1.20';
-  if (lower.includes('solana')) return '< $0.001';
-  if (lower.includes('base') || lower.includes('arbitrum') || lower.includes('optimism') || lower.includes('polygon') || lower.includes('avalanche')) return '< $0.01';
-  return '--';
-};
-
 export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
   const [hideBalance, setHideBalance] = useState(false);
   const { balances: realBalances, loading } = useWalletData();
   const walletConfig = useWalletConfig();
-  const { gasPrice } = useGasPrice(selectedChainId);
 
-  // Determine gas fee to display (Real-time > Static specific > Static general)
-  const getDisplayGasFee = (chainId: string) => {
-    // If we have real-time price for the selected chain, use it
-    if (selectedChainId === chainId && gasPrice !== '--') {
-      return gasPrice;
-    }
-    return getGasEstimateStatic(chainId);
-  };
-
-  // Helper to group/filter balances (hoist this logic or reuse it)
+  // Helper to group/filter balances
   const processBalances = (rawBalances: NormalizedBalance[]) => {
     let totalUsd = 0;
     const byChain = new Map<string, NormalizedBalance[]>();
@@ -58,8 +38,8 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
     for (const balance of rawBalances) {
       if (balance.valueUsd) totalUsd += balance.valueUsd;
 
-      // Filter zero balances
-      if (parseFloat(balance.balance) <= 0) continue;
+      // Filter zero balances if they are not native (we might want to keep native)
+      // But for now, let's keep everything the API returns
 
       const existing = byChain.get(balance.chain) || [];
       existing.push(balance);
@@ -82,37 +62,36 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
   };
 
   // 1. Process balances
-  // const realData = useMemo(() => processBalances(realBalances), [realBalances]);
-
-  // Implement the user's requested logic:
-  // "Only one tab of balance will be shown on ui, that tab will always be of selected chain"
-  // "Total balance section ... real balance will show that is 0$"
-  // "Below that tab the animation will appear ... No Tokens Available"
-
-  // Since backend is not ready, we enforce "Zero State" for now as requested.
-  // We construct a mock "zero balance" item for the selected chain so the list isn't empty.
+  const { groupedBalances, totalBalanceUsd: globalTotal } = useMemo(() => processBalances(realBalances), [realBalances]);
 
   // Resolve authoritative chain info
   const selectedChainConfig = walletConfig.getById(selectedChainId);
   const selectedChainName = selectedChainConfig?.name || 'Unknown Chain';
-  // Override symbol for L2s that use ETH for gas
-  let chainSymbol = selectedChainConfig?.symbol || 'TOKEN';
-  if (selectedChainId.includes('arbitrum') || selectedChainId.includes('optimism') || selectedChainId.includes('base')) {
-    chainSymbol = 'ETH';
-  }
+  const chainSymbol = selectedChainConfig?.symbol || 'TOKEN';
 
-  const displayBalances = [{
-    chain: selectedChainId,
-    symbol: chainSymbol,
-    balance: '0',
-    decimals: 18,
-    balanceHuman: '0.00',
-    valueUsd: 0,
-    isNative: true,
-    address: null,
-  }] as NormalizedBalance[];
+  // LOGIC: "Unless and until someanother token is there i want you to use native token of repesctive blockchain"
+  // 1. Get real tokens for this chain
+  const chainGroup = groupedBalances.find(g => g.chain === selectedChainId);
+  const realChainTokens = chainGroup ? chainGroup.balances : [];
 
-  const totalBalanceUsd = 0; // Forced 0 as requested
+  // 2. Decide what to display
+  // If we have real tokens, show them.
+  // If NOT, show the Native Token fallback (0 balance).
+  const displayBalances = realChainTokens.length > 0
+    ? realChainTokens
+    : [{
+      chain: selectedChainId,
+      symbol: chainSymbol,
+      balance: '0',
+      decimals: 18,
+      balanceHuman: '0.00',
+      valueUsd: 0,
+      isNative: true,
+      address: null,
+    }] as NormalizedBalance[];
+
+  // Calculate total for THIS chain selection
+  const totalBalanceUsd = displayBalances.reduce((acc, curr) => acc + (curr.valueUsd || 0), 0);
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -190,7 +169,6 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
               isNative={balance.isNative}
               chainName={walletConfig.getById(balance.chain)?.name || selectedChainName}
               onOpenSend={onOpenSend}
-              gasFee={getDisplayGasFee(balance.chain)}
             />
           );
         })}

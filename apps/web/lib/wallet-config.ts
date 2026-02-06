@@ -67,7 +67,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'baseErc4337',
     name: 'Base',
-    symbol: 'BASE',
+    symbol: 'ETH',
     description: 'Base Smart Account',
     type: 'evm',
     chainId: 8453,
@@ -103,7 +103,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'arbitrumErc4337',
     name: 'Arbitrum',
-    symbol: 'ARB',
+    symbol: 'ETH',
     description: 'Arbitrum Smart Account',
     type: 'evm',
     chainId: 42161,
@@ -548,7 +548,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'baseEoa',
     name: 'Base',
-    symbol: 'BASE',
+    symbol: 'ETH',
     description: 'Base EOA Wallet',
     type: 'evm',
     chainId: 8453,
@@ -584,7 +584,7 @@ const RAW_WALLET_CONFIGS: WalletConfig[] = [
   {
     id: 'arbitrumEoa',
     name: 'Arbitrum',
-    symbol: 'ARB',
+    symbol: 'ETH',
     description: 'Arbitrum EOA Wallet',
     type: 'evm',
     chainId: 42161,
