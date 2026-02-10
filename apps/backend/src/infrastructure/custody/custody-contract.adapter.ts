@@ -39,28 +39,19 @@ const ERC20_ABI = [
   },
 ] as const;
 
-// Custody Contract ABI (deposit function)
+// Custody Contract ABI — matches @erc7824/nitrolite custodyAbi
+// deposit(account, token, amount) — NOTE: account is FIRST, token is SECOND, amount is THIRD
 const CUSTODY_ABI = [
   {
     name: 'deposit',
     type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'asset', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
+    stateMutability: 'payable',
     inputs: [
       { name: 'account', type: 'address' },
-      { name: 'asset', type: 'address' },
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
     ],
-    outputs: [{ name: '', type: 'uint256' }],
+    outputs: [],
   },
 ] as const;
 
@@ -138,9 +129,9 @@ export class CustodyContractAdapter implements ICustodyContractPort {
       abi: CUSTODY_ABI,
       functionName: 'deposit',
       args: [
-        tokenAddress as Address,
-        amount,
-        userAddress as Address,
+        userAddress as Address,   // account (recipient of the custody credit)
+        tokenAddress as Address,  // token (ERC20 to deposit)
+        amount,                   // amount in token's smallest units
       ],
     });
 

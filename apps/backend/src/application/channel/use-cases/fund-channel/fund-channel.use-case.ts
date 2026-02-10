@@ -95,43 +95,66 @@ export class FundChannelUseCase {
     console.log(`[FundChannel] Checking for existing channels for user ${userAddress}...`);
     const existingChannels = await this.channelManager.getChannels(userAddress);
     console.log(`[FundChannel] Found ${existingChannels.length} existing channels for this user`);
-    
-    let channelId: string;
 
-    if (existingChannels.length === 0) {
-      // 6. Create new channel if doesn't exist
-      console.log(`[FundChannel] No channels found - creating new channel...`);
+    // Only use channels that are in "open" status — skip "resizing", "closed", etc.
+    const openChannels = existingChannels.filter(
+      (ch) => ch.status === 'open' || ch.status === 'active',
+    );
+    const resizingChannels = existingChannels.filter(
+      (ch) => ch.status === 'resizing',
+    );
+
+    let channelId: string;
+    let fundedDuringCreate = false;
+
+    if (openChannels.length > 0) {
+      // Use first open channel — will resize separately below
+      channelId = openChannels[0]!.channelId;
+      console.log(`[FundChannel] Using existing open channel: ${channelId}`);
+    } else {
+      // Close any stuck "resizing" channels before creating a new one.
+      // A channel gets stuck in "resizing" when the resize_channel RPC succeeded
+      // on Yellow Network but the on-chain custody.resize() tx failed.
+      for (const stuck of resizingChannels) {
+        console.log(`[FundChannel] Closing stuck resizing channel: ${stuck.channelId}`);
+        try {
+          await this.channelManager.closeChannel(stuck.channelId, chainId, userAddress);
+          console.log(`[FundChannel] Closed stuck channel: ${stuck.channelId}`);
+        } catch (err: any) {
+          console.warn(`[FundChannel] Could not close stuck channel ${stuck.channelId}: ${err.message}`);
+          // Continue — Yellow Network may eventually time it out
+        }
+      }
+
+      // Create new channel with the initial deposit already included.
+      // SDKChannelService.createChannel() performs the resize internally while
+      // signedInitialState (v0) is still in scope as the required proof state.
+      // Doing it externally would lose the proof and cause InvalidState().
+      console.log(`[FundChannel] No open channels found - creating new channel with ${amountInSmallestUnits} initial balance...`);
       const newChannel = await this.channelManager.createChannel({
         userAddress,
         chainId,
         tokenAddress,
-        initialBalance: BigInt(0), // Create with 0 balance (Yellow Network 0.5.x requirement)
+        initialBalance: amountInSmallestUnits,
       });
       channelId = newChannel.channelId;
-      console.log(`[FundChannel] Created new channel: ${channelId}`);
-    } else {
-      // Use first existing channel that belongs to this user
-      const firstChannel = existingChannels[0];
-      if (!firstChannel) {
-        throw new BadRequestException('No channels found after filtering');
-      }
-      channelId = firstChannel.channelId;
-      console.log(`[FundChannel] Using existing channel: ${channelId}`);
+      fundedDuringCreate = true;
+      console.log(`[FundChannel] Created and funded new channel: ${channelId}`);
     }
 
-    // 7. Resize channel to add funds
-    // NOTE: For resize operations, the participants will be resolved from the channel data
-    // by the channel service. We pass empty array as placeholder - the actual participants
-    // (user + clearnode) are determined by the channel itself.
-    console.log(`[FundChannel] Resizing channel to add ${amountInSmallestUnits} smallest units...`);
-    await this.channelManager.resizeChannel({
-      channelId,
-      chainId,
-      amount: amountInSmallestUnits,
-      userAddress,  // This will be used as funds_destination for deallocation
-      tokenAddress,
-      participants: [], // Will be resolved from channel data
-    });
+    // 7. Resize channel to add funds (only for pre-existing channels).
+    // For newly created channels the resize was already performed inside createChannel.
+    if (!fundedDuringCreate) {
+      console.log(`[FundChannel] Resizing existing channel to add ${amountInSmallestUnits} smallest units...`);
+      await this.channelManager.resizeChannel({
+        channelId,
+        chainId,
+        amount: amountInSmallestUnits,
+        userAddress,
+        tokenAddress,
+        participants: [],
+      });
+    }
 
     // 8. Return result
     return {

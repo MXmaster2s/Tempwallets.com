@@ -38,7 +38,7 @@ export class ConfigLoader {
     this.ws = new WebSocketManager({
       url: wsUrl,
       reconnectAttempts: 3,
-      requestTimeout: 10000,
+      requestTimeout: 30000,
     });
   }
 
@@ -49,7 +49,18 @@ export class ConfigLoader {
    * @param forceRefresh - Force refresh even if cache is valid
    * @returns Clearnode configuration
    */
-  async loadConfig(forceRefresh = false): Promise<ClearnodeConfig> {
+  /**
+   * @param sharedWs  Optional already-connected WebSocketManager to reuse.
+   *                  When provided the ConfigLoader will NOT open its own
+   *                  second WebSocket connection and will NOT disconnect after
+   *                  fetching – that is the caller's responsibility.
+   *                  Pass `this.ws` from NitroliteClient.initialize() so that
+   *                  get_config is fetched over the single existing connection.
+   */
+  async loadConfig(
+    sharedWs?: WebSocketManager,
+    forceRefresh = false,
+  ): Promise<ClearnodeConfig> {
     const now = Date.now();
 
     // Return cached config if still valid
@@ -64,20 +75,25 @@ export class ConfigLoader {
 
     console.log('[ConfigLoader] Fetching fresh config from Clearnode...');
 
-    // Connect to WebSocket
-    if (!this.ws.isConnected()) {
-      await this.ws.connect();
+    // Use the shared (already-open) connection when available so we never open
+    // a second parallel WebSocket to the same server.
+    const ws = sharedWs ?? this.ws;
+    const ownsConnection = !sharedWs;
+
+    // Only connect if we own (and are responsible for) this ws instance
+    if (ownsConnection && !ws.isConnected()) {
+      await ws.connect();
     }
 
     try {
       // Request configuration via get_config RPC method
-      const requestId = this.ws.getNextRequestId();
+      const requestId = ws.getNextRequestId();
       const request: RPCRequest = {
         req: [requestId, 'get_config', {}, Date.now()],
         sig: [] as string[], // Public method - no signature needed
       };
 
-      const response = await this.ws.send(request);
+      const response = await ws.send(request);
       const configData = response.res[2];
 
       // Parse configuration
@@ -99,6 +115,11 @@ export class ConfigLoader {
       this.config.networks.forEach((network) => {
         console.log(`    • ${network.name} (${network.chain_id})`);
       });
+
+      // Only close the connection if we opened it ourselves
+      if (ownsConnection) {
+        this.disconnect();
+      }
 
       return this.config;
     } catch (error) {

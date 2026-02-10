@@ -276,8 +276,13 @@ export class QueryService {
           const chainIdRaw = (c as { chain_id?: number }).chain_id;
           const chainId = typeof chainIdRaw === 'number' ? chainIdRaw : 0;
           const statusRaw = (c as { status?: string }).status;
-          const status: 'active' | 'closed' =
-            statusRaw === 'closed' ? 'closed' : 'active';
+          // Preserve the actual status from Yellow Network (open, resizing, closed, etc.)
+          // so callers can detect stuck "resizing" channels and handle them appropriately.
+          const status = (statusRaw ?? 'active') as
+            | 'active'
+            | 'open'
+            | 'resizing'
+            | 'closed';
           // State
           const stateRaw = (c as { state?: unknown; version?: unknown }).state;
           const stateVersionRaw = (c as { version?: unknown }).version;

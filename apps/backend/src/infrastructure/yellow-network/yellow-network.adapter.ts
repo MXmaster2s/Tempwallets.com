@@ -383,12 +383,15 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
   /**
    * Close a payment channel
    */
-  async closeChannel(channelId: string): Promise<void> {
+  async closeChannel(channelId: string, chainId: number, fundsDestination: string): Promise<void> {
     if (!this.currentClient) {
       throw new BadRequestException('Not authenticated with Yellow Network');
     }
 
-    // Note: Implement channel closing logic based on NitroliteClient API
-    throw new BadRequestException('Channel closing not yet implemented');
+    await this.currentClient.closeChannel(
+      channelId as `0x${string}`,
+      chainId,
+      fundsDestination as Address,
+    );
   }
 }

@@ -109,7 +109,7 @@ export interface ChannelWithState extends Channel {
   channelId: Hash; // Computed channel identifier
   state: ChannelState; // Current channel state
   chainId: number; // Blockchain chain ID
-  status: 'active' | 'closed'; // Channel status
+  status: 'active' | 'open' | 'resizing' | 'closed'; // Channel status
 }
 
 // ============================================================================

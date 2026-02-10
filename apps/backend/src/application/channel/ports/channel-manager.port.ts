@@ -55,7 +55,7 @@ export interface IChannelManagerPort {
   /**
    * Close a payment channel
    */
-  closeChannel(channelId: string): Promise<void>;
+  closeChannel(channelId: string, chainId: number, fundsDestination: string): Promise<void>;
 }
 
 /**

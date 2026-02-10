@@ -125,13 +125,15 @@ export class NitroliteClient {
    */
   /**
    * Post-reconnect sync: Re-load channels and app sessions after WebSocket reconnection
-   * 
+   *
    * OPTIMIZATION: Disabled aggressive post-reconnect sync.
    * Channels and sessions will be fetched on-demand when user accesses Lightning Node UI.
    */
   async postReconnectSync(): Promise<void> {
-    console.log('[NitroliteClient] Post-reconnect: Skipping automatic sync (on-demand mode enabled)');
-    
+    console.log(
+      '[NitroliteClient] Post-reconnect: Skipping automatic sync (on-demand mode enabled)',
+    );
+
     // Note: Channels and app sessions will be fetched when the frontend requests them
     // This avoids unnecessary load on the backend and Yellow Network
   }
@@ -154,20 +156,24 @@ export class NitroliteClient {
         await this.postReconnectSync();
       }
     });
-    
+
     this.ws.on('disconnect', () => {
-      console.warn('[NitroliteClient] WebSocket disconnected. Will attempt reconnection...');
+      console.warn(
+        '[NitroliteClient] WebSocket disconnected. Will attempt reconnection...',
+      );
     });
-    
+
     this.ws.on('error', (error) => {
       console.error('[NitroliteClient] WebSocket error:', error);
     });
-    
+
     await this.ws.connect();
     // Connection success logged at debug level
 
-    // Step 2: Load configuration (contract addresses)
-    this.clearnodeConfig = await this.configLoader.loadConfig();
+    // Step 2: Load configuration (contract addresses).
+    // Pass the already-open this.ws so ConfigLoader reuses it instead of
+    // opening a second parallel WebSocket connection to the same server.
+    this.clearnodeConfig = await this.configLoader.loadConfig(this.ws);
     // Config loaded logged at debug level
 
     // Build custody addresses map
@@ -181,10 +187,14 @@ export class NitroliteClient {
 
     // Initialize Channel Service (SDK or Custom)
     if (this.useSDK) {
-      console.log('[NitroliteClient] Using Yellow Network SDK for channel operations');
+      console.log(
+        '[NitroliteClient] Using Yellow Network SDK for channel operations',
+      );
 
       // For SDK, we need to pick a primary chain. We'll use the first one or Base (8453) if available.
-      const baseNetwork = this.clearnodeConfig.networks.find(n => n.chain_id === 8453);
+      const baseNetwork = this.clearnodeConfig.networks.find(
+        (n) => n.chain_id === 8453,
+      );
       const primaryNetwork = baseNetwork || this.clearnodeConfig.networks[0];
 
       if (!primaryNetwork) {
@@ -201,9 +211,13 @@ export class NitroliteClient {
         primaryNetwork.chain_id,
       );
 
-      console.log(`[NitroliteClient] SDK initialized for chain ${primaryNetwork.chain_id}`);
+      console.log(
+        `[NitroliteClient] SDK initialized for chain ${primaryNetwork.chain_id}`,
+      );
     } else {
-      console.log('[NitroliteClient] Using custom implementation for channel operations');
+      console.log(
+        '[NitroliteClient] Using custom implementation for channel operations',
+      );
 
       this.channelService = new ChannelService(
         this.ws,
@@ -221,7 +235,8 @@ export class NitroliteClient {
         application: this.config.application,
         allowances: [], // Empty = unrestricted session (Yellow Network requirement)
         expiryHours: 24,
-        scope: 'transfer,app.create,app.submit,channel.create,channel.update,channel.close', // Include all channel operations
+        scope:
+          'transfer,app.create,app.submit,channel.create,channel.update,channel.close', // Include all channel operations
       });
       // Authentication success logged at debug level
     }
@@ -276,7 +291,14 @@ export class NitroliteClient {
     participants?: [Address, Address],
   ): Promise<void> {
     this.ensureInitialized();
-    await this.channelService.resizeChannel(channelId, chainId, amount, fundsDestination, token, participants);
+    await this.channelService.resizeChannel(
+      channelId,
+      chainId,
+      amount,
+      fundsDestination,
+      token,
+      participants,
+    );
   }
 
   /**
@@ -336,12 +358,15 @@ export class NitroliteClient {
 
     // Ensure authentication is valid before creating app session
     if (!this.auth.isAuthenticated()) {
-      console.log('[NitroliteClient] Session expired or not authenticated, re-authenticating...');
+      console.log(
+        '[NitroliteClient] Session expired or not authenticated, re-authenticating...',
+      );
       await this.auth.authenticate({
         application: this.config.application,
         allowances: [],
         expiryHours: 24,
-        scope: 'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
+        scope:
+          'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
       });
       console.log('[NitroliteClient] ✅ Re-authentication successful');
     }
@@ -480,7 +505,7 @@ export class NitroliteClient {
    */
   async getLightningNodes(
     status?: 'open' | 'closed',
-    participant?: string
+    participant?: string,
   ): Promise<AppSession[]> {
     this.ensureInitialized();
     return await this.queryService.getAppSessions(status, participant);
