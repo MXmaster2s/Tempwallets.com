@@ -8,8 +8,11 @@ interface TokenBalanceItemProps {
   balance: string;
   decimals: number;
   balanceHuman?: string;
+  valueUsd?: number;
   isNative?: boolean;
   chainName?: string;
+  isHidden?: boolean;
+  onOpenSend?: (chain: string, tokenSymbol?: string) => void;
 }
 
 /**
@@ -19,12 +22,30 @@ function formatBalance(balance: string, decimals: number): string {
   const num = parseFloat(balance);
   if (isNaN(num)) return '0';
   const humanReadable = num / Math.pow(10, decimals);
-  return humanReadable.toFixed(6).replace(/\.?0+$/, '');
+
+  // Format based on magnitude
+  if (humanReadable < 0.000001) return '< 0.000001';
+  if (humanReadable < 0.001) return humanReadable.toFixed(6);
+  if (humanReadable < 1) return humanReadable.toFixed(4);
+  return humanReadable.toFixed(2);
+}
+
+/**
+ * Format currency
+ */
+function formatCurrency(value?: number) {
+  if (value === undefined || value === null) return '$0.00';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 /**
  * Presentational component for single token balance
- * Layout: Logo + Chain name on left, Balance + Symbol on right
+ * sleek white theme design
  */
 export function TokenBalanceItem({
   chain,
@@ -32,34 +53,54 @@ export function TokenBalanceItem({
   balance,
   decimals,
   balanceHuman,
+  valueUsd,
   chainName,
+  isHidden = false,
+  onOpenSend,
 }: TokenBalanceItemProps) {
   const Icon = useTokenIcon(chain, symbol);
   const displayBalance = balanceHuman || formatBalance(balance, decimals);
+  const displayValue = formatCurrency(valueUsd);
+
 
   return (
-    <div className="flex items-center justify-between gap-4 p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all">
-      {/* Left side: Logo + Chain name side by side */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center">
+    <button
+      onClick={() => onOpenSend?.(chain, symbol)}
+      className="w-full text-left group flex items-center justify-between p-2 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 cursor-pointer"
+    >
+      {/* Left side: Logo + Info */}
+      <div className="flex items-center gap-3">
+        {/* Token Icon with light background */}
+        <div className="relative flex items-center justify-center w-8 h-8 bg-gray-50 rounded-full border border-gray-50 group-hover:border-gray-100 transition-colors">
           <Icon
-            className="w-8 h-8 md:w-8 md:h-8"
-            style={{ fill: 'currentColor', color: '#627EEA' }}
+            className="w-4 h-4"
+            style={{ fill: 'currentColor' }}
           />
+          {/* Small chain badge could go here if needed */}
         </div>
-        {chainName && (
-          <div className="text-sm text-gray-700 font-rubik-medium">
-            {chainName}
-          </div>
-        )}
+
+        {/* Token Details */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-semibold text-gray-900 group-hover:text-black transition-colors">
+            {symbol}
+          </span>
+          <span className="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+            <span className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] uppercase tracking-wider text-gray-600">
+              {chainName}
+            </span>
+          </span>
+        </div>
       </div>
 
-      {/* Right side: Balance and Symbol */}
-      <div className="flex-1 text-right">
-        <div className="text-lg md:text-xl font-semibold text-gray-900 font-rubik-medium">
-          {displayBalance} <span className="text-sm text-gray-600 font-normal">{symbol}</span>
-        </div>
+      {/* Right side: Amount and Value */}
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="text-sm font-bold text-gray-900">
+          {isHidden ? '••••••' : displayValue}
+        </span>
+        <span className="text-xs font-medium text-gray-500">
+          {isHidden ? '••••' : displayBalance} <span className="text-gray-400">{symbol}</span>
+        </span>
       </div>
-    </div>
+    </button>
   );
 }

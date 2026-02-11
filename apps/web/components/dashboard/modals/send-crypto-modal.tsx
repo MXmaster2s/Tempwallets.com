@@ -10,18 +10,17 @@ import {
 } from "@repo/ui/components/ui/dialog";
 import { Button } from "@repo/ui/components/ui/button";
 import { Input } from "@repo/ui/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@repo/ui/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@repo/ui/components/ui/select";
+import { ChainListModal } from '@/components/dashboard/modals/chain-list-modal';
 import { Label } from "@repo/ui/components/ui/label";
 import { Loader2, AlertCircle, CheckCircle2, ExternalLink, Clipboard } from "lucide-react";
 import { walletApi, TokenBalance, ApiError, AnyChainAsset } from "@/lib/api";
 import { useTokenIcon } from "@/lib/token-icons";
 import { trackTransaction } from "@/lib/tempwallets-analytics";
+import { useWalletConfig } from "@/hooks/useWalletConfig";
+import { ChevronDown, Check } from "lucide-react";
+import Image from "next/image";
+import { chains } from "@/lib/chains";
 
 interface SendCryptoModalProps {
   open: boolean;
@@ -29,6 +28,7 @@ interface SendCryptoModalProps {
   chain: string;
   userId: string;
   onSuccess?: () => void;
+  initialTokenSymbol?: string;
 }
 
 // Clean chain names (without technical suffixes)
@@ -87,7 +87,7 @@ const EIP7702_CHAIN_IDS: Record<string, number> = {
 const isEip7702Chain = (chain: string): boolean => {
   // Direct check
   if (chain in EIP7702_CHAIN_IDS) return true;
-  
+
   // Normalize chain name (remove Erc4337 suffix for base chains)
   const normalized = chain.replace(/Erc4337$/i, '').toLowerCase();
   return normalized in EIP7702_CHAIN_IDS;
@@ -169,9 +169,9 @@ const getExplorerUrl = (txHash: string, chain: string): string => {
   if (!txHash) return '#';
 
   // Determine if this is a testnet chain
-  const isTestnet = chain === 'paseo' || chain === 'paseoAssethub' || 
-                    chain === 'moonbeamTestnet' || chain === 'astarShibuya' ||
-                    chain === 'paseoPassetHub';
+  const isTestnet = chain === 'paseo' || chain === 'paseoAssethub' ||
+    chain === 'moonbeamTestnet' || chain === 'astarShibuya' ||
+    chain === 'paseoPassetHub';
 
   // EVM chains (testnet support)
   const evmExplorers: Record<string, { mainnet: string; testnet?: string }> = {
@@ -209,29 +209,29 @@ const getExplorerUrl = (txHash: string, chain: string): string => {
 
   // Substrate/Polkadot chains - use Subscan
   const substrateExplorers: Record<string, { mainnet: string; testnet: string }> = {
-    polkadot: { 
-      mainnet: 'https://polkadot.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
+    polkadot: {
+      mainnet: 'https://polkadot.subscan.io',
+      testnet: 'https://paseo.subscan.io'
     },
-    hydrationSubstrate: { 
-      mainnet: 'https://hydradx.subscan.io', 
-      testnet: 'https://hydradx-testnet.subscan.io' 
+    hydrationSubstrate: {
+      mainnet: 'https://hydradx.subscan.io',
+      testnet: 'https://hydradx-testnet.subscan.io'
     },
-    bifrostSubstrate: { 
-      mainnet: 'https://bifrost.subscan.io', 
-      testnet: 'https://bifrost-testnet.subscan.io' 
+    bifrostSubstrate: {
+      mainnet: 'https://bifrost.subscan.io',
+      testnet: 'https://bifrost-testnet.subscan.io'
     },
-    uniqueSubstrate: { 
-      mainnet: 'https://unique.subscan.io', 
-      testnet: 'https://unique-testnet.subscan.io' 
+    uniqueSubstrate: {
+      mainnet: 'https://unique.subscan.io',
+      testnet: 'https://unique-testnet.subscan.io'
     },
-    paseo: { 
-      mainnet: 'https://paseo.subscan.io', 
-      testnet: 'https://paseo.subscan.io' 
+    paseo: {
+      mainnet: 'https://paseo.subscan.io',
+      testnet: 'https://paseo.subscan.io'
     },
-    paseoAssethub: { 
-      mainnet: 'https://assethub-polkadot.subscan.io', 
-      testnet: 'https://assethub-paseo.subscan.io' 
+    paseoAssethub: {
+      mainnet: 'https://assethub-polkadot.subscan.io',
+      testnet: 'https://assethub-paseo.subscan.io'
     },
   };
 
@@ -251,14 +251,14 @@ interface SelectedTokenDisplayProps {
 
 function SelectedTokenDisplay({ token }: SelectedTokenDisplayProps) {
   const NetworkIcon = useTokenIcon(token.chain || 'ethereum');
-  
+
   // Format balance
   const formatBalance = (balance: string, decimals: number): string => {
     const num = parseFloat(balance);
     if (isNaN(num)) return "0";
     return (num / Math.pow(10, decimals)).toFixed(6).replace(/\.?0+$/, "");
   };
-  
+
   return (
     <div className="flex items-center gap-2">
       <NetworkIcon className="h-4 w-4 flex-shrink-0" />
@@ -277,16 +277,16 @@ interface TokenSelectItemProps {
 
 function TokenSelectItem({ value, token }: TokenSelectItemProps) {
   const NetworkIcon = useTokenIcon(token.chain || 'ethereum');
-  
+
   // Format balance
   const formatBalance = (balance: string, decimals: number): string => {
     const num = parseFloat(balance);
     if (isNaN(num)) return "0";
     return (num / Math.pow(10, decimals)).toFixed(6).replace(/\.?0+$/, "");
   };
-  
+
   return (
-    <SelectItem 
+    <SelectItem
       value={value}
       className="text-sm focus:bg-white/10 focus:text-white"
     >
@@ -300,9 +300,17 @@ function TokenSelectItem({ value, token }: TokenSelectItemProps) {
   );
 }
 
-export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }: SendCryptoModalProps) {
+export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess, initialTokenSymbol }: SendCryptoModalProps) {
   // Get chain icon
-  const ChainIcon = useTokenIcon(chain);
+  // Determine the active chain (starts with prop, but can change)
+  const [currentChainId, setCurrentChainId] = useState(chain);
+  const walletConfig = useWalletConfig();
+  const visibleChains = walletConfig.getVisible();
+
+  // Get current chain config
+  const CurrentChainIcon = useTokenIcon(currentChainId);
+  const currentChainName = CHAIN_NAMES[currentChainId] || currentChainId;
+
   const [tokens, setTokens] = useState<TokenBalance[]>([]);
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
   const [amount, setAmount] = useState("");
@@ -314,24 +322,43 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
   const [txHash, setTxHash] = useState<string | null>(null);
   const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
 
-  const loadTokens = useCallback(async () => {
+  // Helper for chain data with robust fallback for logos
+  const rawChainData = chains.find(c => c.id === currentChainId);
+  const chainData = rawChainData || chains.find(c => {
+    const id = c.id.toLowerCase();
+    const current = currentChainId.toLowerCase();
+    if (current.includes('ethereum') && id === 'ethereum') return true;
+    if (current.includes('base') && id === 'base') return true;
+    if (current.includes('arbitrum') && id === 'arbitrum') return true;
+    if (current.includes('optimism') && id === 'optimism') return true;
+    if (current.includes('polygon') && id === 'polygon') return true;
+    if (current.includes('avalanche') && id === 'avalanche') return true;
+    return false;
+  }) || chains[0];
+
+  const handleChainChange = (newChainId: string) => {
+    setCurrentChainId(newChainId);
+  };
+
+  const loadTokens = useCallback(async (chainIdToLoad: string) => {
     setLoadingTokens(true);
     setError(null);
     try {
       // Check if this is a Substrate chain
       const SUBSTRATE_CHAINS = ["polkadot", "hydrationSubstrate", "bifrostSubstrate", "uniqueSubstrate", "paseo", "paseoAssethub"];
-      const isSubstrate = SUBSTRATE_CHAINS.includes(chain);
+      const isSubstrate = SUBSTRATE_CHAINS.includes(chainIdToLoad);
 
       // Check if this is an Aptos chain
       const APTOS_CHAINS = ["aptos", "aptosTestnet"];
-      const isAptos = APTOS_CHAINS.includes(chain);
+      const isAptos = APTOS_CHAINS.includes(chainIdToLoad);
 
       if (isSubstrate) {
         // Load Substrate balances
         const balances = await walletApi.getSubstrateBalances(userId, false);
-        const chainBalance = balances[chain];
-        
+        const chainBalance = balances[chainIdToLoad];
+
         if (chainBalance && chainBalance.address) {
           // Create a single token entry for native Substrate token
           const tokenList: TokenBalance[] = [{
@@ -348,9 +375,9 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         }
       } else if (isAptos) {
         // Load Aptos balance
-        const network = chain === "aptosTestnet" ? "testnet" : "mainnet";
+        const network = chainIdToLoad === "aptosTestnet" ? "testnet" : "mainnet";
         const balanceData = await walletApi.getAptosBalance(userId, network);
-        
+
         // Create a single token entry for native APT token
         const tokenList: TokenBalance[] = [{
           address: null, // Native token
@@ -361,53 +388,67 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         setTokens(tokenList);
         setSelectedToken(tokenList[0] ?? null);
       } else {
-        // Load aggregated assets once (any-chain). Zerion assets are the source of truth.
-        // To ensure tokens are always available in the modal, do NOT filter by UI-selected chain.
-        const allAssets: AnyChainAsset[] = await walletApi.getAssetsAny(userId, true);
+        // Load tokens for specific chain using lighter endpoint
+        // Strip 'Gasless' suffix if present for backend compatibility if needed, 
+        // though strictly we should pass the ID. The backend typically handles standard chain IDs.
+        // For 'ethereumGasless', the tokens are on 'ethereum'.
+        let targetChain = chainIdToLoad;
+        if (chainIdToLoad.endsWith('Gasless')) {
+          // Map gasless IDs to underlying chain IDs for token fetching
+          if (chainIdToLoad === 'ethereumGasless') targetChain = 'ethereum';
+          else if (chainIdToLoad === 'baseGasless') targetChain = 'base';
+          else if (chainIdToLoad === 'arbitrumGasless') targetChain = 'arbitrum';
+          else if (chainIdToLoad === 'optimismGasless') targetChain = 'optimism';
+          else if (chainIdToLoad === 'polygonGasless') targetChain = 'polygon';
+        }
 
-        // Keep all EVM/Solana assets; we'll still show chain name via explorer mapping elsewhere.
-        // Sorting: native first if address null, then alphabetically by symbol.
-        const tokenList: TokenBalance[] = allAssets
-          .filter((a) => !!a.symbol)
-          .map((a) => ({
-            address: a.address,
-            symbol: a.symbol,
-            balance: a.balance,
-            decimals: a.decimals,
-            chain: a.chain, // Preserve the token's chain from Zerion
-          }))
-          .sort((a, b) => {
-            if (a.address === null && b.address !== null) return -1;
-            if (a.address !== null && b.address === null) return 1;
-            return a.symbol.localeCompare(b.symbol);
-          });
+        const tokenList = await walletApi.getTokenBalances(userId, targetChain);
 
-        // Keep native first, then others; native has address === null
-        tokenList.sort((a, b) => (a.address === null ? -1 : b.address === null ? 1 : 0));
+        // Sort: Native first, then alphabetical
+        tokenList.sort((a, b) => {
+          if (a.address === null && b.address !== null) return -1;
+          if (a.address !== null && b.address === null) return 1;
+          return a.symbol.localeCompare(b.symbol);
+        });
 
         setTokens(tokenList);
         if (tokenList.length > 0) {
-          // Select first token (native token) by default
-          const firstToken = tokenList[0];
-          if (firstToken) {
-            setSelectedToken(firstToken);
+          // Select first token (native token) by default OR pre-selected
+          if (initialTokenSymbol) {
+            const preSelected = tokenList.find(t => t.symbol.toLowerCase() === initialTokenSymbol.toLowerCase());
+            if (preSelected) {
+              setSelectedToken(preSelected);
+            } else {
+              setSelectedToken(tokenList[0] ?? null);
+            }
+          } else {
+            setSelectedToken(tokenList[0] ?? null);
           }
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof ApiError 
-        ? err.message 
-        : "Failed to load tokens. Please try again.";
-      setError(errorMessage);
+      console.warn("Failed to load tokens, falling back to native token", err);
+      // Fallback: If API fails (e.g. timeout), show at least the native token for the chain
+      // so the UI is usable.
+      const fallbackToken: TokenBalance = {
+        address: null,
+        symbol: chainData?.symbol || 'ETH',
+        balance: '0',
+        decimals: 18,
+        chain: chainIdToLoad
+      };
+      setTokens([fallbackToken]);
+      setSelectedToken(fallbackToken);
+      setError(null); // Clear error to show UI
     } finally {
       setLoadingTokens(false);
     }
-  }, [userId, chain]);
+  }, [userId, initialTokenSymbol, chainData]);
 
-  // Load tokens when modal opens
+  // Load tokens when modal opens OR chain changes
   useEffect(() => {
-    if (open && userId && chain) {
-      loadTokens();
+    if (open && userId && currentChainId) {
+      loadTokens(currentChainId);
     } else {
       // Reset state when modal closes
       setTokens([]);
@@ -418,8 +459,12 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       setFieldErrors({});
       setTxHash(null);
       setSuccess(false);
+      // Reset chain to prop when closed
+      if (!open) {
+        setCurrentChainId(chain);
+      }
     }
-  }, [open, userId, chain, loadTokens]);
+  }, [open, userId, currentChainId, loadTokens, chain]);
 
   const validateForm = (): boolean => {
     const errors: { amount?: string; address?: string } = {};
@@ -441,7 +486,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     }
 
     // Validate recipient address
-    const addressError = validateAddress(recipientAddress, chain);
+    const addressError = validateAddress(recipientAddress, currentChainId);
     if (addressError) {
       errors.address = addressError;
     }
@@ -513,7 +558,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
 
     try {
       // Use the selected token's chain, not the modal's chain prop
-      const tokenChain = selectedToken.chain || chain;
+      const tokenChain = selectedToken.chain || currentChainId;
 
       // Log token send details for debugging
       console.log('[Send Debug] Sending token:', {
@@ -522,13 +567,13 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         decimals: selectedToken.decimals,
         amount: amount,
         tokenChain: tokenChain,
-        modalChain: chain,
+        modalChain: currentChainId,
       });
 
       // 🔍 DETAILED CHAIN DETECTION DEBUG
       console.log('🔍 [Chain Detection] Avalanche EIP-7702 Check:', {
         selectedTokenChain: selectedToken.chain,
-        modalChain: chain,
+        modalChain: currentChainId,
         finalTokenChain: tokenChain,
         isInEIP7702Mapping: tokenChain in EIP7702_CHAIN_IDS,
         chainIdFromMapping: EIP7702_CHAIN_IDS[tokenChain],
@@ -585,7 +630,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
         });
 
         // Use transactionHash if available, otherwise use userOpHash
-        result = { 
+        result = {
           txHash: gaslessResult.transactionHash || gaslessResult.userOpHash,
           userOpHash: gaslessResult.userOpHash,
           explorerUrl: gaslessResult.explorerUrl,
@@ -670,11 +715,11 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
     } catch (err) {
       let errorMessage = "Failed to send transaction. Please try again.";
       let errorCode: string | number | undefined;
-      
+
       if (err instanceof ApiError) {
         errorMessage = err.message;
         errorCode = err.status;
-        
+
         // Parse specific error codes
         if (err.status === 422) {
           // Insufficient balance
@@ -713,22 +758,89 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
       setLoading(false);
     }
   };
+  // Helper to strictly format chain names
+  const formatChainName = (nameOrId: string) => {
+    if (!nameOrId) return '';
+    const lower = nameOrId.toLowerCase();
+    // Strict mapping based on user request ("heading will be only Ethereum...")
+    if (lower.includes('ethereum') || lower.includes('eth')) return 'Ethereum';
+    if (lower.includes('bitcoin') || lower.includes('btc')) return 'Bitcoin';
+    if (lower.includes('polkadot') || lower.includes('dot')) return 'Polkadot';
+    if (lower.includes('base')) return 'Base';
+    if (lower.includes('arbitrum')) return 'Arbitrum';
+    if (lower.includes('optimism')) return 'Optimism';
+    if (lower.includes('polygon') || lower.includes('matic')) return 'Polygon';
+    if (lower.includes('solana') || lower.includes('sol')) return 'Solana';
+    if (lower.includes('avalanche') || lower.includes('avax')) return 'Avalanche';
+    if (lower.includes('tron') || lower.includes('trx')) return 'Tron';
+    if (lower.includes('aptos')) return 'Aptos';
 
-  const chainName = CHAIN_NAMES[chain] || chain;
+    // Generic cleanup
+    return nameOrId
+      .replace(/\s*\(Gasless\)/i, '')
+      .replace(/Erc4337/i, '')
+      .replace(/EOA/i, '')
+      .trim();
+  };
+
+  // Helper component for Dropdown Items to correctly load icons using the hook
+  function ChainDropdownItem({
+    chainData,
+    isSelected,
+    onClick,
+    formatName
+  }: {
+    chainData: typeof chains[0],
+    isSelected: boolean,
+    onClick: (id: string) => void,
+    formatName: (name: string) => string
+  }) {
+    const Icon = useTokenIcon(chainData.id);
+
+    return (
+      <div
+        onClick={() => onClick(chainData.id)}
+        className="flex items-center gap-3 p-3 hover:bg-white/5 cursor-pointer focus:bg-white/5"
+      >
+        <div className="relative w-5 h-5 flex items-center justify-center">
+          <Icon className="w-full h-full object-contain" />
+        </div>
+        <span className="text-sm font-medium">{formatName(chainData.name)}</span>
+        {isSelected && (
+          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
+        )}
+      </div>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-white/10 bg-black/90 text-white shadow-2xl backdrop-blur sm:max-w-[300px] p-0 rounded-2xl [&>button]:text-white [&>button]:hover:text-white [&>button]:hover:bg-white/20 [&>button]:opacity-100">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-            <ChainIcon className="h-6 w-6" />
-            {chainName}
-          </DialogTitle>
-          <DialogDescription className="text-sm text-white/60">
-            {isEip7702Chain(chain) 
-              ? "Gas-free transfer - fees are sponsored" 
-              : "Transfer to recipient address"}
-          </DialogDescription>
+      <DialogContent className="border-white/10 bg-black/90 text-white shadow-2xl backdrop-blur w-full max-w-[360px] p-0 rounded-2xl [&>button]:text-white [&>button]:hover:text-white [&>button]:hover:bg-white/20 [&>button]:opacity-100">
+        <DialogHeader className="px-6 pt-5 pb-0">
+          <div className="flex flex-col gap-3 mb-0">
+            {/* Header Row: Icon, Name, Change Button */}
+            <div className="flex items-center gap-2 w-full">
+              <div className="relative w-7 h-7 rounded-full overflow-hidden bg-black p-1 flex items-center justify-center flex-shrink-0 border border-white/10">
+                <CurrentChainIcon className="w-4 h-4 text-white" />
+              </div>
+              <DialogTitle className="text-lg font-semibold text-white tracking-tight truncate max-w-[200px]">
+                {formatChainName(chainData?.name || chain)}
+              </DialogTitle>
+
+              {/* Change Button - Compact, right next to name */}
+              <button
+                onClick={() => setIsChainDropdownOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[10px] font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex-shrink-0"
+              >
+                Change
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </div>
+            {/* Sub-header text - Below the row */}
+            <div className="text-xs text-gray-400 font-normal ml-1 text-left w-full">
+              Transfer to recipient&apos;s address
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 px-6 pb-6">
@@ -763,7 +875,7 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
                   {tokens.map((token) => {
                     const key = `${token.chain || 'unknown'}:${token.address || 'native'}`;
                     return (
-                      <TokenSelectItem 
+                      <TokenSelectItem
                         key={key}
                         value={key}
                         token={token}
@@ -870,17 +982,17 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)} 
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
               disabled={loading}
               className="flex-1 h-9 text-sm rounded-full border-white/20 text-white hover:bg-white/10"
             >
               {success ? "Close" : "Cancel"}
             </Button>
             {!success && (
-              <Button 
-                onClick={handleSend} 
+              <Button
+                onClick={handleSend}
                 disabled={loading || loadingTokens || !selectedToken}
                 className="flex-1 h-9 text-sm rounded-full bg-white text-black hover:bg-white/90"
               >
@@ -897,6 +1009,13 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess }
           </div>
         </div>
       </DialogContent>
+      <ChainListModal
+        isOpen={isChainDropdownOpen}
+        onClose={() => setIsChainDropdownOpen(false)}
+        onSelect={handleChainChange}
+        selectedChainId={chain}
+        modalOverlayClassName="bg-transparent"
+      />
     </Dialog>
   );
 }

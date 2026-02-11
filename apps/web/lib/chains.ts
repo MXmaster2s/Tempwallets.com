@@ -108,7 +108,7 @@ export const chains: Chain[] = [
     category: 'layer1',
     featured: true,
   },
-  
+
   // Other EVM chains
   {
     id: 'polygon',
@@ -146,7 +146,7 @@ export const chains: Chain[] = [
   {
     id: 'arbitrum',
     name: 'Arbitrum',
-    symbol: 'ARB',
+    symbol: 'ETH',
     icon: Arbitrum,
     type: 'evm',
     hasWalletConnect: true,
@@ -157,7 +157,7 @@ export const chains: Chain[] = [
   {
     id: 'optimism',
     name: 'Optimism',
-    symbol: 'OP',
+    symbol: 'ETH',
     icon: Optimism,
     type: 'evm',
     hasWalletConnect: true,
@@ -262,7 +262,7 @@ export const getChainsByType = (type: ChainType): Chain[] => {
  */
 export const mapWalletCategoryToChainType = (category?: string): ChainType | null => {
   if (!category) return 'evm'; // Default to EVM for backward compatibility
-  
+
   switch (category.toLowerCase()) {
     case 'evm':
     case 'ethereum':
