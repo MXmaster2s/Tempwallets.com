@@ -87,7 +87,7 @@ export function WalletDataProvider({
       return;
     }
 
-    // Get cache key for later use
+    // Declare cache key outside conditional to enable caching response after fetch
     const cacheKey = getCacheKey(fingerprint, 'balances');
 
     // Check cache first (but skip if forceRefresh is true)
@@ -254,7 +254,7 @@ export function WalletDataProvider({
       return;
     }
 
-    // Get cache key for later use
+    // Declare cache key outside conditional to enable caching response after fetch
     const cacheKey = getCacheKey(fingerprint, 'transactions');
 
     // Check cache first (but skip if forceRefresh is true)
