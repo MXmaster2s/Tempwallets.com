@@ -722,14 +722,51 @@ export class WalletService {
     }
 
     // Fetch positions for each address in parallel (Zerion)
-    const zerionResults =
+    // Use Promise.allSettled to handle individual address failures gracefully
+    const zerionSettledResults =
       targetAddresses.length > 0
-        ? await Promise.all(
+        ? await Promise.allSettled(
           targetAddresses.map((addr) =>
             this.zerionService.getPositionsAnyChain(addr),
           ),
         )
         : [];
+
+    // Collect successful results and log failures
+    const zerionResults: TokenBalance[][] = [];
+    const failedAddresses: string[] = [];
+    
+    for (let i = 0; i < zerionSettledResults.length; i++) {
+      const result = zerionSettledResults[i];
+      if (result.status === 'fulfilled') {
+        zerionResults.push(result.value);
+      } else {
+        const address = targetAddresses[i];
+        failedAddresses.push(address);
+        this.logger.error(
+          `Failed to fetch Zerion positions for ${address}: ${result.reason instanceof Error ? result.reason.message : 'Unknown error'}`,
+        );
+      }
+    }
+
+    // Log diagnostic information
+    if (failedAddresses.length > 0) {
+      this.logger.warn(
+        `Failed to fetch positions for ${failedAddresses.length}/${targetAddresses.length} addresses`,
+      );
+    }
+
+    if (zerionResults.length === 0 && targetAddresses.length > 0) {
+      this.logger.error(
+        `All ${targetAddresses.length} address fetches failed. Check ZERION_API_KEY configuration.`,
+      );
+    }
+
+    if (zerionResults.every((r) => r.length === 0)) {
+      this.logger.warn(
+        `All Zerion results returned empty arrays for ${targetAddresses.length} addresses (wallets may be empty or not indexed yet)`,
+      );
+    }
 
     // Fetch Polkadot EVM chain assets using RPC
     const polkadotEvmChains = [
