@@ -253,7 +253,8 @@ export class ZerionService {
         this.logger.warn(
           `Positions (any-chain) response invalid for ${address}`,
         );
-        // Don't cache error states - return empty array without caching
+        // Invalidate any stale cache and return empty array without caching
+        this.balanceCache.delete(cacheKey);
         return [];
       }
 
@@ -305,7 +306,8 @@ export class ZerionService {
       this.logger.error(
         `Positions (any-chain) failed for ${address}: ${e instanceof Error ? e.message : 'Unknown error'}`,
       );
-      // Don't cache error states - return empty array without caching
+      // Invalidate any stale cache and return empty array without caching
+      this.balanceCache.delete(cacheKey);
       return [];
     }
   }
@@ -345,7 +347,8 @@ export class ZerionService {
       this.logger.error(
         `Transactions (any-chain) failed for ${address}: ${e instanceof Error ? e.message : 'Unknown error'}`,
       );
-      // Don't cache error states - return empty array without caching
+      // Invalidate any stale cache and return empty array without caching
+      this.transactionCache.delete(cacheKey);
       return [];
     }
   }
