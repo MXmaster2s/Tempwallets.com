@@ -253,6 +253,8 @@ export class ZerionService {
         this.logger.warn(
           `Positions (any-chain) response invalid for ${address}`,
         );
+        // Invalidate any stale cache and return empty array without caching
+        this.balanceCache.delete(cacheKey);
         return [];
       }
 
@@ -294,6 +296,7 @@ export class ZerionService {
       // Remove duplicates by chain + address/symbol
       const dedupedTokens = this.dedupeParsedTokens(parsedTokens);
 
+      // Cache the result (including legitimate empty arrays from successful API calls)
       this.setCache(cacheKey, dedupedTokens, 'balance');
       this.logger.debug(
         `Fetched ${dedupedTokens.length} positions for ${this.maskAddress(address)}`,
@@ -303,6 +306,8 @@ export class ZerionService {
       this.logger.error(
         `Positions (any-chain) failed for ${address}: ${e instanceof Error ? e.message : 'Unknown error'}`,
       );
+      // Invalidate any stale cache and return empty array without caching
+      this.balanceCache.delete(cacheKey);
       return [];
     }
   }
@@ -332,6 +337,7 @@ export class ZerionService {
       const res = await this.makeRequest<ZerionTransactionsResponse>(url);
       const data = Array.isArray(res?.data) ? res.data : [];
       const deduped = this.dedupeTransactions(data);
+      // Cache the result (including legitimate empty arrays from successful API calls)
       this.setCache(cacheKey, deduped, 'transaction');
       this.logger.debug(
         `Fetched ${deduped.length} transactions for ${this.maskAddress(address)}`,
@@ -341,6 +347,8 @@ export class ZerionService {
       this.logger.error(
         `Transactions (any-chain) failed for ${address}: ${e instanceof Error ? e.message : 'Unknown error'}`,
       );
+      // Invalidate any stale cache and return empty array without caching
+      this.transactionCache.delete(cacheKey);
       return [];
     }
   }

@@ -466,7 +466,14 @@ export const walletApi = {
    */
   async getAssetsAny(userId: string, refresh: boolean = false): Promise<AnyChainAsset[]> {
     const refreshParam = refresh ? '&refresh=true' : '';
-    return fetchApi<AnyChainAsset[]>(`/wallet/assets-any?userId=${encodeURIComponent(userId)}${refreshParam}`);
+    const options = refresh ? {
+      cache: 'no-cache' as RequestCache,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      }
+    } : undefined;
+    return fetchApi<AnyChainAsset[]>(`/wallet/assets-any?userId=${encodeURIComponent(userId)}${refreshParam}`, options);
   },
 
   /**

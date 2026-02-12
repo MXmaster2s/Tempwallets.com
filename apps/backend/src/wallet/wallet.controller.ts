@@ -476,6 +476,7 @@ export class WalletController {
 
   @Get('assets-any')
   async getAssetsAny(
+    @Res({ passthrough: true }) res: Response,
     @UserId() userId?: string,
     @Query('userId') queryUserId?: string,
     @Query('refresh') refresh?: string,
@@ -489,6 +490,13 @@ export class WalletController {
     this.logger.log(
       `Getting any-chain assets for user ${finalUserId}${forceRefresh ? ' (force refresh)' : ''}`,
     );
+
+    // Add Cache-Control headers to prevent browser caching issues
+    if (forceRefresh) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
 
     try {
       const assets = await this.walletService.getTokenBalancesAny(
