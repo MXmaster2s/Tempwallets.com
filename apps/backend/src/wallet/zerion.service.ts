@@ -180,12 +180,15 @@ export class ZerionService {
     // Check Zerion docs: https://developers.zerion.io for exact format
     this.apiKey = this.configService.get<string>('ZERION_API_KEY') || '';
 
-    if (!this.apiKey) {
-      this.logger.warn(
-        'ZERION_API_KEY not found in environment variables. Zerion API calls will fail.',
+    if (!this.apiKey || this.apiKey.trim() === '') {
+      this.logger.error(
+        'ZERION_API_KEY not found or empty in environment variables. Zerion API calls will fail.',
       );
-      this.logger.warn(
+      this.logger.error(
         'Get your API key from: https://zerion.io/api or https://developers.zerion.io',
+      );
+      this.logger.error(
+        'Set the ZERION_API_KEY environment variable to enable Zerion integration.',
       );
     }
   }
@@ -250,12 +253,19 @@ export class ZerionService {
       const res = await this.makeRequest<ZerionPositionsArray>(url);
 
       if (!res || !Array.isArray(res.data)) {
-        this.logger.warn(
-          `Positions (any-chain) response invalid for ${address}`,
-        );
-        // Invalidate any stale cache and return empty array without caching
+        const errorMsg = `Positions (any-chain) response invalid for ${this.maskAddress(address)}`;
+        this.logger.error(errorMsg);
+        // Invalidate any stale cache
         this.balanceCache.delete(cacheKey);
-        return [];
+        // Throw error instead of returning empty array to surface the issue
+        throw new Error(errorMsg);
+      }
+
+      // Log if response is empty to help diagnose issues
+      if (res.data.length === 0) {
+        this.logger.debug(
+          `Zerion returned 0 positions for ${this.maskAddress(address)} (wallet may be empty or not indexed yet)`,
+        );
       }
 
       // Parse Zerion positions into TokenBalance objects using KISS principle
@@ -303,12 +313,12 @@ export class ZerionService {
       );
       return dedupedTokens;
     } catch (e) {
-      this.logger.error(
-        `Positions (any-chain) failed for ${address}: ${e instanceof Error ? e.message : 'Unknown error'}`,
-      );
-      // Invalidate any stale cache and return empty array without caching
+      const errorMsg = `Positions (any-chain) failed for ${this.maskAddress(address)}: ${e instanceof Error ? e.message : 'Unknown error'}`;
+      this.logger.error(errorMsg);
+      // Invalidate any stale cache
       this.balanceCache.delete(cacheKey);
-      return [];
+      // Re-throw error to propagate to caller instead of silently returning empty array
+      throw new Error(errorMsg);
     }
   }
 
@@ -471,8 +481,8 @@ export class ZerionService {
     retries = 3,
     timeoutMs = 60000, // Increased from 30s to 60s for production
   ): Promise<T> {
-    if (!this.apiKey) {
-      throw new Error('Zerion API key not configured');
+    if (!this.apiKey || this.apiKey.trim() === '') {
+      throw new Error('Zerion API key not configured. Set ZERION_API_KEY environment variable.');
     }
 
     // Zerion API authentication format

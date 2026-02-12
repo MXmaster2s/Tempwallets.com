@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ServiceUnavailableException,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -505,9 +506,24 @@ export class WalletController {
       );
       return assets;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(
-        `Failed to get any-chain assets: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to get any-chain assets for user ${finalUserId}: ${errorMessage}`,
       );
+      
+      // Provide user-friendly error messages
+      if (errorMessage.includes('API key not configured')) {
+        throw new ServiceUnavailableException(
+          'Asset data service is not configured. Please contact support.',
+        );
+      }
+      
+      if (errorMessage.includes('Zerion API error') || errorMessage.includes('failed for')) {
+        throw new ServiceUnavailableException(
+          'Unable to fetch asset data at this time. Please try again later.',
+        );
+      }
+      
       throw error;
     }
   }
