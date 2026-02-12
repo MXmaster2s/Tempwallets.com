@@ -267,13 +267,15 @@ export class LightningNodeService {
   ): Promise<NitroliteClient> {
     const cacheKey = `${userId}-${chainName}-${walletAddress}`;
 
-    // Check cache
+    // Check cache — only reuse if the client is both initialized AND authenticated.
+    // After a WebSocket reconnect the server invalidates the session, so
+    // postReconnectSync() clears the local session making isAuthenticated() false.
     if (this.userClients.has(cacheKey)) {
       const cached = this.userClients.get(cacheKey)!;
-      if (cached.isInitialized()) {
+      if (cached.isInitialized() && cached.isAuthenticated()) {
         return cached;
       }
-      // Remove invalid client from cache
+      // Remove stale client from cache (expired session or post-reconnect)
       this.userClients.delete(cacheKey);
     }
 

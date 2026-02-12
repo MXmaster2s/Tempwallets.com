@@ -68,9 +68,14 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     // Session expires in 24 hours
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
 
-    // If already authenticated for this wallet, reuse client
+    // If already authenticated for this wallet, reuse client only when the
+    // session is still valid on both the local and server side.
+    // isAuthenticated() checks the local expiry; after a WebSocket reconnect the
+    // server invalidates the session even if the local expiry hasn't passed, so
+    // postReconnectSync() clears the local session — making isAuthenticated() false
+    // and forcing a fresh auth here.
     if (this.currentClient && this.currentWallet === walletAddress) {
-      if (this.currentClient.isInitialized()) {
+      if (this.currentClient.isInitialized() && this.currentClient.isAuthenticated()) {
         const authSignature = this.currentClient.getAuthSignature() || '';
         return { sessionId, expiresAt, authSignature };
       }

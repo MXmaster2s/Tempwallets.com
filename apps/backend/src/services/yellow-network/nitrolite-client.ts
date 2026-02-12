@@ -124,18 +124,26 @@ export class NitroliteClient {
    * 3. Authenticates with session key (if enabled)
    */
   /**
-   * Post-reconnect sync: Re-load channels and app sessions after WebSocket reconnection
+   * Post-reconnect sync: Invalidate the stale server-side session on reconnect.
    *
-   * OPTIMIZATION: Disabled aggressive post-reconnect sync.
-   * Channels and sessions will be fetched on-demand when user accesses Lightning Node UI.
+   * When the WebSocket closes and reconnects, Yellow Network's server resets the
+   * session for that connection. The local session key still looks valid (expiry
+   * hasn't passed), but the server will reject it for write operations.
+   *
+   * We solve this by clearing the local session here (a fast, in-memory operation —
+   * no network call). Re-authentication happens lazily the next time the user
+   * actually performs an operation, via the auth guards in createChannel(),
+   * createLightningNode(), etc.
    */
   async postReconnectSync(): Promise<void> {
-    console.log(
-      '[NitroliteClient] Post-reconnect: Skipping automatic sync (on-demand mode enabled)',
-    );
-
-    // Note: Channels and app sessions will be fetched when the frontend requests them
-    // This avoids unnecessary load on the backend and Yellow Network
+    if (this.config.useSessionKeys) {
+      // Clear stale local session so isAuthenticated() returns false.
+      // The next user operation will trigger a fresh auth automatically.
+      this.auth.clearSession();
+      console.log(
+        '[NitroliteClient] Post-reconnect: Stale session cleared. Will re-authenticate on next operation.',
+      );
+    }
   }
 
   async initialize(): Promise<void> {
@@ -264,6 +272,7 @@ export class NitroliteClient {
     initialDeposit?: bigint,
   ): Promise<ChannelWithState> {
     this.ensureInitialized();
+    await this.ensureAuthenticated();
     return await this.channelService.createChannel(
       chainId,
       token,
@@ -291,6 +300,7 @@ export class NitroliteClient {
     participants?: [Address, Address],
   ): Promise<void> {
     this.ensureInitialized();
+    await this.ensureAuthenticated();
     await this.channelService.resizeChannel(
       channelId,
       chainId,
@@ -318,6 +328,7 @@ export class NitroliteClient {
     participants?: [Address, Address],
   ): Promise<void> {
     this.ensureInitialized();
+    await this.ensureAuthenticated();
     await this.channelService.closeChannel(
       channelId,
       chainId,
@@ -356,20 +367,7 @@ export class NitroliteClient {
       sessionData,
     } = options;
 
-    // Ensure authentication is valid before creating app session
-    if (!this.auth.isAuthenticated()) {
-      console.log(
-        '[NitroliteClient] Session expired or not authenticated, re-authenticating...',
-      );
-      await this.auth.authenticate({
-        application: this.config.application,
-        allowances: [],
-        expiryHours: 24,
-        scope:
-          'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
-      });
-      console.log('[NitroliteClient] ✅ Re-authentication successful');
-    }
+    await this.ensureAuthenticated();
 
     const definition: AppDefinition = {
       protocol: 'NitroRPC/0.4',
@@ -598,6 +596,27 @@ export class NitroliteClient {
       throw new Error(
         'NitroliteClient not initialized. Call initialize() first.',
       );
+    }
+  }
+
+  /**
+   * Ensure the session key is still valid with the server before any write operation.
+   *
+   * Called lazily by createChannel / resizeChannel / closeChannel / createLightningNode.
+   * If the WebSocket reconnected (which clears the local session via postReconnectSync),
+   * or if the 24-hour session expired, this re-authenticates once — no polling, no timers.
+   */
+  private async ensureAuthenticated(): Promise<void> {
+    if (!this.auth.isAuthenticated()) {
+      console.log(
+        '[NitroliteClient] Session invalid or cleared — re-authenticating before operation...',
+      );
+      await this.auth.authenticate({
+        application: this.config.application,
+        allowances: [],
+        expiryHours: 24,
+        scope: 'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
+      });
     }
   }
 }

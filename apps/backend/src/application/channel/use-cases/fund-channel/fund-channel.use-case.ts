@@ -131,15 +131,28 @@ export class FundChannelUseCase {
       // signedInitialState (v0) is still in scope as the required proof state.
       // Doing it externally would lose the proof and cause InvalidState().
       console.log(`[FundChannel] No open channels found - creating new channel with ${amountInSmallestUnits} initial balance...`);
-      const newChannel = await this.channelManager.createChannel({
-        userAddress,
-        chainId,
-        tokenAddress,
-        initialBalance: amountInSmallestUnits,
-      });
-      channelId = newChannel.channelId;
-      fundedDuringCreate = true;
-      console.log(`[FundChannel] Created and funded new channel: ${channelId}`);
+      try {
+        const newChannel = await this.channelManager.createChannel({
+          userAddress,
+          chainId,
+          tokenAddress,
+          initialBalance: amountInSmallestUnits,
+        });
+        channelId = newChannel.channelId;
+        fundedDuringCreate = true;
+        console.log(`[FundChannel] Created and funded new channel: ${channelId}`);
+      } catch (createErr: any) {
+        // Yellow Network may reject create_channel when a channel already exists
+        // but get_channels didn't return it (session scoping, indexer lag, etc.).
+        // The error message contains the existing channel ID — extract and reuse it.
+        const existingId = FundChannelUseCase.extractExistingChannelId(createErr?.message ?? '');
+        if (!existingId) {
+          throw createErr; // Unrelated error — rethrow as-is
+        }
+        console.log(`[FundChannel] Channel already exists on Yellow Network: ${existingId}. Reusing it.`);
+        channelId = existingId;
+        // fundedDuringCreate stays false → resize will run below
+      }
     }
 
     // 7. Resize channel to add funds (only for pre-existing channels).
@@ -164,5 +177,18 @@ export class FundChannelUseCase {
       amount: amountInSmallestUnits.toString(),
       message: `Successfully funded channel with ${dto.amount} ${dto.asset}`,
     };
+  }
+
+  /**
+   * Parse the existing channel ID from a "channel already exists" error message.
+   *
+   * Yellow Network returns errors in the form:
+   *   "an open channel with broker already exists: 0x<64-hex>"
+   *
+   * Returns the channel ID string, or null if the message doesn't match.
+   */
+  private static extractExistingChannelId(message: string): string | null {
+    const match = message.match(/already exists[:\s]+(0x[a-fA-F0-9]{64})/);
+    return match?.[1] ?? null;
   }
 }
