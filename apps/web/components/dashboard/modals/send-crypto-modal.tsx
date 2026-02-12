@@ -410,10 +410,10 @@ export function SendCryptoModal({ open, onOpenChange, chain, userId, onSuccess, 
         const tokenList: TokenBalance[] = allAssets
           .filter(asset => asset.chain === targetChain)
           .map(asset => ({
-            address: asset.address,
-            symbol: asset.symbol,
-            balance: asset.balance,
-            decimals: asset.decimals,
+            address: asset.address ?? null,
+            symbol: asset.symbol || 'UNKNOWN',
+            balance: asset.balance || '0',
+            decimals: asset.decimals ?? 18, // Default to 18 for EVM tokens
             chain: asset.chain, // ✅ FIX: Preserve chain property from asset
           }));
 

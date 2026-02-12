@@ -175,7 +175,7 @@ export function BalanceView({ onOpenSend, selectedChainId }: BalanceViewProps) {
       </div>
 
       {/* 3. Empty State Animation - ✅ FIX: Only show when no tokens with value */}
-      {displayBalances.every(b => !b.valueUsd || b.valueUsd === 0) && (
+      {displayBalances.length > 0 && displayBalances.every(b => !b.valueUsd || b.valueUsd === 0) && (
         <div className="flex flex-col items-center justify-center pb-4 -mt-10 relative z-0">
           <div className="pointer-events-none transform scale-75 sm:scale-90 -mb-4">
             <Image
