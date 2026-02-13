@@ -35,6 +35,7 @@ import {
   HttpCode,
   HttpStatus,
   ValidationPipe,
+  Inject,
 } from '@nestjs/common';
 
 // Use Cases
@@ -51,6 +52,10 @@ import { CreateAppSessionRequestDto } from './dto/create-app-session-request.dto
 import { QuerySessionRequestDto } from './dto/query-session-request.dto.js';
 import { UpdateAllocationRequestDto } from './dto/update-allocation-request.dto.js';
 
+// Ports
+import type { IYellowNetworkPort } from '../../../application/app-session/ports/yellow-network.port.js';
+import { YELLOW_NETWORK_PORT } from '../../../application/app-session/ports/yellow-network.port.js';
+
 @Controller('app-session')
 export class AppSessionController {
   constructor(
@@ -60,6 +65,8 @@ export class AppSessionController {
     private readonly discoverSessionsUseCase: DiscoverSessionsUseCase,
     private readonly updateAllocationUseCase: UpdateAllocationUseCase,
     private readonly closeSessionUseCase: CloseSessionUseCase,
+    @Inject(YELLOW_NETWORK_PORT)
+    private readonly yellowNetwork: IYellowNetworkPort,
   ) {}
 
   /**
@@ -139,6 +146,36 @@ export class AppSessionController {
     return {
       ok: true,
       session: result,
+    };
+  }
+
+  /**
+   * GET /app-session/:sessionId/balances
+   *
+   * Get the current balances/allocations within a specific app session.
+   * Uses Yellow Network's get_ledger_balances with app_session_id as account_id.
+   *
+   * This tells you how much of each asset is currently in the session.
+   */
+  @Get(':sessionId/balances')
+  async getSessionBalances(
+    @Param('sessionId') sessionId: string,
+    @Query('userId') userId: string,
+    @Query('chain') chain: string,
+  ) {
+    // Authenticate
+    const walletAddress = await this.authenticateWalletUseCase.execute({
+      userId,
+      chain,
+    });
+
+    // Get balances for the app session
+    const balances = await this.yellowNetwork.getAppSessionBalances(sessionId);
+
+    return {
+      ok: true,
+      appSessionId: sessionId,
+      balances,
     };
   }
 

@@ -14,15 +14,15 @@ import { CustodyContractAdapter } from '../../../infrastructure/custody/custody-
 import { CUSTODY_CONTRACT_PORT } from '../../../application/custody/ports/custody-contract.port.js';
 import { WalletProviderModule } from '../../../infrastructure/wallet/wallet-provider.module.js';
 import { YellowNetworkModule } from '../../../infrastructure/yellow-network/yellow-network.module.js';
+import { ChannelModule } from '../channel/channel.module.js';
 
 @Module({
   imports: [
-    WalletProviderModule,   // Provides WALLET_PROVIDER_PORT
-    YellowNetworkModule,    // Provides YELLOW_NETWORK_PORT
+    WalletProviderModule, // Provides WALLET_PROVIDER_PORT
+    YellowNetworkModule, // Provides YELLOW_NETWORK_PORT
+    ChannelModule, // Provides CHANNEL_MANAGER_PORT
   ],
-  controllers: [
-    CustodyController,
-  ],
+  controllers: [CustodyController],
   providers: [
     DepositToCustodyUseCase,
     CustodyContractAdapter,

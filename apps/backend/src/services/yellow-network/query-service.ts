@@ -522,68 +522,240 @@ export class QueryService {
   async getAppSession(appSessionId: Hash): Promise<AppSession> {
     console.log(`[QueryService] Fetching app session ${appSessionId}...`);
 
-    // Get session metadata from get_app_sessions
-    const sessions = await this.getAppSessions();
-    const session = sessions.find((s) => s.app_session_id === appSessionId);
+    // Step 1: Get app definition directly by ID (public method, no pagination issues)
+    // This is the reliable way to fetch a specific session's governance parameters.
+    const definitionRaw = (await this.getAppDefinition(appSessionId)) as unknown;
+    const def =
+      definitionRaw && typeof definitionRaw === 'object'
+        ? (definitionRaw as Record<string, unknown>)
+        : {};
+    const allowedProtocols = ['NitroRPC/0.2', 'NitroRPC/0.4'] as const;
+    const protocol =
+      typeof def.protocol === 'string' &&
+      allowedProtocols.includes(def.protocol as any)
+        ? (def.protocol as import('./types.js').AppSessionProtocol)
+        : 'NitroRPC/0.4';
+    const participants =
+      Array.isArray(def.participants) &&
+      def.participants.every(
+        (p) => typeof p === 'string' && p.startsWith('0x'),
+      )
+        ? (def.participants as `0x${string}`[])
+        : [];
+    const weights =
+      Array.isArray(def.weights) &&
+      def.weights.every((w) => typeof w === 'number')
+        ? def.weights
+        : [];
+    const quorum = typeof def.quorum === 'number' ? def.quorum : 0;
+    const challenge = typeof def.challenge === 'number' ? def.challenge : 0;
+    const nonce = typeof def.nonce === 'number' ? def.nonce : 0;
 
-    if (!session) {
-      throw new Error(`App session ${appSessionId} not found`);
+    const definition = { protocol, participants, weights, quorum, challenge, nonce };
+
+    // Step 2: Get actual allocations via get_ledger_balances with app_session_id as account_id
+    // The get_app_sessions API does NOT return per-participant allocations.
+    // Per Yellow docs: "To query balance within a specific app session,
+    // provide the app_session_id as the account_id."
+    let allocations: import('./types.js').AppSessionAllocation[] = [];
+    try {
+      const sessionBalances = await this.getAppSessionBalances(appSessionId);
+      // Convert LedgerBalance[] to AppSessionAllocation[]
+      // Note: get_ledger_balances returns per-asset totals for the session,
+      // not per-participant. We distribute across participants based on
+      // what we know. For single-asset sessions, we can build from this.
+      if (sessionBalances.length > 0) {
+        console.log(
+          `[QueryService] Session balances: ${JSON.stringify(sessionBalances)}`,
+        );
+        // Build allocations from session balances
+        // Each balance entry represents an asset in the session
+        for (const balance of sessionBalances) {
+          if (parseFloat(balance.amount) > 0) {
+            // We know the session has this asset with this total amount
+            // For per-participant breakdown, we'll rely on the session list data below
+            allocations.push({
+              participant: participants[0] || ('0x' as `0x${string}`),
+              asset: balance.asset,
+              amount: balance.amount,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `[QueryService] Failed to get session balances:`,
+        error,
+      );
     }
 
-    // Get full definition with participants from get_app_definition
-    // This ensures we always have participant data even if get_app_sessions filtered it
+    // Step 3: Try to find session metadata from get_app_sessions with higher limit
+    // The default limit is 10 which may miss newly created sessions.
+    // Use limit=100 to improve chances.
+    let session: AppSession | undefined;
     try {
-      const definitionRaw = (await this.getAppDefinition(
-        appSessionId,
-      )) as unknown;
-      const def =
-        definitionRaw && typeof definitionRaw === 'object'
-          ? (definitionRaw as Record<string, unknown>)
-          : {};
-      const allowedProtocols = ['NitroRPC/0.2', 'NitroRPC/0.4'] as const;
-      const protocol =
-        typeof def.protocol === 'string' &&
-        allowedProtocols.includes(def.protocol as any)
-          ? (def.protocol as import('./types.js').AppSessionProtocol)
-          : 'NitroRPC/0.4';
-      const participants =
-        Array.isArray(def.participants) &&
-        def.participants.every(
-          (p) => typeof p === 'string' && p.startsWith('0x'),
-        )
-          ? (def.participants as `0x${string}`[])
-          : [];
-      const weights =
-        Array.isArray(def.weights) &&
-        def.weights.every((w) => typeof w === 'number')
-          ? def.weights
-          : [];
-      const quorum = typeof def.quorum === 'number' ? def.quorum : 0;
-      const challenge = typeof def.challenge === 'number' ? def.challenge : 0;
-      const nonce = typeof def.nonce === 'number' ? def.nonce : 0;
+      const sessions = await this.getAppSessionsPaginated({ limit: 100 });
+      session = sessions.find((s) => s.app_session_id === appSessionId);
+    } catch (error) {
+      console.warn(
+        `[QueryService] Failed to fetch sessions list, building from definition only:`,
+        error,
+      );
+    }
+
+    if (session) {
+      // If the session list had allocations, use them; otherwise use what we got from ledger
+      const sessionAllocations = (session.allocations && session.allocations.length > 0)
+        ? session.allocations
+        : allocations;
       console.log(
-        `[QueryService] ✅ Merged definition with ${participants.length} participants`,
+        `[QueryService] ✅ Found session in list, merged with definition (${participants.length} participants, ${sessionAllocations.length} allocations)`,
       );
       return {
         ...session,
-        definition: {
-          protocol,
-          participants,
-          weights,
-          quorum,
-          challenge,
-          nonce,
-        },
+        definition,
+        allocations: sessionAllocations,
       };
-    } catch (error) {
-      // If get_app_definition fails, return session with existing definition
-      // (may have empty participants but at least we have the session)
-      console.warn(
-        `[QueryService] Failed to get app definition, using session definition:`,
-        error,
-      );
-      return session;
     }
+
+    // Step 4: Session not in paginated list, but definition exists — build a minimal AppSession
+    console.log(
+      `[QueryService] ⚠️ Session not in paginated list, building from definition (${participants.length} participants)`,
+    );
+    return {
+      app_session_id: appSessionId,
+      status: 'open',
+      version: 1,
+      session_data: '{}',
+      allocations,
+      definition,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  /**
+   * Get app sessions with explicit pagination
+   *
+   * @param options - Pagination and filter options
+   * @returns Array of app sessions
+   */
+  private async getAppSessionsPaginated(options?: {
+    status?: 'open' | 'closed';
+    participant?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AppSession[]> {
+    const params: Record<string, unknown> = {};
+    if (options?.status) params.status = options.status;
+    if (options?.participant) params.participant = options.participant;
+    if (options?.limit) params.limit = options.limit;
+    if (options?.offset) params.offset = options.offset;
+
+    const requestId = this.ws.getNextRequestId();
+    let request: RPCRequest = {
+      req: [requestId, 'get_app_sessions', params, Date.now()],
+      sig: [] as string[],
+    };
+
+    request = await this.auth.signRequest(request);
+    const response = await this.ws.send(request);
+
+    const sessionsData = response.res[2] as {
+      app_sessions: Array<{
+        app_session_id: string;
+        status: string;
+        version: number;
+        session_data: unknown;
+        allocations?: unknown[];
+        definition?: unknown;
+        created_at: string | number | Date;
+        updated_at: string | number | Date;
+        closed_at?: string | number | Date;
+      }>;
+    };
+    if (!sessionsData || !Array.isArray(sessionsData.app_sessions)) {
+      return [];
+    }
+
+    return sessionsData.app_sessions.map((s) => ({
+      app_session_id: s.app_session_id as `0x${string}`,
+      status: s.status === 'open' || s.status === 'closed' ? s.status : 'open',
+      version: s.version,
+      session_data:
+        typeof s.session_data === 'string'
+          ? s.session_data
+          : JSON.stringify(s.session_data ?? {}),
+      allocations: Array.isArray(s.allocations)
+        ? (s.allocations as any[]).map(
+            (a) => a as import('./types.js').AppSessionAllocation,
+          )
+        : [],
+      definition: s.definition as import('./types.js').AppDefinition,
+      createdAt: new Date(s.created_at),
+      updatedAt: new Date(s.updated_at),
+      closedAt: s.closed_at ? new Date(s.closed_at) : undefined,
+    }));
+  }
+
+  /**
+   * Get balances within a specific app session
+   *
+   * Uses get_ledger_balances with the app_session_id as account_id.
+   * Per Yellow docs: "To query balance within a specific app session,
+   * provide the app_session_id as the account_id."
+   *
+   * @param appSessionId - App session identifier
+   * @returns Array of balance entries (asset + amount) for the session
+   */
+  async getAppSessionBalances(
+    appSessionId: Hash,
+  ): Promise<LedgerBalance[]> {
+    console.log(
+      `[QueryService] Fetching balances for app session ${appSessionId}...`,
+    );
+
+    const requestId = this.ws.getNextRequestId();
+    let request: RPCRequest = {
+      req: [
+        requestId,
+        'get_ledger_balances',
+        { account_id: appSessionId },
+        Date.now(),
+      ],
+      sig: [] as string[],
+    };
+
+    request = await this.auth.signRequest(request);
+    const response = await this.ws.send(request);
+
+    const balanceData = response.res[2] as {
+      ledger_balances: Array<{
+        asset: string;
+        amount: string;
+        locked?: string;
+        available?: string;
+      }>;
+    };
+    if (!balanceData || !Array.isArray(balanceData.ledger_balances)) {
+      console.warn(
+        '[QueryService] No ledger_balances for app session. Returning empty array.',
+      );
+      return [];
+    }
+
+    const balances: LedgerBalance[] = balanceData.ledger_balances.map((b) => ({
+      asset: b.asset,
+      amount: b.amount,
+      locked: b.locked ?? '0',
+      available: b.available ?? b.amount,
+    }));
+
+    console.log(
+      `[QueryService] Found ${balances.length} assets in app session balance`,
+    );
+
+    return balances;
   }
 
   /**

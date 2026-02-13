@@ -47,6 +47,21 @@ export interface ICustodyContractPort {
    * Get unified balance from Yellow Network
    */
   getUnifiedBalance(userAddress: string, asset: string): Promise<string>;
+
+  /**
+   * Trigger the "bring funds into ledger" step.
+   *
+   * This MUST NOT deposit from the user's wallet again.
+   * It should use Yellow Network channel operations (create/resize) to
+   * make Yellow index/credit funds that are already in the custody contract.
+   */
+  creditUnifiedBalanceFromCustody(params: {
+    userId: string;
+    chain: string;
+    userAddress: string;
+    tokenAddress: string;
+    amount: bigint;
+  }): Promise<{ channelId: string; credited: boolean }>;
 }
 
 /**

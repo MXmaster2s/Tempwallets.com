@@ -20,15 +20,22 @@
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import type { IWalletProviderPort } from '../../../app-session/ports/wallet-provider.port.js';
 import { WALLET_PROVIDER_PORT } from '../../../app-session/ports/wallet-provider.port.js';
+import type { IYellowNetworkPort } from '../../../app-session/ports/yellow-network.port.js';
+import { YELLOW_NETWORK_PORT } from '../../../app-session/ports/yellow-network.port.js';
 import type { ICustodyContractPort } from '../../ports/custody-contract.port.js';
 import { CUSTODY_CONTRACT_PORT } from '../../ports/custody-contract.port.js';
-import { DepositToCustodyDto, DepositToCustodyResultDto } from './deposit-to-custody.dto.js';
+import {
+  DepositToCustodyDto,
+  DepositToCustodyResultDto,
+} from './deposit-to-custody.dto.js';
 
 @Injectable()
 export class DepositToCustodyUseCase {
   constructor(
     @Inject(WALLET_PROVIDER_PORT)
     private readonly walletProvider: IWalletProviderPort,
+    @Inject(YELLOW_NETWORK_PORT)
+    private readonly yellowNetwork: IYellowNetworkPort,
     @Inject(CUSTODY_CONTRACT_PORT)
     private readonly custodyContract: ICustodyContractPort,
   ) {}
@@ -43,19 +50,31 @@ export class DepositToCustodyUseCase {
     // 1. Get user's wallet address and private key
     const userAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
     const userPrivateKey = await this.walletProvider.getPrivateKey(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     console.log(`User address: ${userAddress}`);
 
+    // IMPORTANT: Unified balance is Yellow Network's OFF-CHAIN ledger.
+    // To query it, we must be authenticated with Yellow Network first.
+    // Fund-channel path already authenticates; custody deposits might not.
+    try {
+      await this.yellowNetwork.authenticate(dto.userId, userAddress);
+    } catch (err) {
+      console.warn(
+        '[DepositToCustodyUseCase] Yellow Network authenticate failed (continuing; balance polling may fail until auth succeeds):',
+        err,
+      );
+    }
+
     // 2. Convert amount to smallest units (USDC/USDT = 6 decimals)
     const decimals = 6;
     const amountInSmallestUnits = BigInt(
-      Math.floor(parseFloat(dto.amount) * Math.pow(10, decimals))
+      Math.floor(parseFloat(dto.amount) * Math.pow(10, decimals)),
     );
 
     console.log(`Amount in smallest units: ${amountInSmallestUnits}`);
@@ -91,10 +110,11 @@ export class DepositToCustodyUseCase {
       },
     };
 
-    const tokenAddress = tokenAddressMap[dto.chain.toLowerCase()]?.[dto.asset.toLowerCase()];
+    const tokenAddress =
+      tokenAddressMap[dto.chain.toLowerCase()]?.[dto.asset.toLowerCase()];
     if (!tokenAddress) {
       throw new BadRequestException(
-        `Token ${dto.asset} not supported on chain ${dto.chain}`
+        `Token ${dto.asset} not supported on chain ${dto.chain}`,
       );
     }
 
@@ -123,18 +143,60 @@ export class DepositToCustodyUseCase {
 
     // 6. Step 3: Wait for Yellow Network to index deposit
     console.log(`\n--- Step 3: Waiting for Yellow Network Indexing ---`);
-    await this.waitForUnifiedBalanceUpdate(
-      userAddress,
-      tokenAddress,
-      amountInSmallestUnits,
-      30000 // 30 seconds max
-    );
+    // IMPORTANT:
+    // A custody deposit moves funds into the on-chain custody contract, but Yellow's
+    // OFF-CHAIN unified ledger may not reflect it until a channel operation occurs.
+    // Trigger the "bring funds into ledger" step via channel create/resize.
+    // This MUST NOT deposit from the wallet again.
+    try {
+      const credit = await this.custodyContract.creditUnifiedBalanceFromCustody(
+        {
+          userId: dto.userId,
+          chain: dto.chain,
+          userAddress,
+          tokenAddress,
+          amount: amountInSmallestUnits,
+        },
+      );
+      console.log(
+        `[DepositToCustodyUseCase] Triggered ledger credit via channel ${credit.channelId}`,
+      );
+    } catch (err: any) {
+      console.warn(
+        `[DepositToCustodyUseCase] Could not trigger unified ledger credit step: ${err?.message ?? err}`,
+      );
+    }
 
-    // 7. Step 4: Get final unified balance
-    const unifiedBalance = await this.custodyContract.getUnifiedBalance(
-      userAddress,
-      tokenAddress
-    );
+    // We intentionally DO NOT poll here anymore.
+    // Polling was noisy and misleading because Yellow ledger balances can be
+    // returned in different unit formats (human decimals vs smallest units)
+    // and indexing timing varies.
+    // Instead, we trigger the ledger credit step (channel resize) above and
+    // then do a single read of unified balance below.
+
+    // 7. Step 4: Fetch full unified balances (same source as GET /custody/balance)
+    // and resolve the deposited asset robustly (symbol OR token address).
+    // NOTE: This is off-chain Yellow ledger balance, not on-chain custody contract balance.
+    let unifiedBalance = '0';
+    try {
+      const balances = await this.yellowNetwork.getUnifiedBalance(userAddress);
+      const targetSymbol = dto.asset.toLowerCase();
+      const targetToken = tokenAddress.toLowerCase();
+
+      const entry = balances.find((b) => {
+        const asset = (b.asset || '').toLowerCase();
+        return asset === targetSymbol || asset === targetToken;
+      });
+
+      if (entry?.amount) {
+        unifiedBalance = entry.amount;
+      }
+    } catch (err) {
+      console.warn(
+        '[DepositToCustodyUseCase] Failed to fetch full unified balances for response:',
+        err,
+      );
+    }
 
     console.log(`\n✅ DEPOSIT COMPLETE`);
     console.log(`Approve TX: ${approveTxHash}`);
@@ -149,53 +211,9 @@ export class DepositToCustodyUseCase {
       amount: amountInSmallestUnits.toString(),
       asset: dto.asset,
       unifiedBalance,
-      message: `Successfully deposited ${dto.amount} ${dto.asset} to custody. Unified balance credited.`,
+      message:
+        `Successfully deposited ${dto.amount} ${dto.asset} to custody. ` +
+        `Unified balance is off-chain and may take a moment to reflect indexing.`,
     };
-  }
-
-  /**
-   * Wait for Yellow Network to index the custody deposit
-   * Polls unified balance until it's updated
-   */
-  private async waitForUnifiedBalanceUpdate(
-    userAddress: string,
-    tokenAddress: string,
-    expectedAmount: bigint,
-    maxWaitMs: number = 30000
-  ): Promise<void> {
-    const startTime = Date.now();
-    let attempts = 0;
-
-    console.log(`Waiting for unified balance to show ${expectedAmount}...`);
-
-    while (Date.now() - startTime < maxWaitMs) {
-      attempts++;
-
-      try {
-        // Query unified balance
-        const balance = await this.custodyContract.getUnifiedBalance(
-          userAddress,
-          tokenAddress
-        );
-
-        console.log(`Attempt ${attempts}: Unified balance = ${balance}`);
-
-        if (BigInt(balance) >= expectedAmount) {
-          console.log(`✅ Unified balance updated! Balance: ${balance}`);
-          return;
-        }
-      } catch (error) {
-        console.warn(`Failed to query balance (attempt ${attempts}):`, error);
-      }
-
-      // Wait 2 seconds before next attempt
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-
-    // Timeout - deposit succeeded but indexing may need more time
-    console.warn(
-      `⚠️  Timeout waiting for unified balance update after ${maxWaitMs}ms. ` +
-      `Deposit transaction succeeded, but Yellow Network may need more time to index it.`
-    );
   }
 }

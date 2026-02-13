@@ -15,10 +15,15 @@
  * This is the CRITICAL MISSING STEP that credits unified balance.
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { createPublicClient, createWalletClient, http, Address } from 'viem';
 import { base, arbitrum } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
+import type { IYellowNetworkPort } from '../../application/app-session/ports/yellow-network.port.js';
+import { YELLOW_NETWORK_PORT } from '../../application/app-session/ports/yellow-network.port.js';
+import { Inject } from '@nestjs/common';
+import type { IChannelManagerPort } from '../../application/channel/ports/channel-manager.port.js';
+import { CHANNEL_MANAGER_PORT } from '../../application/channel/ports/channel-manager.port.js';
 import {
   ICustodyContractPort,
   DepositParams,
@@ -64,6 +69,13 @@ const CUSTODY_ADDRESSES: Record<number, Address> = {
 
 @Injectable()
 export class CustodyContractAdapter implements ICustodyContractPort {
+  constructor(
+    @Inject(YELLOW_NETWORK_PORT)
+    private readonly yellowNetwork: IYellowNetworkPort,
+    @Inject(CHANNEL_MANAGER_PORT)
+    private readonly channelManager: IChannelManagerPort,
+  ) {}
+
   /**
    * Approve USDC for custody contract
    */
@@ -109,7 +121,8 @@ export class CustodyContractAdapter implements ICustodyContractPort {
    * This emits DepositEvent that Yellow Network indexes
    */
   async deposit(params: DepositParams): Promise<string> {
-    const { userPrivateKey, chainId, tokenAddress, amount, userAddress } = params;
+    const { userPrivateKey, chainId, tokenAddress, amount, userAddress } =
+      params;
 
     const account = privateKeyToAccount(userPrivateKey as `0x${string}`);
     const chain = this.getChain(chainId);
@@ -129,9 +142,9 @@ export class CustodyContractAdapter implements ICustodyContractPort {
       abi: CUSTODY_ABI,
       functionName: 'deposit',
       args: [
-        userAddress as Address,   // account (recipient of the custody credit)
-        tokenAddress as Address,  // token (ERC20 to deposit)
-        amount,                   // amount in token's smallest units
+        userAddress as Address, // account (recipient of the custody credit)
+        tokenAddress as Address, // token (ERC20 to deposit)
+        amount, // amount in token's smallest units
       ],
     });
 
@@ -145,7 +158,9 @@ export class CustodyContractAdapter implements ICustodyContractPort {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     console.log(`✅ Deposit confirmed in block ${receipt.blockNumber}`);
-    console.log(`Yellow Network will now index this deposit and credit unified balance`);
+    console.log(
+      `Yellow Network will now index this deposit and credit unified balance`,
+    );
 
     return hash;
   }
@@ -155,7 +170,8 @@ export class CustodyContractAdapter implements ICustodyContractPort {
    * This reduces unified balance and returns funds to user
    */
   async withdraw(params: WithdrawParams): Promise<string> {
-    const { userPrivateKey, chainId, tokenAddress, amount, userAddress } = params;
+    const { userPrivateKey, chainId, tokenAddress, amount, userAddress } =
+      params;
 
     const account = privateKeyToAccount(userPrivateKey as `0x${string}`);
     const chain = this.getChain(chainId);
@@ -192,11 +208,7 @@ export class CustodyContractAdapter implements ICustodyContractPort {
       address: custodyAddress,
       abi: CUSTODY_WITHDRAW_ABI,
       functionName: 'withdraw',
-      args: [
-        tokenAddress as Address,
-        amount,
-        userAddress as Address,
-      ],
+      args: [tokenAddress as Address, amount, userAddress as Address],
     });
 
     console.log(`✅ Withdraw transaction: ${hash}`);
@@ -217,10 +229,99 @@ export class CustodyContractAdapter implements ICustodyContractPort {
    * NOTE: This queries the off-chain unified balance, NOT custody contract
    */
   async getUnifiedBalance(userAddress: string, asset: string): Promise<string> {
-    // TODO: Query Yellow Network API for unified balance
-    // For now, this is a placeholder
     console.log(`Querying unified balance for ${userAddress}...`);
-    return '0';
+
+    // Unified balance is an OFF-CHAIN ledger maintained by Yellow Network.
+    // We can only query it after the user authenticated with Yellow Network
+    // (POST /app-session/authenticate).
+    let balances: Array<{ asset: string; amount: string }>;
+    try {
+      // Query by account_id to avoid relying on "current authenticated user" on the adapter.
+      // Yellow expects lowercase address.
+      balances = await this.yellowNetwork.getUnifiedBalance(
+        userAddress.toLowerCase(),
+      );
+    } catch (err) {
+      throw new BadRequestException(
+        'Not authenticated with Yellow Network. Call POST /app-session/authenticate first, then retry.',
+      );
+    }
+
+    const normalizedAsset = asset.toLowerCase();
+    const match = (balances || []).find(
+      (b) => (b.asset || '').toLowerCase() === normalizedAsset,
+    );
+    return match?.amount ?? '0';
+  }
+
+  /**
+   * "Bring funds into ledger" without another wallet deposit.
+   *
+   * We rely on Yellow's channel protocol to credit unified balance from
+   * funds that are already present in the custody contract.
+   */
+  async creditUnifiedBalanceFromCustody(params: {
+    userId: string;
+    chain: string;
+    userAddress: string;
+    tokenAddress: string;
+    amount: bigint;
+  }): Promise<{ channelId: string; credited: boolean }> {
+    const { userId, chain, userAddress, tokenAddress, amount } = params;
+
+    const chainIdMap: Record<string, number> = {
+      ethereum: 1,
+      base: 8453,
+      arbitrum: 42161,
+      avalanche: 43114,
+    };
+    const chainId = chainIdMap[chain.toLowerCase()];
+    if (!chainId) {
+      throw new BadRequestException(`Unsupported chain: ${chain}`);
+    }
+
+    // Ensure Yellow auth is established
+    await this.yellowNetwork.authenticate(userId, userAddress);
+
+    // Ensure we have an open channel; create a zero-balance one if needed.
+    // NOTE: get_channels can return channels not owned by the authenticated wallet;
+    // our adapter filters, but as a fallback we also parse the "already exists" error.
+    const existing = await this.channelManager.getChannels(userAddress);
+    const open = existing.find(
+      (ch) => ch.status === 'open' || ch.status === 'active',
+    );
+
+    let channelId = open?.channelId;
+    if (!channelId) {
+      try {
+        const created = await this.channelManager.createChannel({
+          userAddress,
+          chainId,
+          tokenAddress,
+          initialBalance: 0n,
+        });
+        channelId = created.channelId;
+      } catch (err: any) {
+        const msg = String(err?.message ?? '');
+        const match = msg.match(/already exists[:\s]+(0x[a-fA-F0-9]{64})/);
+        if (!match?.[1]) throw err;
+        channelId = match[1];
+      }
+    }
+
+    // IMPORTANT: This should NOT touch the wallet. resizeChannel is an off-chain
+    // operation that moves funds from custody -> unified ledger, assuming funds
+    // are already deposited into the custody contract.
+    await this.channelManager.resizeChannel({
+      channelId,
+      chainId,
+      amount,
+      userAddress,
+      tokenAddress,
+      participants: [],
+    });
+
+    return { channelId, credited: true };
   }
 
   /**
@@ -231,7 +332,7 @@ export class CustodyContractAdapter implements ICustodyContractPort {
     if (!address || address === '0x...') {
       throw new Error(
         `Custody contract address not configured for chain ${chainId}. ` +
-        `Please add the Yellow Network custody address to CUSTODY_ADDRESSES.`
+          `Please add the Yellow Network custody address to CUSTODY_ADDRESSES.`,
       );
     }
     return address;

@@ -55,8 +55,9 @@ export class CreateAppSessionUseCase {
     // 4. Build weights (equal by default)
     const weights = dto.weights || participants.map(() => 100 / participants.length);
 
-    // 5. Build quorum (majority by default)
-    const quorum = dto.quorum || Math.ceil((participants.length / 2) * 100);
+    // 5. Build quorum (50 to match session key weight)
+    // Session key has weight 50, so quorum 50 allows single-signature approval
+    const quorum = dto.quorum || 50;
 
     // 6. Create session definition (validates business rules)
     const definition = SessionDefinition.create({

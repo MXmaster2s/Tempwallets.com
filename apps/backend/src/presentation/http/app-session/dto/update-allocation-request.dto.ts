@@ -26,9 +26,7 @@ export class UpdateAllocationRequestDto {
   @IsNotEmpty()
   userId!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  appSessionId!: string;
+  // NOTE: appSessionId comes from URL path param (:sessionId), not from body
 
   @IsString()
   @IsNotEmpty()

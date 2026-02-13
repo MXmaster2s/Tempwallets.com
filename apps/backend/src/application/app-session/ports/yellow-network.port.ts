@@ -75,7 +75,10 @@ export interface IYellowNetworkPort {
    * @param walletAddress - Wallet address to authenticate
    * @returns Session ID, expiry time, and auth signature
    */
-  authenticate(userId: string, walletAddress: string): Promise<{
+  authenticate(
+    userId: string,
+    walletAddress: string,
+  ): Promise<{
     sessionId: string;
     expiresAt: number;
     authSignature: string;
@@ -102,7 +105,7 @@ export interface IYellowNetworkPort {
       participant: string;
       asset: string;
       amount: string;
-    }>
+    }>,
   ): Promise<void>;
 
   /**
@@ -117,6 +120,39 @@ export interface IYellowNetworkPort {
     participant?: string;
     status?: 'open' | 'closed';
   }): Promise<YellowSessionData[]>;
+
+  /**
+   * Get unified balance (off-chain ledger balances) for an account.
+   *
+   * Requires Yellow Network authentication to be established already.
+   *
+   * @param accountId - wallet address (recommended); if omitted, uses authenticated account
+   */
+  getUnifiedBalance(accountId?: string): Promise<
+    Array<{
+      asset: string;
+      amount: string;
+      locked: string;
+      available: string;
+    }>
+  >;
+
+  /**
+   * Get balances within a specific app session.
+   *
+   * Uses get_ledger_balances with app_session_id as account_id.
+   * Returns per-asset balances currently held in the session.
+   *
+   * @param appSessionId - App session identifier
+   */
+  getAppSessionBalances(appSessionId: string): Promise<
+    Array<{
+      asset: string;
+      amount: string;
+      locked: string;
+      available: string;
+    }>
+  >;
 }
 
 /**

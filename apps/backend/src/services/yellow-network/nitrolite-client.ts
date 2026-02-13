@@ -41,6 +41,8 @@ import type {
   NitroliteConfig,
   ChannelWithState,
   AppSession,
+  AppSessionState,
+  AppSessionIntent,
   AppDefinition,
   AppSessionAllocation,
   LedgerBalance,
@@ -241,7 +243,12 @@ export class NitroliteClient {
       // Authentication logs moved to debug level
       await this.auth.authenticate({
         application: this.config.application,
-        allowances: [], // Empty = unrestricted session (Yellow Network requirement)
+        allowances: [
+          {
+            asset: 'usdc',
+            amount: '1000', // 1000 USDC spending cap for this session
+          },
+        ],
         expiryHours: 24,
         scope:
           'transfer,app.create,app.submit,channel.create,channel.update,channel.close', // Include all channel operations
@@ -361,7 +368,7 @@ export class NitroliteClient {
     const {
       participants,
       weights = participants.map(() => 100 / participants.length),
-      quorum = Math.ceil((participants.length / 2) * 100), // Majority by default
+      quorum = 50, // Match session key weight (50 allows single-signature approval)
       token,
       initialAllocations = [],
       sessionData,
@@ -484,6 +491,32 @@ export class NitroliteClient {
     );
   }
 
+  /**
+   * Submit app state directly with final allocations.
+   *
+   * Per Yellow Network NitroRPC/0.4, allocations represent the FINAL state
+   * after the operation, not the delta. The Clearnode computes deltas.
+   *
+   * @param appSessionId - App session ID
+   * @param intent - DEPOSIT | OPERATE | WITHDRAW
+   * @param version - Must be exactly currentVersion + 1
+   * @param allocations - FINAL allocation state after this update
+   */
+  async submitAppState(
+    appSessionId: Hash,
+    intent: AppSessionIntent,
+    version: number,
+    allocations: AppSessionAllocation[],
+  ): Promise<AppSessionState> {
+    this.ensureInitialized();
+    return await this.appSessionService.submitAppStateWithVersion(
+      appSessionId,
+      intent,
+      version,
+      allocations,
+    );
+  }
+
   // ============================================================================
   // Query Methods
   // ============================================================================
@@ -494,6 +527,15 @@ export class NitroliteClient {
   async getUnifiedBalance(): Promise<LedgerBalance[]> {
     this.ensureInitialized();
     return await this.queryService.getLedgerBalances();
+  }
+
+  /**
+   * Get balances within a specific app session
+   * Uses get_ledger_balances with app_session_id as account_id
+   */
+  async getAppSessionBalances(appSessionId: Hash): Promise<LedgerBalance[]> {
+    this.ensureInitialized();
+    return await this.queryService.getAppSessionBalances(appSessionId);
   }
 
   /**
@@ -613,7 +655,12 @@ export class NitroliteClient {
       );
       await this.auth.authenticate({
         application: this.config.application,
-        allowances: [],
+        allowances: [
+          {
+            asset: 'usdc',
+            amount: '1000', // 1000 USDC spending cap for this session
+          },
+        ],
         expiryHours: 24,
         scope: 'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
       });

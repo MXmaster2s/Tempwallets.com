@@ -172,7 +172,7 @@ export class AppSessionService {
         'submit_app_state',
         {
           app_session_id: appSessionId,
-          intent,
+          intent: intent.toLowerCase(), // Yellow protocol expects lowercase: "deposit", "operate", "withdraw"
           allocations,
           session_data: sessionData,
         },
@@ -194,6 +194,70 @@ export class AppSessionService {
       app_session_id: appSessionId,
       status: stateData.status,
       version: stateData.version,
+      session_data: sessionData,
+      allocations,
+      signatures: stateData.signatures,
+    };
+  }
+
+  /**
+   * Submit app state with explicit version (NitroRPC/0.4)
+   *
+   * Per Yellow Network protocol, NitroRPC/0.4 requires:
+   * - version: must be exactly currentVersion + 1
+   * - intent: "operate" | "deposit" | "withdraw" (lowercase)
+   * - allocations: FINAL state after the operation, NOT delta
+   *
+   * @param appSessionId - App session identifier
+   * @param intent - Operation intent
+   * @param version - Next version number (currentVersion + 1)
+   * @param allocations - FINAL allocation state after this update
+   * @param sessionData - Optional application state
+   */
+  async submitAppStateWithVersion(
+    appSessionId: Hash,
+    intent: AppSessionIntent,
+    version: number,
+    allocations: AppSessionAllocation[],
+    sessionData?: string,
+  ): Promise<AppSessionState> {
+    console.log(`[AppSessionService] Submitting ${intent} intent (v${version})...`);
+    console.log(`  - Session: ${appSessionId}`);
+    console.log(`  - Version: ${version}`);
+    console.log(`  - Allocations: ${JSON.stringify(allocations)}`);
+
+    const requestId = this.ws.getNextRequestId();
+    let request: RPCRequest = {
+      req: [
+        requestId,
+        'submit_app_state',
+        {
+          app_session_id: appSessionId,
+          intent: intent.toLowerCase(), // Yellow protocol expects lowercase
+          version,
+          allocations,
+          ...(sessionData !== undefined ? { session_data: sessionData } : {}),
+        },
+        Date.now(),
+      ],
+      sig: [] as string[],
+    };
+
+    request = await this.auth.signRequest(request);
+
+    const response = await this.ws.send(request);
+    console.log(`[AppSessionService] Full submit_app_state response:`, JSON.stringify(response, null, 2));
+    const stateData = response.res[2];
+
+    console.log(`[AppSessionService] ✅ ${intent} completed!`);
+    console.log(`  - Confirmed version: ${stateData.version}`);
+    console.log(`  - Status: ${stateData.status}`);
+    console.log(`  - State data keys: ${Object.keys(stateData).join(', ')}`);
+
+    return {
+      app_session_id: appSessionId,
+      status: stateData.status || 'open',
+      version: stateData.version || version,
       session_data: sessionData,
       allocations,
       signatures: stateData.signatures,

@@ -31,14 +31,26 @@ import {
   ResizeChannelParams,
   ChannelInfo,
 } from '../../application/channel/ports/channel-manager.port.js';
-import { NitroliteClient, type MainWallet } from '../../services/yellow-network/index.js';
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address } from 'viem';
+import {
+  NitroliteClient,
+  type MainWallet,
+} from '../../services/yellow-network/index.js';
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type PublicClient,
+  type WalletClient,
+  type Address,
+} from 'viem';
 import { base } from 'viem/chains';
 import { mnemonicToAccount } from 'viem/accounts';
 import { SeedRepository } from '../../wallet/seed.repository.js';
 
 @Injectable()
-export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManagerPort {
+export class YellowNetworkAdapter
+  implements IYellowNetworkPort, IChannelManagerPort
+{
   private wsUrl: string;
   private currentClient: NitroliteClient | null = null;
   private currentWallet: string | null = null;
@@ -57,7 +69,10 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
    * Authenticate wallet with Yellow Network
    * Creates NitroliteClient and establishes connection
    */
-  async authenticate(userId: string, walletAddress: string): Promise<{
+  async authenticate(
+    userId: string,
+    walletAddress: string,
+  ): Promise<{
     sessionId: string;
     expiresAt: number;
     authSignature: string;
@@ -75,7 +90,10 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     // postReconnectSync() clears the local session — making isAuthenticated() false
     // and forcing a fresh auth here.
     if (this.currentClient && this.currentWallet === walletAddress) {
-      if (this.currentClient.isInitialized() && this.currentClient.isAuthenticated()) {
+      if (
+        this.currentClient.isInitialized() &&
+        this.currentClient.isAuthenticated()
+      ) {
         const authSignature = this.currentClient.getAuthSignature() || '';
         return { sessionId, expiresAt, authSignature };
       }
@@ -90,14 +108,20 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     // Create public client (for reading blockchain state)
     const publicClient = createPublicClient({
       chain: base,
-      transport: http(this.configService.get<string>('BASE_RPC_URL') || 'https://mainnet.base.org'),
+      transport: http(
+        this.configService.get<string>('BASE_RPC_URL') ||
+          'https://mainnet.base.org',
+      ),
     }) as PublicClient;
 
     // Create wallet client (for signing transactions) - MUST include account!
     const walletClient = createWalletClient({
-      account,  // <-- CRITICAL: Include the account for signing capability
+      account, // <-- CRITICAL: Include the account for signing capability
       chain: base,
-      transport: http(this.configService.get<string>('BASE_RPC_URL') || 'https://mainnet.base.org'),
+      transport: http(
+        this.configService.get<string>('BASE_RPC_URL') ||
+          'https://mainnet.base.org',
+      ),
     }) as WalletClient;
 
     // Create MainWallet interface
@@ -122,7 +146,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
       walletClient,
       useSessionKeys: true,
       application: 'tempwallets-lightning',
-      useSDK: true,  // Enable SDK for correct on-chain operations
+      useSDK: true, // Enable SDK for correct on-chain operations
     });
 
     await this.currentClient.initialize();
@@ -156,74 +180,58 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
 
   /**
    * Update app session allocations
+   *
+   * Per Yellow Network protocol (NitroRPC/0.4), allocations in submit_app_state
+   * represent the FINAL state after the operation, NOT the delta.
+   * The Clearnode computes deltas internally.
+   *
+   * For DEPOSIT: new sum > old sum (funds added from unified balance)
+   * For WITHDRAW: new sum < old sum (funds returned to unified balance)
+   * For OPERATE: new sum == old sum (redistribution between participants)
    */
   async updateSession(params: UpdateSessionParams): Promise<YellowSessionData> {
     if (!this.currentClient) {
       throw new BadRequestException('Not authenticated with Yellow Network');
     }
 
-    // Get current session state
+    // Get current session state to retrieve version number
     const currentSession = await this.currentClient.getLightningNode(
-      params.sessionId as `0x${string}`
+      params.sessionId as `0x${string}`,
     );
+
+    console.log(`[YellowNetworkAdapter] Current session version before ${params.intent}: ${currentSession.version}`);
+    console.log(`[YellowNetworkAdapter] Current session allocations:`, JSON.stringify(currentSession.allocations));
 
     // Validate allocations
     if (!params.allocations || params.allocations.length === 0) {
       throw new Error('No allocations provided');
     }
 
-    const firstAllocation = params.allocations[0];
-    if (!firstAllocation) {
-      throw new Error('First allocation is undefined');
-    }
+    console.log(`[YellowNetworkAdapter] Submitting ${params.intent} with version ${currentSession.version + 1}`);
+    console.log(`[YellowNetworkAdapter] New allocations:`, JSON.stringify(params.allocations));
 
-    // Depending on intent, call appropriate method
-    let result;
-    switch (params.intent) {
-      case 'DEPOSIT':
-        // For deposit, we need to know which participant is depositing
-        // This is a simplification - real implementation would be more complex
-        result = await this.currentClient.depositToLightningNode(
-          params.sessionId as `0x${string}`,
-          firstAllocation.participant as Address,
-          firstAllocation.asset,
-          firstAllocation.amount,
-          currentSession.allocations as any,
-        );
-        break;
+    // Submit the allocations directly as FINAL state — this is what Yellow protocol expects.
+    // The caller provides the complete desired allocation state.
+    const result = await this.currentClient.submitAppState(
+      params.sessionId as `0x${string}`,
+      params.intent as 'DEPOSIT' | 'OPERATE' | 'WITHDRAW',
+      currentSession.version + 1,
+      params.allocations.map(a => ({
+        participant: a.participant as Address,
+        asset: a.asset,
+        amount: a.amount,
+      })),
+    );
 
-      case 'WITHDRAW':
-        result = await this.currentClient.withdrawFromLightningNode(
-          params.sessionId as `0x${string}`,
-          firstAllocation.participant as Address,
-          firstAllocation.asset,
-          firstAllocation.amount,
-          currentSession.allocations as any,
-        );
-        break;
-
-      case 'OPERATE':
-        // For transfers, we need from/to addresses
-        // This is a simplification - real implementation would parse allocations
-        const secondAllocation = params.allocations[1];
-        if (!secondAllocation) {
-          throw new Error('Transfer requires two allocations (from and to)');
-        }
-        result = await this.currentClient.transferInLightningNode(
-          params.sessionId as `0x${string}`,
-          firstAllocation.participant as Address,
-          secondAllocation.participant as Address,
-          firstAllocation.asset,
-          firstAllocation.amount,
-          currentSession.allocations as any,
-        );
-        break;
-    }
+    console.log(`[YellowNetworkAdapter] Submit result:`, JSON.stringify(result));
 
     // Refresh session to get updated state
     const updated = await this.currentClient.getLightningNode(
-      params.sessionId as `0x${string}`
+      params.sessionId as `0x${string}`,
     );
+
+    console.log(`[YellowNetworkAdapter] Updated session version after ${params.intent}: ${updated.version}`);
+    console.log(`[YellowNetworkAdapter] Updated session allocations:`, JSON.stringify(updated.allocations));
 
     return updated as YellowSessionData;
   }
@@ -233,7 +241,11 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
    */
   async closeSession(
     sessionId: string,
-    finalAllocations: Array<{ participant: string; asset: string; amount: string }>
+    finalAllocations: Array<{
+      participant: string;
+      asset: string;
+      amount: string;
+    }>,
   ): Promise<void> {
     if (!this.currentClient) {
       throw new BadRequestException('Not authenticated with Yellow Network');
@@ -254,7 +266,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     }
 
     const session = await this.currentClient.getLightningNode(
-      sessionId as `0x${string}`
+      sessionId as `0x${string}`,
     );
 
     return session as YellowSessionData;
@@ -271,17 +283,54 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
       throw new BadRequestException('Not authenticated with Yellow Network');
     }
 
-    const sessions = await this.currentClient.getLightningNodes(filters.status || 'open');
+    const sessions = await this.currentClient.getLightningNodes(
+      filters.status || 'open',
+    );
 
     // Filter by participant if specified
     if (filters.participant) {
       const normalized = filters.participant.toLowerCase();
       return sessions.filter((s: any) =>
-        s.definition?.participants?.some((p: string) => p.toLowerCase() === normalized)
+        s.definition?.participants?.some(
+          (p: string) => p.toLowerCase() === normalized,
+        ),
       ) as YellowSessionData[];
     }
 
     return sessions as YellowSessionData[];
+  }
+
+  /**
+   * Get unified balance (ledger balances)
+   */
+  async getUnifiedBalance(
+    accountId?: string,
+  ): Promise<
+    Array<{ asset: string; amount: string; locked: string; available: string }>
+  > {
+    if (!this.currentClient) {
+      throw new BadRequestException('Not authenticated with Yellow Network');
+    }
+
+    return await this.currentClient.getUnifiedBalance();
+  }
+
+  /**
+   * Get balances within a specific app session
+   * Uses get_ledger_balances with app_session_id as account_id
+   */
+  async getAppSessionBalances(
+    appSessionId: string,
+  ): Promise<
+    Array<{ asset: string; amount: string; locked: string; available: string }>
+  > {
+    if (!this.currentClient) {
+      throw new BadRequestException('Not authenticated with Yellow Network');
+    }
+
+    return await this.currentClient.getAppSessionBalances(
+      appSessionId as `0x${string}`,
+    );
   }
 
   // ============================================================================
@@ -321,7 +370,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
     // Resolve participants - if not provided, they will be null
     // The channel service will use the channel's own participants from its state
     let participantsTuple: [Address, Address] | undefined;
-    
+
     if (params.participants.length >= 2) {
       participantsTuple = [
         params.participants[0] as Address,
@@ -329,7 +378,9 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
       ];
     } else {
       // Let the channel service resolve participants from channel data
-      console.log(`[YellowNetworkAdapter] Participants not provided, will resolve from channel data`);
+      console.log(
+        `[YellowNetworkAdapter] Participants not provided, will resolve from channel data`,
+      );
       participantsTuple = undefined;
     }
 
@@ -345,7 +396,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
 
   /**
    * Get existing channels for user
-   * 
+   *
    * CRITICAL: Filter channels by user address to prevent trying to operate
    * on channels owned by other users (which causes "invalid signature" errors)
    */
@@ -374,7 +425,7 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
 
     console.log(
       `[YellowNetworkAdapter] Found ${channels?.length || 0} total channels, ` +
-      `${userChannels.length} belong to user ${userAddress}`
+        `${userChannels.length} belong to user ${userAddress}`,
     );
 
     return userChannels.map((ch: any) => ({
@@ -388,7 +439,11 @@ export class YellowNetworkAdapter implements IYellowNetworkPort, IChannelManager
   /**
    * Close a payment channel
    */
-  async closeChannel(channelId: string, chainId: number, fundsDestination: string): Promise<void> {
+  async closeChannel(
+    channelId: string,
+    chainId: number,
+    fundsDestination: string,
+  ): Promise<void> {
     if (!this.currentClient) {
       throw new BadRequestException('Not authenticated with Yellow Network');
     }
