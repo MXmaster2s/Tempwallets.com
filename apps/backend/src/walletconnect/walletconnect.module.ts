@@ -11,7 +11,7 @@ import { AuthModule } from '../auth/auth.module.js';
 @Module({
   imports: [
     WalletModule, // For Eip7702AccountFactory and SeedManager
-    AuthModule,   // For JWT auth
+    AuthModule, // For JWT auth
     PrismaModule,
   ],
   controllers: [WalletConnectController],
@@ -24,4 +24,3 @@ import { AuthModule } from '../auth/auth.module.js';
   exports: [WalletConnectService, SessionService],
 })
 export class WalletConnectModule {}
-

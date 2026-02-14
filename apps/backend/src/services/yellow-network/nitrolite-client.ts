@@ -662,7 +662,8 @@ export class NitroliteClient {
           },
         ],
         expiryHours: 24,
-        scope: 'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
+        scope:
+          'transfer,app.create,app.submit,channel.create,channel.update,channel.close',
       });
     }
   }

@@ -8,12 +8,7 @@ import {
   encodeFunctionData,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
-import {
-  mainnet,
-  base,
-  arbitrum,
-  optimism,
-} from 'viem/chains';
+import { mainnet, base, arbitrum, optimism } from 'viem/chains';
 import { createSmartAccountClient } from 'permissionless';
 import { to7702SimpleSmartAccount } from 'permissionless/accounts';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
@@ -39,11 +34,7 @@ export class Eip7702AccountFactory {
 
   async createAccount(
     seedPhrase: string,
-    chain:
-      | 'ethereum'
-      | 'base'
-      | 'arbitrum'
-      | 'optimism',
+    chain: 'ethereum' | 'base' | 'arbitrum' | 'optimism',
     accountIndex = 0,
     userId?: string,
   ): Promise<IAccount> {
@@ -51,20 +42,20 @@ export class Eip7702AccountFactory {
     // For base chain, always allow EIP-7702 (it's natively supported)
     const isBaseChain = chain === 'base';
     const isEip7702Enabled = this.pimlicoConfig.isEip7702Enabled(chain);
-    
+
     if (!isEip7702Enabled && !isBaseChain) {
       throw new Error(
         `EIP-7702 is not enabled for chain ${chain}. ` +
-        `Enable via config (ENABLE_EIP7702=true, EIP7702_CHAINS=${chain}) before sending gasless transactions.`,
+          `Enable via config (ENABLE_EIP7702=true, EIP7702_CHAINS=${chain}) before sending gasless transactions.`,
       );
     }
-    
+
     // Log warning for base if env vars not set, but continue
     if (isBaseChain && !isEip7702Enabled) {
       this.logger.warn(
         `EIP-7702 not explicitly enabled for base via env vars, but base chain supports EIP-7702 natively. ` +
-        `Continuing with EIP-7702 support. ` +
-        `To avoid this warning, set ENABLE_EIP7702=true and EIP7702_CHAINS=base in production.`,
+          `Continuing with EIP-7702 support. ` +
+          `To avoid this warning, set ENABLE_EIP7702=true and EIP7702_CHAINS=base in production.`,
       );
     }
 
@@ -93,7 +84,7 @@ export class Eip7702AccountFactory {
     if (!delegationCode || delegationCode === '0x') {
       throw new Error(
         `Delegation address ${eipConfig.delegationAddress} has no code on ${chain}. ` +
-        `EIP-7702 might not be supported on this network, or the delegation address is incorrect.`,
+          `EIP-7702 might not be supported on this network, or the delegation address is incorrect.`,
       );
     }
 
@@ -119,7 +110,9 @@ export class Eip7702AccountFactory {
 
     const smartAccountAddress = await smartAccount.getAddress();
 
-    if (smartAccountAddress.toLowerCase() !== eoaAccount.address.toLowerCase()) {
+    if (
+      smartAccountAddress.toLowerCase() !== eoaAccount.address.toLowerCase()
+    ) {
       this.logger.error(
         `EIP-7702 address mismatch: owner=${eoaAccount.address}, smartAccount=${smartAccountAddress}. Aborting to prevent invalid authorization signature.`,
       );
@@ -133,7 +126,7 @@ export class Eip7702AccountFactory {
     if (!eipConfig.paymasterUrl) {
       this.logger.warn(
         `[EIP-7702] Paymaster URL not configured for ${chain}. ` +
-        `Transactions will not be sponsored. Consider setting PIMLICO_API_KEY.`,
+          `Transactions will not be sponsored. Consider setting PIMLICO_API_KEY.`,
       );
     }
 
@@ -173,11 +166,7 @@ export class Eip7702AccountFactory {
   }
 
   private getViemChain(
-    chain:
-      | 'ethereum'
-      | 'base'
-      | 'arbitrum'
-      | 'optimism',
+    chain: 'ethereum' | 'base' | 'arbitrum' | 'optimism',
   ): Chain {
     const baseChains: Record<string, Chain> = {
       ethereum: mainnet,
@@ -185,7 +174,7 @@ export class Eip7702AccountFactory {
       arbitrum,
       optimism,
     };
-    
+
     const baseChain = baseChains[chain];
     if (!baseChain) {
       throw new Error(`Unsupported EIP-7702 chain: ${chain}`);
@@ -209,25 +198,20 @@ export class Eip7702AccountFactory {
   }
 
   private getRpcUrl(
-    chain:
-      | 'ethereum'
-      | 'base'
-      | 'arbitrum'
-      | 'optimism',
+    chain: 'ethereum' | 'base' | 'arbitrum' | 'optimism',
   ): string {
     return this.chainConfig.getEvmChainConfig(chain).rpcUrl;
   }
-
 }
 
 class Eip7702SmartAccountWrapper implements IAccount {
   constructor(
     private readonly eoaAddress: Address,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     private readonly eoaAccount: any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     private readonly client: any, // This is the smartAccountClient
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     private readonly smartAccount: any,
     private readonly publicClient: ReturnType<typeof createPublicClient>,
     private readonly delegationRepo: Eip7702DelegationRepository,
@@ -257,7 +241,9 @@ class Eip7702SmartAccountWrapper implements IAccount {
     this.logger.log(`[EIP-7702 Send] Amount: ${value}`);
     this.logger.log(`[EIP-7702 Send] EOA Address: ${this.eoaAddress}`);
     this.logger.log(`[EIP-7702 Send] Chain ID: ${this.chainId}`);
-    this.logger.log(`[EIP-7702 Send] Delegation Address: ${this.delegationAddress}`);
+    this.logger.log(
+      `[EIP-7702 Send] Delegation Address: ${this.delegationAddress}`,
+    );
 
     try {
       // ✅ FIX: Check bytecode directly instead of isDeployed()
@@ -271,7 +257,7 @@ class Eip7702SmartAccountWrapper implements IAccount {
 
       this.logger.log(
         `[EIP-7702] Delegation status - hasBytecode: ${hasDelegation}, ` +
-        `bytecode: ${code?.slice(0, 20)}...`,
+          `bytecode: ${code?.slice(0, 20)}...`,
       );
 
       // Also check isDeployed for comparison (logging only)
@@ -288,7 +274,9 @@ class Eip7702SmartAccountWrapper implements IAccount {
 
       if (!hasDelegation) {
         // First transaction - include authorization
-        this.logger.log(`[EIP-7702] First transaction - including authorization`);
+        this.logger.log(
+          `[EIP-7702] First transaction - including authorization`,
+        );
 
         const nonce = await this.publicClient.getTransactionCount({
           address: this.eoaAddress,
@@ -313,12 +301,16 @@ class Eip7702SmartAccountWrapper implements IAccount {
           const recoveredAddress = await recoverAuthorizationAddress({
             authorization,
           });
-          this.logger.log(`[EIP-7702] Authorization signer: ${recoveredAddress}`);
+          this.logger.log(
+            `[EIP-7702] Authorization signer: ${recoveredAddress}`,
+          );
 
-          if (recoveredAddress.toLowerCase() !== this.eoaAddress.toLowerCase()) {
+          if (
+            recoveredAddress.toLowerCase() !== this.eoaAddress.toLowerCase()
+          ) {
             throw new Error(
               `Authorization signature mismatch! ` +
-              `Expected: ${this.eoaAddress}, Got: ${recoveredAddress}`,
+                `Expected: ${this.eoaAddress}, Got: ${recoveredAddress}`,
             );
           }
         } catch (error) {
@@ -374,7 +366,7 @@ class Eip7702SmartAccountWrapper implements IAccount {
 
       throw new Error(
         `Failed to send EIP-7702 transaction: ${errorMsg}. ` +
-        `This may indicate a bundler issue, network incompatibility, or incorrect delegation address.`,
+          `This may indicate a bundler issue, network incompatibility, or incorrect delegation address.`,
       );
     }
   }
@@ -556,7 +548,8 @@ class Eip7702SmartAccountWrapper implements IAccount {
         address: this.eoaAddress,
       });
 
-      const isDelegated = code !== undefined && code !== '0x' && code.length > 2;
+      const isDelegated =
+        code !== undefined && code !== '0x' && code.length > 2;
 
       if (isDelegated) {
         // Already delegated on-chain but not in DB - sync DB

@@ -4,7 +4,13 @@
  * Presentation Layer - HTTP-specific validation
  */
 
-import { IsString, IsNotEmpty, IsArray, IsIn, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  IsIn,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class AllocationDto {

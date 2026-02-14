@@ -15,7 +15,7 @@
 export class FundChannelDto {
   userId!: string;
   chain!: string;
-  asset!: string;  // e.g., "usdc", "usdt"
+  asset!: string; // e.g., "usdc", "usdt"
   amount!: string; // e.g., "100.0"
 }
 

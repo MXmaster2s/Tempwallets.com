@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import { Eip7702AdapterService } from './eip7702-adapter.service.js';
 import { AddressManager } from '../wallet/managers/address.manager.js';
@@ -47,7 +52,7 @@ export class WalletConnectService {
       return [];
     }
 
-    const accounts = delegations.map(delegation => {
+    const accounts = delegations.map((delegation) => {
       const accountId = `eip155:${delegation.chainId}:${delegation.address}`;
 
       return {
@@ -88,7 +93,9 @@ export class WalletConnectService {
     });
 
     if (!proposal) {
-      throw new NotFoundException(`Proposal ${proposalId} not found or already processed`);
+      throw new NotFoundException(
+        `Proposal ${proposalId} not found or already processed`,
+      );
     }
 
     // Check if proposal is expired
@@ -104,7 +111,7 @@ export class WalletConnectService {
     const eip7702Accounts = await this.getEip7702Accounts(userId);
 
     // Filter EIP-7702 accounts to only include approved chains
-    let approvedAccounts = eip7702Accounts.filter(account =>
+    let approvedAccounts = eip7702Accounts.filter((account) =>
       approvedChains.includes(account.chainId),
     );
 
@@ -127,22 +134,25 @@ export class WalletConnectService {
 
       // Create accounts from EOA addresses for approved chains
       approvedAccounts = approvedChains
-        .map(chainId => {
+        .map((chainId) => {
           const chainName = chainIdToName[chainId];
           if (!chainName) return null;
 
           // Get EOA address for this chain (same address for all EVM chains)
-          const address = addresses.ethereum || addresses.base || addresses.arbitrum;
+          const address =
+            addresses.ethereum || addresses.base || addresses.arbitrum;
           if (!address) return null;
 
           return {
             accountId: `eip155:${chainId}:${address}`,
             chainId,
-            address: address as string,
+            address: address,
             chainName: this.getChainName(chainId),
           };
         })
-        .filter((account): account is NonNullable<typeof account> => account !== null);
+        .filter(
+          (account): account is NonNullable<typeof account> => account !== null,
+        );
     }
 
     if (approvedAccounts.length === 0) {
@@ -154,14 +164,16 @@ export class WalletConnectService {
     // Build namespaces (eip155 only)
     const namespaces = {
       eip155: {
-        accounts: approvedAccounts.map(a => a.accountId),
-        methods: proposal.requiredMethods.length > 0
-          ? proposal.requiredMethods
-          : this.getDefaultMethods(),
-        events: proposal.requiredEvents.length > 0
-          ? proposal.requiredEvents
-          : this.getDefaultEvents(),
-        chains: approvedChains.map(id => `eip155:${id}`),
+        accounts: approvedAccounts.map((a) => a.accountId),
+        methods:
+          proposal.requiredMethods.length > 0
+            ? proposal.requiredMethods
+            : this.getDefaultMethods(),
+        events:
+          proposal.requiredEvents.length > 0
+            ? proposal.requiredEvents
+            : this.getDefaultEvents(),
+        chains: approvedChains.map((id) => `eip155:${id}`),
       },
     };
 
@@ -206,7 +218,9 @@ export class WalletConnectService {
     });
 
     if (!proposal) {
-      throw new NotFoundException(`Proposal ${proposalId} not found or already processed`);
+      throw new NotFoundException(
+        `Proposal ${proposalId} not found or already processed`,
+      );
     }
 
     await this.prisma.wcProposal.update({
@@ -295,4 +309,3 @@ export class WalletConnectService {
     return chainMap[chainId] || `chain-${chainId}`;
   }
 }
-

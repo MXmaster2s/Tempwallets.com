@@ -11,4 +11,3 @@ export class RejectProposalDto {
   @IsString()
   reason?: string;
 }
-

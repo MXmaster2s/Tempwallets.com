@@ -110,22 +110,24 @@ class NativeEoaAccountWrapper implements IAccount {
   }
 
   async getBalance(): Promise<string> {
-    const balance = await this.publicClient.getBalance({ address: this.address });
+    const balance = await this.publicClient.getBalance({
+      address: this.address,
+    });
     return balance.toString();
   }
 
   async send(to: string, amount: string): Promise<string> {
     const requestedValue = BigInt(amount);
-    
+
     // Get current balance
-    const balance = await this.publicClient.getBalance({ 
-      address: this.address 
+    const balance = await this.publicClient.getBalance({
+      address: this.address,
     });
-    
+
     this.logger.log(
-      `Sending ${requestedValue} wei to ${to} from ${this.address} (balance: ${balance})`
+      `Sending ${requestedValue} wei to ${to} from ${this.address} (balance: ${balance})`,
     );
-    
+
     try {
       // Estimate gas for this transaction
       const gasEstimate = await this.publicClient.estimateGas({
@@ -133,58 +135,58 @@ class NativeEoaAccountWrapper implements IAccount {
         to: to as Address,
         value: requestedValue,
       });
-      
+
       // Get current gas price
       const gasPrice = await this.publicClient.getGasPrice();
-      
+
       // Calculate total gas cost with 20% buffer for safety
       const gasCostEstimate = gasEstimate * gasPrice;
       const gasCostWithBuffer = (gasCostEstimate * 120n) / 100n;
-      
+
       this.logger.log(
         `Gas estimate: ${gasEstimate} units, price: ${gasPrice} wei, ` +
-        `total cost: ${gasCostEstimate} wei (with 20% buffer: ${gasCostWithBuffer} wei)`
+          `total cost: ${gasCostEstimate} wei (with 20% buffer: ${gasCostWithBuffer} wei)`,
       );
-      
+
       // Check if user is trying to send more than they have (including gas)
       const totalNeeded = requestedValue + gasCostWithBuffer;
-      
+
       if (totalNeeded > balance) {
         // User doesn't have enough for both amount + gas
         const maxSendable = balance - gasCostWithBuffer;
-        
+
         if (maxSendable <= 0n) {
           throw new Error(
             `Insufficient balance for gas fees. Balance: ${balance} wei, ` +
-            `Gas needed: ${gasCostWithBuffer} wei. Please add more funds to cover gas costs.`
+              `Gas needed: ${gasCostWithBuffer} wei. Please add more funds to cover gas costs.`,
           );
         }
-        
+
         // Calculate percentage difference
         const difference = requestedValue - maxSendable;
         const percentDiff = (difference * 100n) / requestedValue;
-        
+
         this.logger.warn(
           `Requested ${requestedValue} wei but only ${maxSendable} wei available after gas. ` +
-          `Difference: ${difference} wei (${percentDiff}%)`
+            `Difference: ${difference} wei (${percentDiff}%)`,
         );
-        
+
         // If difference is significant (>2%), throw error
         if (percentDiff > 2n) {
           throw new Error(
             `Cannot send ${requestedValue} wei. Maximum sendable: ${maxSendable} wei ` +
-            `(must reserve ${gasCostWithBuffer} wei for gas). ` +
-            `Difference: ${difference} wei (${percentDiff}%). ` +
-            `Please reduce your send amount or add more funds.`
+              `(must reserve ${gasCostWithBuffer} wei for gas). ` +
+              `Difference: ${difference} wei (${percentDiff}%). ` +
+              `Please reduce your send amount or add more funds.`,
           );
         }
-        
+
         // Small difference (<=2%) - auto-adjust and proceed
         this.logger.log(
           `Auto-adjusting send amount from ${requestedValue} to ${maxSendable} ` +
-          `to reserve gas (difference: ${difference} wei, ${percentDiff}%)`
+            `to reserve gas (difference: ${difference} wei, ${percentDiff}%)`,
         );
-        
+
         const hash = await this.walletClient.sendTransaction({
           chain: this.walletClient.chain,
           account: this.walletClient.account!,
@@ -192,15 +194,15 @@ class NativeEoaAccountWrapper implements IAccount {
           value: maxSendable,
           gas: gasEstimate,
         });
-        
+
         this.logger.log(
           `Transaction sent with adjusted amount: ${hash} ` +
-          `(sent ${maxSendable} wei instead of ${requestedValue} wei)`
+            `(sent ${maxSendable} wei instead of ${requestedValue} wei)`,
         );
-        
+
         return hash;
       }
-      
+
       // Normal case - enough balance for both amount and gas
       const hash = await this.walletClient.sendTransaction({
         chain: this.walletClient.chain,
@@ -209,23 +211,26 @@ class NativeEoaAccountWrapper implements IAccount {
         value: requestedValue,
         gas: gasEstimate,
       });
-      
+
       this.logger.log(`Transaction sent: ${hash}`);
       return hash;
-      
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Failed to send native token: ${errorMessage}`);
-      
+
       // Re-throw with more context
-      if (errorMessage.includes('insufficient funds') || errorMessage.includes('gas required exceeds')) {
+      if (
+        errorMessage.includes('insufficient funds') ||
+        errorMessage.includes('gas required exceeds')
+      ) {
         throw new Error(
           `Insufficient funds for transaction. Balance: ${balance} wei, ` +
-          `Requested: ${requestedValue} wei. ` +
-          `You need additional funds to cover gas fees. Error: ${errorMessage}`
+            `Requested: ${requestedValue} wei. ` +
+            `You need additional funds to cover gas fees. Error: ${errorMessage}`,
         );
       }
-      
+
       throw error;
     }
   }

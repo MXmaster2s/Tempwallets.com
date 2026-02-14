@@ -16,7 +16,11 @@ import { SigningService } from './signing.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { OptionalAuth } from '../auth/decorators/optional-auth.decorator.js';
 import { UserId } from '../auth/decorators/user-id.decorator.js';
-import { ApproveProposalDto, RejectProposalDto, SignRequestDto } from './dto/index.js';
+import {
+  ApproveProposalDto,
+  RejectProposalDto,
+  SignRequestDto,
+} from './dto/index.js';
 
 @Controller('walletconnect')
 export class WalletConnectController {
@@ -34,7 +38,10 @@ export class WalletConnectController {
    */
   @Get('accounts')
   @HttpCode(HttpStatus.OK)
-  async getAccounts(@UserId() userId?: string, @Body() body?: { userId?: string }) {
+  async getAccounts(
+    @UserId() userId?: string,
+    @Body() body?: { userId?: string },
+  ) {
     const finalUserId = userId || body?.userId;
     if (!finalUserId) {
       throw new Error('userId is required');
@@ -60,7 +67,10 @@ export class WalletConnectController {
    */
   @Get('sessions')
   @HttpCode(HttpStatus.OK)
-  async getSessions(@UserId() userId?: string, @Body() body?: { userId?: string }) {
+  async getSessions(
+    @UserId() userId?: string,
+    @Body() body?: { userId?: string },
+  ) {
     const finalUserId = userId || body?.userId;
     if (!finalUserId) {
       throw new Error('userId is required');
@@ -71,7 +81,7 @@ export class WalletConnectController {
     const sessions = await this.sessionService.getActiveSessions(finalUserId);
 
     return {
-      sessions: sessions.map(s => ({
+      sessions: sessions.map((s) => ({
         topic: s.topic,
         dapp: {
           name: s.dappName,
@@ -137,7 +147,11 @@ export class WalletConnectController {
 
     // Rejecting proposal
 
-    await this.wcService.rejectProposal(finalUserId, dto.proposalId, dto.reason);
+    await this.wcService.rejectProposal(
+      finalUserId,
+      dto.proposalId,
+      dto.reason,
+    );
 
     return { success: true };
   }
@@ -149,7 +163,8 @@ export class WalletConnectController {
   @HttpCode(HttpStatus.OK)
   async saveProposal(
     @UserId() userId: string | null,
-    @Body() body: {
+    @Body()
+    body: {
       userId?: string;
       proposalId: number;
       proposer: any;
@@ -182,7 +197,8 @@ export class WalletConnectController {
   @HttpCode(HttpStatus.OK)
   async saveSession(
     @UserId() userId: string | null,
-    @Body() body: {
+    @Body()
+    body: {
       userId?: string;
       session: any;
       namespaces: any;
@@ -258,7 +274,10 @@ export class WalletConnectController {
    */
   @Get('proposals/pending')
   @HttpCode(HttpStatus.OK)
-  async getPendingProposals(@UserId() userId?: string, @Body() body?: { userId?: string }) {
+  async getPendingProposals(
+    @UserId() userId?: string,
+    @Body() body?: { userId?: string },
+  ) {
     const finalUserId = userId || body?.userId;
     if (!finalUserId) {
       throw new Error('userId is required');
@@ -266,7 +285,8 @@ export class WalletConnectController {
 
     // Getting pending proposals
 
-    const proposals = await this.sessionService.getPendingProposals(finalUserId);
+    const proposals =
+      await this.sessionService.getPendingProposals(finalUserId);
 
     return { proposals };
   }
@@ -288,9 +308,11 @@ export class WalletConnectController {
 
     // Getting pending requests
 
-    const requests = await this.sessionService.getPendingRequests(finalUserId, topic);
+    const requests = await this.sessionService.getPendingRequests(
+      finalUserId,
+      topic,
+    );
 
     return { requests };
   }
 }
-

@@ -33,9 +33,7 @@ import { WalletProviderModule } from '../../../infrastructure/wallet/wallet-prov
     YellowNetworkModule,
     WalletProviderModule,
   ],
-  controllers: [
-    AppSessionController,
-  ],
+  controllers: [AppSessionController],
   providers: [
     // Register use cases
     AuthenticateWalletUseCase,

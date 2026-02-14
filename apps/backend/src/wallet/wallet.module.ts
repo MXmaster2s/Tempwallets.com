@@ -62,11 +62,11 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     AptosSequenceManager,
     // Factories
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAccountFactory,
-  // Delegation repository for EIP-7702
-  Eip7702DelegationRepository,
+    // Delegation repository for EIP-7702
+    Eip7702DelegationRepository,
     // Aptos Services
     AptosRpcService,
     AptosAccountService,
@@ -94,15 +94,15 @@ import { AptosFaucetService } from './aptos/services/aptos-faucet.service.js';
     SeedManager,
     AddressManager,
     AccountFactory,
-  NativeEoaFactory,
-  Eip7702AccountFactory,
+    NativeEoaFactory,
+    Eip7702AccountFactory,
     AptosAddressManager,
     AptosAccountFactory,
     AptosRpcService,
     AptosAccountService,
     AptosTransactionService,
     AptosSequenceManager,
-  Eip7702DelegationRepository,
+    Eip7702DelegationRepository,
     // Export Pimlico service
     PimlicoService,
     // Export Polkadot EVM RPC service

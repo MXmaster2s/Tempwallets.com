@@ -77,7 +77,9 @@ export class AppSessionController {
    */
   @Post('authenticate')
   @HttpCode(HttpStatus.OK)
-  async authenticate(@Body(ValidationPipe) request: AuthenticateWalletRequestDto) {
+  async authenticate(
+    @Body(ValidationPipe) request: AuthenticateWalletRequestDto,
+  ) {
     const result = await this.authenticateWalletUseCase.execute({
       userId: request.userId,
       chain: request.chain,

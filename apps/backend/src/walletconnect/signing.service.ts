@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.js';
 import { Eip7702AdapterService } from './eip7702-adapter.service.js';
 import { SessionService } from './session.service.js';
@@ -43,7 +48,9 @@ export class SigningService {
     });
 
     if (!session) {
-      throw new NotFoundException(`Session ${topic} not found for user ${userId}`);
+      throw new NotFoundException(
+        `Session ${topic} not found for user ${userId}`,
+      );
     }
 
     // Parse chain ID
@@ -53,7 +60,9 @@ export class SigningService {
     }
     const chainIdNum = parseInt(chainIdParts[1], 10);
     if (isNaN(chainIdNum)) {
-      throw new BadRequestException(`Invalid chain ID number: ${chainIdParts[1]}`);
+      throw new BadRequestException(
+        `Invalid chain ID number: ${chainIdParts[1]}`,
+      );
     }
 
     // Create request record
@@ -128,9 +137,10 @@ export class SigningService {
         case 'eth_signTypedData':
         case 'eth_signTypedData_v4': {
           const [address, typedDataStr] = params;
-          const typedData = typeof typedDataStr === 'string'
-            ? JSON.parse(typedDataStr)
-            : typedDataStr;
+          const typedData =
+            typeof typedDataStr === 'string'
+              ? JSON.parse(typedDataStr)
+              : typedDataStr;
 
           signature = await this.eip7702Adapter.signTypedData(
             userId,
@@ -223,4 +233,3 @@ export class SigningService {
     }
   }
 }
-

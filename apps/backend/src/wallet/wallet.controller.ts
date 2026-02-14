@@ -301,7 +301,9 @@ export class WalletController {
       throw new BadRequestException('userId is required');
     }
 
-    this.logger.warn(`Deprecated endpoint /wallet/walletconnect/accounts called. Use /walletconnect/accounts instead.`);
+    this.logger.warn(
+      `Deprecated endpoint /wallet/walletconnect/accounts called. Use /walletconnect/accounts instead.`,
+    );
 
     try {
       const namespaces =
@@ -412,14 +414,12 @@ export class WalletController {
 
     const chain = dto.chain as AllChainTypes;
 
-    this.logger.log(
-      `Sending crypto for user ${finalUserId} on chain ${chain}`,
-    );
+    this.logger.log(`Sending crypto for user ${finalUserId} on chain ${chain}`);
 
     try {
       const result = await this.walletService.sendCrypto(
         finalUserId,
-  chain,
+        chain,
         dto.recipientAddress,
         dto.amount,
         dto.tokenAddress,
@@ -675,7 +675,9 @@ export class WalletController {
       throw new BadRequestException('userId is required');
     }
 
-    this.logger.warn(`Deprecated endpoint /wallet/walletconnect/sign called. Use /walletconnect/sign instead.`);
+    this.logger.warn(
+      `Deprecated endpoint /wallet/walletconnect/sign called. Use /walletconnect/sign instead.`,
+    );
 
     this.logger.log(
       `Signing WalletConnect transaction for user ${finalUserId} on chain ${dto.chainId}`,

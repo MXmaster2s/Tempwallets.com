@@ -14,14 +14,10 @@ import { WalletProviderModule } from '../../../infrastructure/wallet/wallet-prov
 
 @Module({
   imports: [
-    YellowNetworkModule,    // Provides YELLOW_NETWORK_PORT and CHANNEL_MANAGER_PORT
-    WalletProviderModule,   // Provides WALLET_PROVIDER_PORT
+    YellowNetworkModule, // Provides YELLOW_NETWORK_PORT and CHANNEL_MANAGER_PORT
+    WalletProviderModule, // Provides WALLET_PROVIDER_PORT
   ],
-  controllers: [
-    ChannelController,
-  ],
-  providers: [
-    FundChannelUseCase,
-  ],
+  controllers: [ChannelController],
+  providers: [FundChannelUseCase],
 })
 export class ChannelModule {}

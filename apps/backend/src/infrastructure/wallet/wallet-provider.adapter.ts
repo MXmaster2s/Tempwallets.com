@@ -49,7 +49,9 @@ export class WalletProviderAdapter implements IWalletProviderPort {
     if (!walletAddress) {
       throw new Error(
         `No wallet address found for chain "${chain}". ` +
-        `Available chains: ${Object.keys(allAddresses).filter(k => allAddresses[k as keyof typeof allAddresses]).join(', ')}`
+          `Available chains: ${Object.keys(allAddresses)
+            .filter((k) => allAddresses[k as keyof typeof allAddresses])
+            .join(', ')}`,
       );
     }
 

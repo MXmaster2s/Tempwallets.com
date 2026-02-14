@@ -21,7 +21,11 @@ export class Allocation {
   /**
    * Create allocation with validation
    */
-  static create(participant: string, asset: string, amount: string): Allocation {
+  static create(
+    participant: string,
+    asset: string,
+    amount: string,
+  ): Allocation {
     return new Allocation(participant, asset, amount);
   }
 
@@ -39,7 +43,9 @@ export class Allocation {
     // Validate amount is valid number
     const amountNum = parseFloat(this.amount);
     if (isNaN(amountNum) || amountNum < 0) {
-      throw new Error(`Invalid amount: ${this.amount}. Must be a non-negative number.`);
+      throw new Error(
+        `Invalid amount: ${this.amount}. Must be a non-negative number.`,
+      );
     }
   }
 

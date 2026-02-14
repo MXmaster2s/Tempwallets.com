@@ -48,7 +48,7 @@ export class AppSession {
     for (const allocation of initialAllocations) {
       if (!definition.isParticipant(allocation.participant)) {
         throw new Error(
-          `Cannot create session: allocation participant ${allocation.participant} is not in the participants list`
+          `Cannot create session: allocation participant ${allocation.participant} is not in the participants list`,
         );
       }
     }
@@ -100,7 +100,7 @@ export class AppSession {
     for (const allocation of newAllocations) {
       if (!this._definition.isParticipant(allocation.participant)) {
         throw new Error(
-          `Cannot update allocations: ${allocation.participant} is not a participant in this session`
+          `Cannot update allocations: ${allocation.participant} is not a participant in this session`,
         );
       }
     }
@@ -136,10 +136,13 @@ export class AppSession {
   getAllocation(participant: string, asset: string): Allocation | null {
     const normalized = participant.toLowerCase();
     const normalizedAsset = asset.toLowerCase();
-    return this._allocations.find(
-      a => a.participant.toLowerCase() === normalized &&
-           a.asset.toLowerCase() === normalizedAsset
-    ) || null;
+    return (
+      this._allocations.find(
+        (a) =>
+          a.participant.toLowerCase() === normalized &&
+          a.asset.toLowerCase() === normalizedAsset,
+      ) || null
+    );
   }
 
   // ============================================================================

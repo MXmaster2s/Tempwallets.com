@@ -19,4 +19,3 @@ export class SignRequestDto {
   @IsString()
   chainId: string; // CAIP-2 format: "eip155:1"
 }
-

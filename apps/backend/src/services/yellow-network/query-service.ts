@@ -524,7 +524,9 @@ export class QueryService {
 
     // Step 1: Get app definition directly by ID (public method, no pagination issues)
     // This is the reliable way to fetch a specific session's governance parameters.
-    const definitionRaw = (await this.getAppDefinition(appSessionId)) as unknown;
+    const definitionRaw = (await this.getAppDefinition(
+      appSessionId,
+    )) as unknown;
     const def =
       definitionRaw && typeof definitionRaw === 'object'
         ? (definitionRaw as Record<string, unknown>)
@@ -537,9 +539,7 @@ export class QueryService {
         : 'NitroRPC/0.4';
     const participants =
       Array.isArray(def.participants) &&
-      def.participants.every(
-        (p) => typeof p === 'string' && p.startsWith('0x'),
-      )
+      def.participants.every((p) => typeof p === 'string' && p.startsWith('0x'))
         ? (def.participants as `0x${string}`[])
         : [];
     const weights =
@@ -551,13 +551,20 @@ export class QueryService {
     const challenge = typeof def.challenge === 'number' ? def.challenge : 0;
     const nonce = typeof def.nonce === 'number' ? def.nonce : 0;
 
-    const definition = { protocol, participants, weights, quorum, challenge, nonce };
+    const definition = {
+      protocol,
+      participants,
+      weights,
+      quorum,
+      challenge,
+      nonce,
+    };
 
     // Step 2: Get actual allocations via get_ledger_balances with app_session_id as account_id
     // The get_app_sessions API does NOT return per-participant allocations.
     // Per Yellow docs: "To query balance within a specific app session,
     // provide the app_session_id as the account_id."
-    let allocations: import('./types.js').AppSessionAllocation[] = [];
+    const allocations: import('./types.js').AppSessionAllocation[] = [];
     try {
       const sessionBalances = await this.getAppSessionBalances(appSessionId);
       // Convert LedgerBalance[] to AppSessionAllocation[]
@@ -583,10 +590,7 @@ export class QueryService {
         }
       }
     } catch (error) {
-      console.warn(
-        `[QueryService] Failed to get session balances:`,
-        error,
-      );
+      console.warn(`[QueryService] Failed to get session balances:`, error);
     }
 
     // Step 3: Try to find session metadata from get_app_sessions with higher limit
@@ -605,9 +609,10 @@ export class QueryService {
 
     if (session) {
       // If the session list had allocations, use them; otherwise use what we got from ledger
-      const sessionAllocations = (session.allocations && session.allocations.length > 0)
-        ? session.allocations
-        : allocations;
+      const sessionAllocations =
+        session.allocations && session.allocations.length > 0
+          ? session.allocations
+          : allocations;
       console.log(
         `[QueryService] ✅ Found session in list, merged with definition (${participants.length} participants, ${sessionAllocations.length} allocations)`,
       );
@@ -708,9 +713,7 @@ export class QueryService {
    * @param appSessionId - App session identifier
    * @returns Array of balance entries (asset + amount) for the session
    */
-  async getAppSessionBalances(
-    appSessionId: Hash,
-  ): Promise<LedgerBalance[]> {
+  async getAppSessionBalances(appSessionId: Hash): Promise<LedgerBalance[]> {
     console.log(
       `[QueryService] Fetching balances for app session ${appSessionId}...`,
     );

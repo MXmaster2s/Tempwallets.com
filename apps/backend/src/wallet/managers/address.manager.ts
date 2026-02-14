@@ -66,7 +66,7 @@ export class AddressManager implements IAddressManager {
     private addressCacheRepository: AddressCacheRepository,
     private aptosAddressManager: AptosAddressManager,
     private pimlicoConfig: PimlicoConfigService,
-  ) { }
+  ) {}
 
   /**
    * Clear all cached addresses for a user (both in-memory and database)
@@ -150,7 +150,12 @@ export class AddressManager implements IAddressManager {
       try {
         // Use EIP-7702 factory for enabled chains (same address as EOA), else native EOA
         // Only enable EIP-7702 for supported chains: ethereum, base, arbitrum, optimism
-        const supportedEip7702Chains = ['ethereum', 'base', 'arbitrum', 'optimism'];
+        const supportedEip7702Chains = [
+          'ethereum',
+          'base',
+          'arbitrum',
+          'optimism',
+        ];
         const useEip7702 =
           this.pimlicoConfig.isEip7702Enabled(chain) &&
           supportedEip7702Chains.includes(chain);
@@ -158,22 +163,36 @@ export class AddressManager implements IAddressManager {
         let account;
         try {
           if (useEip7702) {
-            account = await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism', 0);
+            account = await this.eip7702AccountFactory.createAccount(
+              seedPhrase,
+              chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism',
+              0,
+            );
           } else {
-            account = await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
+            account = await this.nativeEoaFactory.createAccount(
+              seedPhrase,
+              chain,
+              0,
+            );
           }
         } catch (innerError) {
           // If EIP-7702 fails, fall back to native EOA (addresses are the same)
           if (useEip7702) {
-            this.logger.warn(`EIP-7702 creation failed for ${chain}, falling back to Native EOA: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`);
-            account = await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
+            this.logger.warn(
+              `EIP-7702 creation failed for ${chain}, falling back to Native EOA: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`,
+            );
+            account = await this.nativeEoaFactory.createAccount(
+              seedPhrase,
+              chain,
+              0,
+            );
           } else {
             throw innerError;
           }
         }
 
         const address = await account.getAddress();
-        addresses[chain] = address as any;
+        addresses[chain] = address;
         addressesToSave[chain] = address as string;
         await this.addressCacheRepository.saveAddress(userId, chain, address);
       } catch (error) {
@@ -221,19 +240,19 @@ export class AddressManager implements IAddressManager {
         key: keyof WalletAddresses;
         value: string | null;
       }> = [
-          { key: 'polkadot', value: substrateAddresses.polkadot ?? null },
-          {
-            key: 'hydrationSubstrate',
-            value: substrateAddresses.hydration ?? null,
-          },
-          { key: 'bifrostSubstrate', value: substrateAddresses.bifrost ?? null },
-          { key: 'uniqueSubstrate', value: substrateAddresses.unique ?? null },
-          { key: 'paseo', value: substrateAddresses.paseo ?? null },
-          {
-            key: 'paseoAssethub',
-            value: substrateAddresses.paseoAssethub ?? null,
-          },
-        ];
+        { key: 'polkadot', value: substrateAddresses.polkadot ?? null },
+        {
+          key: 'hydrationSubstrate',
+          value: substrateAddresses.hydration ?? null,
+        },
+        { key: 'bifrostSubstrate', value: substrateAddresses.bifrost ?? null },
+        { key: 'uniqueSubstrate', value: substrateAddresses.unique ?? null },
+        { key: 'paseo', value: substrateAddresses.paseo ?? null },
+        {
+          key: 'paseoAssethub',
+          value: substrateAddresses.paseoAssethub ?? null,
+        },
+      ];
 
       for (const { key, value } of substrateMappings) {
         // Only update if not already cached or if cached value is null
@@ -275,11 +294,11 @@ export class AddressManager implements IAddressManager {
         key: keyof WalletAddresses;
         value: string;
       }> = [
-          { key: 'aptos', value: aptosAddress },
-          { key: 'aptosMainnet', value: aptosAddress },
-          { key: 'aptosTestnet', value: aptosAddress },
-          { key: 'aptosDevnet', value: aptosAddress },
-        ];
+        { key: 'aptos', value: aptosAddress },
+        { key: 'aptosMainnet', value: aptosAddress },
+        { key: 'aptosTestnet', value: aptosAddress },
+        { key: 'aptosDevnet', value: aptosAddress },
+      ];
 
       for (const { key, value } of aptosMappings) {
         // Only update if not already cached
@@ -427,7 +446,10 @@ export class AddressManager implements IAddressManager {
     }
 
     // Process EVM chains (native/EIP-7702)
-    const evmChains: { name: WalletAddressKey; chain: 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche' }[] = [
+    const evmChains: {
+      name: WalletAddressKey;
+      chain: 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche';
+    }[] = [
       { name: 'ethereum', chain: 'ethereum' },
       { name: 'base', chain: 'base' },
       { name: 'arbitrum', chain: 'arbitrum' },
@@ -442,7 +464,12 @@ export class AddressManager implements IAddressManager {
 
       try {
         // Only enable EIP-7702 for supported chains: ethereum, base, arbitrum, optimism
-        const supportedEip7702Chains = ['ethereum', 'base', 'arbitrum', 'optimism'];
+        const supportedEip7702Chains = [
+          'ethereum',
+          'base',
+          'arbitrum',
+          'optimism',
+        ];
         const useEip7702 =
           this.pimlicoConfig.isEip7702Enabled(chain) &&
           supportedEip7702Chains.includes(chain);
@@ -450,15 +477,29 @@ export class AddressManager implements IAddressManager {
         let account;
         try {
           if (useEip7702) {
-            account = await this.eip7702AccountFactory.createAccount(seedPhrase, chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism', 0);
+            account = await this.eip7702AccountFactory.createAccount(
+              seedPhrase,
+              chain as 'ethereum' | 'base' | 'arbitrum' | 'optimism',
+              0,
+            );
           } else {
-            account = await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
+            account = await this.nativeEoaFactory.createAccount(
+              seedPhrase,
+              chain,
+              0,
+            );
           }
         } catch (innerError) {
           // If EIP-7702 fails, fall back to native EOA (addresses are the same)
           if (useEip7702) {
-            this.logger.warn(`EIP-7702 streaming failed for ${name}, falling back to Native EOA: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`);
-            account = await this.nativeEoaFactory.createAccount(seedPhrase, chain, 0);
+            this.logger.warn(
+              `EIP-7702 streaming failed for ${name}, falling back to Native EOA: ${innerError instanceof Error ? innerError.message : 'Unknown error'}`,
+            );
+            account = await this.nativeEoaFactory.createAccount(
+              seedPhrase,
+              chain,
+              0,
+            );
           } else {
             throw innerError;
           }
@@ -838,5 +879,4 @@ export class AddressManager implements IAddressManager {
 
     return complete as WalletAddresses;
   }
-
 }

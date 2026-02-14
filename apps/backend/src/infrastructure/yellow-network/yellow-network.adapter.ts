@@ -199,39 +199,57 @@ export class YellowNetworkAdapter
       params.sessionId as `0x${string}`,
     );
 
-    console.log(`[YellowNetworkAdapter] Current session version before ${params.intent}: ${currentSession.version}`);
-    console.log(`[YellowNetworkAdapter] Current session allocations:`, JSON.stringify(currentSession.allocations));
+    console.log(
+      `[YellowNetworkAdapter] Current session version before ${params.intent}: ${currentSession.version}`,
+    );
+    console.log(
+      `[YellowNetworkAdapter] Current session allocations:`,
+      JSON.stringify(currentSession.allocations),
+    );
 
     // Validate allocations
     if (!params.allocations || params.allocations.length === 0) {
       throw new Error('No allocations provided');
     }
 
-    console.log(`[YellowNetworkAdapter] Submitting ${params.intent} with version ${currentSession.version + 1}`);
-    console.log(`[YellowNetworkAdapter] New allocations:`, JSON.stringify(params.allocations));
+    console.log(
+      `[YellowNetworkAdapter] Submitting ${params.intent} with version ${currentSession.version + 1}`,
+    );
+    console.log(
+      `[YellowNetworkAdapter] New allocations:`,
+      JSON.stringify(params.allocations),
+    );
 
     // Submit the allocations directly as FINAL state — this is what Yellow protocol expects.
     // The caller provides the complete desired allocation state.
     const result = await this.currentClient.submitAppState(
       params.sessionId as `0x${string}`,
-      params.intent as 'DEPOSIT' | 'OPERATE' | 'WITHDRAW',
+      params.intent,
       currentSession.version + 1,
-      params.allocations.map(a => ({
+      params.allocations.map((a) => ({
         participant: a.participant as Address,
         asset: a.asset,
         amount: a.amount,
       })),
     );
 
-    console.log(`[YellowNetworkAdapter] Submit result:`, JSON.stringify(result));
+    console.log(
+      `[YellowNetworkAdapter] Submit result:`,
+      JSON.stringify(result),
+    );
 
     // Refresh session to get updated state
     const updated = await this.currentClient.getLightningNode(
       params.sessionId as `0x${string}`,
     );
 
-    console.log(`[YellowNetworkAdapter] Updated session version after ${params.intent}: ${updated.version}`);
-    console.log(`[YellowNetworkAdapter] Updated session allocations:`, JSON.stringify(updated.allocations));
+    console.log(
+      `[YellowNetworkAdapter] Updated session version after ${params.intent}: ${updated.version}`,
+    );
+    console.log(
+      `[YellowNetworkAdapter] Updated session allocations:`,
+      JSON.stringify(updated.allocations),
+    );
 
     return updated as YellowSessionData;
   }

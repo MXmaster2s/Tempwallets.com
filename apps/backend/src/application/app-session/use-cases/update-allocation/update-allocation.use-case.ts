@@ -24,7 +24,10 @@ import type { IYellowNetworkPort } from '../../ports/yellow-network.port.js';
 import { YELLOW_NETWORK_PORT } from '../../ports/yellow-network.port.js';
 import type { IWalletProviderPort } from '../../ports/wallet-provider.port.js';
 import { WALLET_PROVIDER_PORT } from '../../ports/wallet-provider.port.js';
-import { UpdateAllocationDto, UpdateAllocationResultDto } from './update-allocation.dto.js';
+import {
+  UpdateAllocationDto,
+  UpdateAllocationResultDto,
+} from './update-allocation.dto.js';
 
 @Injectable()
 export class UpdateAllocationUseCase {
@@ -39,14 +42,16 @@ export class UpdateAllocationUseCase {
     // 1. Get user's wallet address
     const walletAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
     await this.yellowNetwork.authenticate(dto.userId, walletAddress);
 
     // 3. Query current session to verify user is participant
-    const currentSession = await this.yellowNetwork.querySession(dto.appSessionId);
+    const currentSession = await this.yellowNetwork.querySession(
+      dto.appSessionId,
+    );
 
     // 4. Update allocations with Yellow Network
     const updated = await this.yellowNetwork.updateSession({

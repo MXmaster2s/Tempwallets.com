@@ -71,7 +71,7 @@ export class SessionDefinition {
     // Validate weights match participants
     if (this.weights.length !== this.participants.length) {
       throw new Error(
-        `Weights array length (${this.weights.length}) must match participants length (${this.participants.length})`
+        `Weights array length (${this.weights.length}) must match participants length (${this.participants.length})`,
       );
     }
 
@@ -84,12 +84,16 @@ export class SessionDefinition {
 
     // Validate quorum is between 1 and 100
     if (this.quorum < 1 || this.quorum > 100) {
-      throw new Error(`Quorum must be between 1 and 100. Found: ${this.quorum}`);
+      throw new Error(
+        `Quorum must be between 1 and 100. Found: ${this.quorum}`,
+      );
     }
 
     // Validate challenge period is positive
     if (this.challenge <= 0) {
-      throw new Error(`Challenge period must be positive. Found: ${this.challenge}`);
+      throw new Error(
+        `Challenge period must be positive. Found: ${this.challenge}`,
+      );
     }
 
     // Validate nonce is positive
@@ -103,7 +107,7 @@ export class SessionDefinition {
    */
   isParticipant(address: string): boolean {
     const normalized = address.toLowerCase();
-    return this.participants.some(p => p.toLowerCase() === normalized);
+    return this.participants.some((p) => p.toLowerCase() === normalized);
   }
 
   /**
@@ -111,7 +115,9 @@ export class SessionDefinition {
    */
   getParticipantWeight(address: string): number | null {
     const normalized = address.toLowerCase();
-    const index = this.participants.findIndex(p => p.toLowerCase() === normalized);
+    const index = this.participants.findIndex(
+      (p) => p.toLowerCase() === normalized,
+    );
     if (index < 0) return null;
     const weight = this.weights[index];
     return weight !== undefined ? weight : null;

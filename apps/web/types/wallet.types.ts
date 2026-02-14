@@ -51,9 +51,6 @@ export interface WalletCapabilities {
   
   /** Supports token transfers (ERC-20, etc.) */
   tokenTransfers: boolean;
-  
-  /** Supports Lightning Nodes (Yellow Network Nitrolite Channels) */
-  lightningNodes: boolean;
 }
 
 /**

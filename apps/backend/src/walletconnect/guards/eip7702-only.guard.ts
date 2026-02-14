@@ -38,4 +38,3 @@ export class Eip7702OnlyGuard implements CanActivate {
     return true;
   }
 }
-

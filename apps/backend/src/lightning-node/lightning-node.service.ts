@@ -9,12 +9,17 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../database/prisma.service.js';
 import {
   createPublicClient,
+  createWalletClient,
   http,
   type Address,
   type PublicClient,
   type WalletClient,
 } from 'viem';
-import { mnemonicToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import {
+  mnemonicToAccount,
+  type PrivateKeyAccount,
+  type LocalAccount,
+} from 'viem/accounts';
 import { base, mainnet, polygon, arbitrum } from 'viem/chains';
 import {
   NitroliteClient,
@@ -165,6 +170,7 @@ export class LightningNodeService {
     userId: string,
     chainName: string,
   ): Promise<{
+    account: LocalAccount;
     address: Address;
     signTypedData: (typedData: any) => Promise<string>;
   }> {
@@ -186,8 +192,22 @@ export class LightningNodeService {
         `Created EOA signer account ${account.address} for user ${userId} on ${baseChain}`,
       );
 
+      // Ensure signAuthorization exists and type is local
+      const accountWithAuth = {
+        ...account,
+        type: 'local' as const,
+        signAuthorization:
+          account.signAuthorization ??
+          (async (parameters) => {
+            throw new Error(
+              `signAuthorization not supported for this account: ${account.address}`,
+            );
+          }),
+      } satisfies LocalAccount;
+
       // Return a wrapper that provides signTypedData
       return {
+        account: accountWithAuth,
         address: account.address,
         signTypedData: async (typedData: any) => {
           // Viem requires typed data to be destructured
@@ -289,6 +309,10 @@ export class LightningNodeService {
       this.configService.get<string>(`${baseChain.toUpperCase()}_RPC_URL`) ||
       this.getDefaultRpcUrl(baseChain);
 
+    // Create EOA signer account for signing EIP-712 messages
+    // This uses the normal EVM wallet which has a private key
+    const eoaSigner = await this.createEOASignerAccount(userId, baseChain);
+
     // Create public client
     const publicClient = createPublicClient({
       chain,
@@ -296,14 +320,11 @@ export class LightningNodeService {
     }) as PublicClient;
 
     // Create wallet client (used for on-chain operations)
-    const walletClient = createPublicClient({
+    const walletClient = createWalletClient({
+      account: eoaSigner.account,
       chain,
       transport: http(rpcUrl),
     }) as unknown as WalletClient;
-
-    // Create EOA signer account for signing EIP-712 messages
-    // This uses the normal EVM wallet which has a private key
-    const eoaSigner = await this.createEOASignerAccount(userId, baseChain);
 
     this.logger.log(
       `Using EOA address ${eoaSigner.address} for authentication (wallet address: ${walletAddress})`,
@@ -1339,12 +1360,12 @@ export class LightningNodeService {
 
   /**
    * Fund payment channel (add funds to unified balance)
-   * 
+   *
    * This moves funds from the user's on-chain wallet to the unified balance.
    * Uses Yellow Network's resizeChannel() method to add funds to an existing channel.
    * If no channel exists, creates one first then funds it.
    * Once funded, the unified balance can be used for gasless deposits to app sessions.
-   * 
+   *
    * @param dto - FundChannelDto containing userId, chain, asset, and amount
    * @returns Success response with transaction details
    */
@@ -1433,16 +1454,12 @@ export class LightningNodeService {
           const firstChannel = channels[0];
           if (firstChannel && firstChannel.channelId) {
             // Use the first channel found for this chain
-            channelId = firstChannel.channelId as `0x${string}`;
-            this.logger.log(
-              `Found existing channel: ${channelId}`,
-            );
+            channelId = firstChannel.channelId;
+            this.logger.log(`Found existing channel: ${channelId}`);
           }
         }
       } catch (error) {
-        this.logger.log(
-          'No existing channel found or error querying channels',
-        );
+        this.logger.log('No existing channel found or error querying channels');
       }
 
       // If no channel exists, create one first
@@ -1455,7 +1472,7 @@ export class LightningNodeService {
           tokenAddress,
           BigInt(0), // Create with zero balance
         );
-        channelId = newChannel.channelId as `0x${string}`;
+        channelId = newChannel.channelId;
         this.logger.log(`Channel created: ${channelId}`);
       }
 

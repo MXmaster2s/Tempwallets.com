@@ -72,11 +72,7 @@ export interface SmartAccountSummary {
     | null;
   address: string | null;
   chains: Record<
-    | 'ethereum'
-    | 'base'
-    | 'arbitrum'
-    | 'polygon'
-    | 'avalanche',
+    'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche',
     string | null
   >;
 }

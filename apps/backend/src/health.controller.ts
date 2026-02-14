@@ -115,17 +115,14 @@ export class HealthController {
 
     try {
       // Test basic API connectivity with a simple request
-      const response = await loggingFetch(
-        'https://api.zerion.io/v1/chains',
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${auth}`,
-          },
-          timeoutMs: 30000,
-          serviceName: 'ZerionTest',
+      const response = await loggingFetch('https://api.zerion.io/v1/chains', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${auth}`,
         },
-      );
+        timeoutMs: 30000,
+        serviceName: 'ZerionTest',
+      });
 
       const durationMs = Date.now() - startTime;
       const data = (await response.json()) as { data?: unknown[] };
@@ -166,7 +163,9 @@ export class HealthController {
     this.logger.log(`Testing Yellow Network connectivity to: ${wsUrl}`);
 
     // Convert WebSocket URL to HTTP for basic connectivity test
-    const httpUrl = wsUrl.replace('wss://', 'https://').replace('ws://', 'http://');
+    const httpUrl = wsUrl
+      .replace('wss://', 'https://')
+      .replace('ws://', 'http://');
     const startTime = Date.now();
 
     try {

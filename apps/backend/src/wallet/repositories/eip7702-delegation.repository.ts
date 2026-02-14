@@ -61,9 +61,7 @@ export class Eip7702DelegationRepository {
     });
   }
 
-  async getDelegationsForUser(
-    userId: string,
-  ): Promise<Eip7702Delegation[]> {
+  async getDelegationsForUser(userId: string): Promise<Eip7702Delegation[]> {
     return this.prisma.eip7702Delegation.findMany({
       where: { walletId: userId },
     });

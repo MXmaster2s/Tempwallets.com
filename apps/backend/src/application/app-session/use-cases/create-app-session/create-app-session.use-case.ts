@@ -28,7 +28,10 @@ import { WALLET_PROVIDER_PORT } from '../../ports/wallet-provider.port.js';
 import { AppSession } from '../../../../domain/app-session/entities/app-session.entity.js';
 import { SessionDefinition } from '../../../../domain/app-session/value-objects/session-definition.vo.js';
 import { Allocation } from '../../../../domain/app-session/value-objects/allocation.vo.js';
-import { CreateAppSessionDto, CreateAppSessionResultDto } from './create-app-session.dto.js';
+import {
+  CreateAppSessionDto,
+  CreateAppSessionResultDto,
+} from './create-app-session.dto.js';
 
 @Injectable()
 export class CreateAppSessionUseCase {
@@ -43,17 +46,21 @@ export class CreateAppSessionUseCase {
     // 1. Get creator's wallet address
     const creatorAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
     await this.yellowNetwork.authenticate(dto.userId, creatorAddress);
 
     // 3. Build participant list (creator + requested participants)
-    const participants = this.buildParticipantList(creatorAddress, dto.participants);
+    const participants = this.buildParticipantList(
+      creatorAddress,
+      dto.participants,
+    );
 
     // 4. Build weights (equal by default)
-    const weights = dto.weights || participants.map(() => 100 / participants.length);
+    const weights =
+      dto.weights || participants.map(() => 100 / participants.length);
 
     // 5. Build quorum (50 to match session key weight)
     // Session key has weight 50, so quorum 50 allows single-signature approval
@@ -70,8 +77,12 @@ export class CreateAppSessionUseCase {
     });
 
     // 7. Build initial allocations
-    const allocations = (dto.initialAllocations || []).map(alloc =>
-      Allocation.create(alloc.participant, dto.token.toLowerCase(), alloc.amount)
+    const allocations = (dto.initialAllocations || []).map((alloc) =>
+      Allocation.create(
+        alloc.participant,
+        dto.token.toLowerCase(),
+        alloc.amount,
+      ),
     );
 
     // 8. Create domain entity (validates all business rules)
@@ -81,7 +92,7 @@ export class CreateAppSessionUseCase {
     const yellowResponse = await this.yellowNetwork.createSession({
       sessionId: session.id.value, // Placeholder, Yellow will assign real ID
       definition: definition.toYellowFormat(),
-      allocations: allocations.map(a => a.toYellowFormat()),
+      allocations: allocations.map((a) => a.toYellowFormat()),
     });
 
     // 10. Return result (NO database storage)
@@ -100,7 +111,7 @@ export class CreateAppSessionUseCase {
    */
   private buildParticipantList(
     creatorAddress: string,
-    requestedParticipants: string[]
+    requestedParticipants: string[],
   ): string[] {
     const seen = new Set<string>();
     const participants: string[] = [];
@@ -121,7 +132,7 @@ export class CreateAppSessionUseCase {
     // Yellow Network supports 1+ participants (simplified from current 2+ requirement)
     if (participants.length < 1) {
       throw new BadRequestException(
-        'App session must have at least one participant'
+        'App session must have at least one participant',
       );
     }
 

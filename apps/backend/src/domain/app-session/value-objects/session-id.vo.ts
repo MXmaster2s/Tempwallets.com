@@ -39,7 +39,7 @@ export class SessionId {
 
     if (!/^0x[a-fA-F0-9]{64}$/.test(this._value)) {
       throw new Error(
-        `Invalid session ID format: ${this._value}. Expected 0x followed by 64 hex characters.`
+        `Invalid session ID format: ${this._value}. Expected 0x followed by 64 hex characters.`,
       );
     }
   }

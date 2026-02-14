@@ -11,4 +11,3 @@ export class ApproveProposalDto {
   @IsNumber({}, { each: true })
   approvedChains: number[];
 }
-

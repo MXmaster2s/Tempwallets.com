@@ -63,11 +63,6 @@ const Services = () => {
   // Services data array with custom image icons
   const services = [
     {
-      iconSrc: "/Risk.png",
-      title: "Lightning Network Channels",
-      description: "Open instant low-fee Lightning channels in TempWallet for fast, scalable, cross-chain crypto payments.",
-    },
-    {
       iconSrc: "/Wallet.png",
       title: "Gas-less Burner Wallets",
       description: "Receive tokens instantly without gas fees in burner wallets for secure, private transactions.",

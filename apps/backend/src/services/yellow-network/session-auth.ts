@@ -95,12 +95,14 @@ export class SessionKeyAuth {
     if (this.sessionKey && this.isAuthenticated()) {
       const remainingTime = this.sessionKey.expiresAt - Date.now();
       const remainingHours = Math.floor(remainingTime / (60 * 60 * 1000));
-      const remainingMinutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
-      
-      console.log(
-        `[SessionKeyAuth] ✅ Session already valid (expires in ${remainingHours}h ${remainingMinutes}m). Skipping re-authentication.`
+      const remainingMinutes = Math.floor(
+        (remainingTime % (60 * 60 * 1000)) / (60 * 1000),
       );
-      
+
+      console.log(
+        `[SessionKeyAuth] ✅ Session already valid (expires in ${remainingHours}h ${remainingMinutes}m). Skipping re-authentication.`,
+      );
+
       // Return cached authentication result
       return {
         success: true,
@@ -113,7 +115,8 @@ export class SessionKeyAuth {
     console.log('[SessionKeyAuth] Starting authentication flow...');
 
     // Step 1: Generate session key
-    const { account: sessionKeyAccount, privateKey: sessionKeyPrivateKey } = this.generateSessionKey();
+    const { account: sessionKeyAccount, privateKey: sessionKeyPrivateKey } =
+      this.generateSessionKey();
     // Yellow docs are inconsistent on expires_at units (seconds vs ms). The clearnode JWT exp
     // expects seconds, so keep ms locally for expiry checks but send seconds to the server.
     const expiresAtMs = Date.now() + expiryHours * 60 * 60 * 1000;
@@ -442,7 +445,11 @@ export class SessionKeyAuth {
     });
 
     console.log('  Signature:', signature);
-    console.log('  Signature length:', signature.length, '(should be 132: 0x + 130 hex chars)');
+    console.log(
+      '  Signature length:',
+      signature.length,
+      '(should be 132: 0x + 130 hex chars)',
+    );
 
     return {
       ...request,
@@ -519,7 +526,10 @@ export class SessionKeyAuth {
   /**
    * Generate a new session key pair
    */
-  private generateSessionKey(): { account: PrivateKeyAccount; privateKey: string } {
+  private generateSessionKey(): {
+    account: PrivateKeyAccount;
+    privateKey: string;
+  } {
     const privateKey = generatePrivateKey();
     return {
       account: privateKeyToAccount(privateKey),

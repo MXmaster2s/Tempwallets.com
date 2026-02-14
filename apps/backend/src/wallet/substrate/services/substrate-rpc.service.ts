@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ApiPromise, WsProvider } from '@polkadot/api';
 import {
   SubstrateChainKey,
@@ -262,7 +267,11 @@ export class SubstrateRpcService implements OnModuleInit, OnModuleDestroy {
           `Connection attempt ${attempt}/${this.MAX_RECONNECT_ATTEMPTS} failed for ${connectionKey}, retrying in ${delay}ms`,
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
-        return this.createConnectionWithRetry(rpcUrl, connectionKey, attempt + 1);
+        return this.createConnectionWithRetry(
+          rpcUrl,
+          connectionKey,
+          attempt + 1,
+        );
       }
       throw error;
     } finally {
@@ -325,7 +334,10 @@ export class SubstrateRpcService implements OnModuleInit, OnModuleDestroy {
               await Promise.race([
                 api.isReady,
                 new Promise<never>((_, reject) =>
-                  setTimeout(() => reject(new Error('Health check timeout')), 3000),
+                  setTimeout(
+                    () => reject(new Error('Health check timeout')),
+                    3000,
+                  ),
                 ),
               ]);
             }

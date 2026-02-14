@@ -56,12 +56,14 @@ export class SessionService {
           return chainId;
         })
       : [];
-    const approvedAccounts: string[] = (eip155Namespace.accounts || []) as string[];
+    const approvedAccounts: string[] = (eip155Namespace.accounts ||
+      []) as string[];
 
     // ✅ FIX: Convert expiry to Date if it's a number (timestamp)
-    const expiryDate = typeof session.expiry === 'number'
-      ? new Date(session.expiry * 1000) // Unix timestamp to Date (multiply by 1000 for milliseconds)
-      : session.expiry;
+    const expiryDate =
+      typeof session.expiry === 'number'
+        ? new Date(session.expiry * 1000) // Unix timestamp to Date (multiply by 1000 for milliseconds)
+        : session.expiry;
 
     // ✅ FIX: Use upsert to handle existing sessions
     await this.prisma.wcSession.upsert({
@@ -130,7 +132,9 @@ export class SessionService {
 
     if (!session) {
       // ✅ FIX: Don't throw error - session might not exist in DB but exists in WalletKit
-      this.logger.warn(`Session ${topic} not found in database for user ${userId}, but continuing with disconnect`);
+      this.logger.warn(
+        `Session ${topic} not found in database for user ${userId}, but continuing with disconnect`,
+      );
       return;
     }
 
@@ -179,7 +183,9 @@ export class SessionService {
     });
 
     if (!session) {
-      throw new NotFoundException(`Session ${topic} not found for user ${userId}`);
+      throw new NotFoundException(
+        `Session ${topic} not found for user ${userId}`,
+      );
     }
 
     const requests = await this.prisma.wcRequest.findMany({
@@ -194,4 +200,3 @@ export class SessionService {
     return requests;
   }
 }
-

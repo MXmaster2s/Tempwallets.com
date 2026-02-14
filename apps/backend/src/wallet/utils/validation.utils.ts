@@ -167,10 +167,7 @@ export function validateSufficientBalance(
  * @param chain - Chain name or chain ID
  * @returns Block explorer URL
  */
-export function getExplorerUrl(
-  txHash: string,
-  chain: string | number,
-): string {
+export function getExplorerUrl(txHash: string, chain: string | number): string {
   // Convert chain ID to chain name if needed
   const chainIdMap: Record<number, string> = {
     1: 'ethereum',

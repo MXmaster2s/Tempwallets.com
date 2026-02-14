@@ -43,7 +43,7 @@ export class PimlicoConfigService {
         paymasterUrl: apiKey
           ? `https://api.pimlico.io/v2/1/rpc?apikey=${apiKey}`
           : undefined,
-  entryPointAddress: entryPoint08Address, // v0.8 for EIP-7702
+        entryPointAddress: entryPoint08Address, // v0.8 for EIP-7702
         factoryAddress: '0x0000000000FFe8B47B3e2130213B802212439497', // Pimlico Safe factory
       },
       base: {
@@ -59,7 +59,7 @@ export class PimlicoConfigService {
         paymasterUrl: apiKey
           ? `https://api.pimlico.io/v2/8453/rpc?apikey=${apiKey}`
           : undefined,
-  entryPointAddress: entryPoint08Address,
+        entryPointAddress: entryPoint08Address,
         factoryAddress: '0x0000000000FFe8B47B3e2130213B802212439497',
       },
       arbitrum: {
@@ -75,7 +75,7 @@ export class PimlicoConfigService {
         paymasterUrl: apiKey
           ? `https://api.pimlico.io/v2/42161/rpc?apikey=${apiKey}`
           : undefined,
-  entryPointAddress: entryPoint08Address,
+        entryPointAddress: entryPoint08Address,
         factoryAddress: '0x0000000000FFe8B47B3e2130213B802212439497',
       },
       polygon: {

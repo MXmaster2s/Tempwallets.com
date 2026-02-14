@@ -67,25 +67,20 @@ export class AppSessionService {
 
     // Request app session creation
     const requestId = this.ws.getNextRequestId();
-    
+
     // Build params object, excluding undefined values
     const params: any = {
       definition,
       allocations,
     };
-    
+
     // Only include session_data if it's defined
     if (sessionData !== undefined) {
       params.session_data = sessionData;
     }
-    
+
     let request: RPCRequest = {
-      req: [
-        requestId,
-        'create_app_session',
-        params,
-        Date.now(),
-      ],
+      req: [requestId, 'create_app_session', params, Date.now()],
       sig: [] as string[],
     };
 
@@ -96,31 +91,46 @@ export class AppSessionService {
     const sessionResponse = response.res[2];
 
     // Log full response for debugging
-    console.log('[AppSessionService] Full response:', JSON.stringify(response, null, 2));
-    console.log('[AppSessionService] Session response:', JSON.stringify(sessionResponse, null, 2));
+    console.log(
+      '[AppSessionService] Full response:',
+      JSON.stringify(response, null, 2),
+    );
+    console.log(
+      '[AppSessionService] Session response:',
+      JSON.stringify(sessionResponse, null, 2),
+    );
 
     // Extract app session ID - try multiple possible field names
-    const appSessionId: Hash = sessionResponse?.app_session_id || 
-                               sessionResponse?.appSessionId || 
-                               sessionResponse?.session_id ||
-                               sessionResponse?.sessionId;
+    const appSessionId: Hash =
+      sessionResponse?.app_session_id ||
+      sessionResponse?.appSessionId ||
+      sessionResponse?.session_id ||
+      sessionResponse?.sessionId;
 
     // app_session_id MUST come from Yellow Network - no fallback computation
     if (!appSessionId || typeof appSessionId !== 'string') {
-      console.error('[AppSessionService] ❌ app_session_id missing from Yellow Network response');
-      console.error('[AppSessionService] Response structure:', JSON.stringify(sessionResponse, null, 2));
+      console.error(
+        '[AppSessionService] ❌ app_session_id missing from Yellow Network response',
+      );
+      console.error(
+        '[AppSessionService] Response structure:',
+        JSON.stringify(sessionResponse, null, 2),
+      );
       throw new Error(
         'Failed to create app session: Yellow Network did not return app_session_id. ' +
-        `Response: ${JSON.stringify(sessionResponse)}`
+          `Response: ${JSON.stringify(sessionResponse)}`,
       );
     }
 
     // Ensure appSessionId is a valid Hash (0x-prefixed hex string)
     if (!appSessionId.startsWith('0x') || appSessionId.length !== 66) {
-      console.error('[AppSessionService] ❌ Invalid app_session_id format:', appSessionId);
+      console.error(
+        '[AppSessionService] ❌ Invalid app_session_id format:',
+        appSessionId,
+      );
       throw new Error(
         `Invalid app_session_id format from Yellow Network: ${appSessionId}. ` +
-        'Expected 0x-prefixed 64-character hex string.'
+          'Expected 0x-prefixed 64-character hex string.',
       );
     }
 
@@ -221,7 +231,9 @@ export class AppSessionService {
     allocations: AppSessionAllocation[],
     sessionData?: string,
   ): Promise<AppSessionState> {
-    console.log(`[AppSessionService] Submitting ${intent} intent (v${version})...`);
+    console.log(
+      `[AppSessionService] Submitting ${intent} intent (v${version})...`,
+    );
     console.log(`  - Session: ${appSessionId}`);
     console.log(`  - Version: ${version}`);
     console.log(`  - Allocations: ${JSON.stringify(allocations)}`);
@@ -246,7 +258,10 @@ export class AppSessionService {
     request = await this.auth.signRequest(request);
 
     const response = await this.ws.send(request);
-    console.log(`[AppSessionService] Full submit_app_state response:`, JSON.stringify(response, null, 2));
+    console.log(
+      `[AppSessionService] Full submit_app_state response:`,
+      JSON.stringify(response, null, 2),
+    );
     const stateData = response.res[2];
 
     console.log(`[AppSessionService] ✅ ${intent} completed!`);

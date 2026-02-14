@@ -90,18 +90,20 @@ export class AuthService {
 
     // After transaction, create wallet for Google user if needed
     // This is done outside transaction to avoid Prisma transaction issues
-    const hasExistingWallet = await this.seedManager.hasSeed(result.googleUser.id);
+    const hasExistingWallet = await this.seedManager.hasSeed(
+      result.googleUser.id,
+    );
     let newWalletCreated = false;
 
     if (!hasExistingWallet) {
       // Create new wallet seed for Google user
       await this.seedManager.createOrImportSeed(result.googleUser.id, 'random');
       newWalletCreated = true;
-      
+
       if (result.fingerprintUser) {
         this.logger.log(
           `Created new wallet for Google user ${result.googleUser.id} after linking fingerprint ${fingerprint}. ` +
-          `Fingerprint user ${result.fingerprintUser.id} and its wallet remain unchanged.`,
+            `Fingerprint user ${result.fingerprintUser.id} and its wallet remain unchanged.`,
         );
       } else {
         this.logger.log(
@@ -112,8 +114,8 @@ export class AuthService {
       if (result.fingerprintUser) {
         this.logger.log(
           `Linked fingerprint ${fingerprint} to Google user ${result.googleUser.id}. ` +
-          `Fingerprint user ${result.fingerprintUser.id} and its wallet remain unchanged. ` +
-          `Google user already has a wallet.`,
+            `Fingerprint user ${result.fingerprintUser.id} and its wallet remain unchanged. ` +
+            `Google user already has a wallet.`,
         );
       }
     }

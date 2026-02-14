@@ -162,7 +162,7 @@ describe('WalletService', () => {
     polkadotEvmRpcService = module.get(PolkadotEvmRpcService);
     substrateManager = module.get(SubstrateManager);
     balanceCacheRepository = module.get(BalanceCacheRepository);
-  eip7702DelegationRepository = module.get(Eip7702DelegationRepository);
+    eip7702DelegationRepository = module.get(Eip7702DelegationRepository);
   });
 
   afterEach(() => {

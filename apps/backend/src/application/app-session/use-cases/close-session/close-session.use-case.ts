@@ -38,7 +38,7 @@ export class CloseSessionUseCase {
     // 1. Get user's wallet address
     const walletAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
@@ -49,26 +49,26 @@ export class CloseSessionUseCase {
 
     // 4. Verify user is a participant
     const isParticipant = session.definition.participants.some(
-      p => p.toLowerCase() === walletAddress.toLowerCase()
+      (p) => p.toLowerCase() === walletAddress.toLowerCase(),
     );
 
     if (!isParticipant) {
       throw new BadRequestException(
-        'You are not a participant in this session'
+        'You are not a participant in this session',
       );
     }
 
     // 5. Verify session is open
     if (session.status !== 'open') {
       throw new BadRequestException(
-        `Cannot close session in ${session.status} state`
+        `Cannot close session in ${session.status} state`,
       );
     }
 
     // 6. Close session with Yellow Network (using current allocations)
     await this.yellowNetwork.closeSession(
       dto.appSessionId,
-      session.allocations
+      session.allocations,
     );
 
     // 7. Return result

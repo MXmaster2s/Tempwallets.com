@@ -41,7 +41,7 @@ export class FundChannelUseCase {
     // 1. Get user's wallet address
     const userAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
@@ -50,7 +50,7 @@ export class FundChannelUseCase {
     // 3. Convert amount to smallest units
     const decimals = 6;
     const amountInSmallestUnits = BigInt(
-      Math.floor(parseFloat(dto.amount) * Math.pow(10, decimals))
+      Math.floor(parseFloat(dto.amount) * Math.pow(10, decimals)),
     );
 
     // 4. Get chain ID and token address
@@ -84,17 +84,22 @@ export class FundChannelUseCase {
       },
     };
 
-    const tokenAddress = tokenAddressMap[dto.chain.toLowerCase()]?.[dto.asset.toLowerCase()];
+    const tokenAddress =
+      tokenAddressMap[dto.chain.toLowerCase()]?.[dto.asset.toLowerCase()];
     if (!tokenAddress) {
       throw new BadRequestException(
-        `Token ${dto.asset} not supported on chain ${dto.chain}`
+        `Token ${dto.asset} not supported on chain ${dto.chain}`,
       );
     }
 
     // 5. Check if channel exists for this user
-    console.log(`[FundChannel] Checking for existing channels for user ${userAddress}...`);
+    console.log(
+      `[FundChannel] Checking for existing channels for user ${userAddress}...`,
+    );
     const existingChannels = await this.channelManager.getChannels(userAddress);
-    console.log(`[FundChannel] Found ${existingChannels.length} existing channels for this user`);
+    console.log(
+      `[FundChannel] Found ${existingChannels.length} existing channels for this user`,
+    );
 
     // Only use channels that are in "open" status — skip "resizing", "closed", etc.
     const openChannels = existingChannels.filter(
@@ -116,12 +121,20 @@ export class FundChannelUseCase {
       // A channel gets stuck in "resizing" when the resize_channel RPC succeeded
       // on Yellow Network but the on-chain custody.resize() tx failed.
       for (const stuck of resizingChannels) {
-        console.log(`[FundChannel] Closing stuck resizing channel: ${stuck.channelId}`);
+        console.log(
+          `[FundChannel] Closing stuck resizing channel: ${stuck.channelId}`,
+        );
         try {
-          await this.channelManager.closeChannel(stuck.channelId, chainId, userAddress);
+          await this.channelManager.closeChannel(
+            stuck.channelId,
+            chainId,
+            userAddress,
+          );
           console.log(`[FundChannel] Closed stuck channel: ${stuck.channelId}`);
         } catch (err: any) {
-          console.warn(`[FundChannel] Could not close stuck channel ${stuck.channelId}: ${err.message}`);
+          console.warn(
+            `[FundChannel] Could not close stuck channel ${stuck.channelId}: ${err.message}`,
+          );
           // Continue — Yellow Network may eventually time it out
         }
       }
@@ -130,7 +143,9 @@ export class FundChannelUseCase {
       // SDKChannelService.createChannel() performs the resize internally while
       // signedInitialState (v0) is still in scope as the required proof state.
       // Doing it externally would lose the proof and cause InvalidState().
-      console.log(`[FundChannel] No open channels found - creating new channel with ${amountInSmallestUnits} initial balance...`);
+      console.log(
+        `[FundChannel] No open channels found - creating new channel with ${amountInSmallestUnits} initial balance...`,
+      );
       try {
         const newChannel = await this.channelManager.createChannel({
           userAddress,
@@ -140,16 +155,22 @@ export class FundChannelUseCase {
         });
         channelId = newChannel.channelId;
         fundedDuringCreate = true;
-        console.log(`[FundChannel] Created and funded new channel: ${channelId}`);
+        console.log(
+          `[FundChannel] Created and funded new channel: ${channelId}`,
+        );
       } catch (createErr: any) {
         // Yellow Network may reject create_channel when a channel already exists
         // but get_channels didn't return it (session scoping, indexer lag, etc.).
         // The error message contains the existing channel ID — extract and reuse it.
-        const existingId = FundChannelUseCase.extractExistingChannelId(createErr?.message ?? '');
+        const existingId = FundChannelUseCase.extractExistingChannelId(
+          createErr?.message ?? '',
+        );
         if (!existingId) {
           throw createErr; // Unrelated error — rethrow as-is
         }
-        console.log(`[FundChannel] Channel already exists on Yellow Network: ${existingId}. Reusing it.`);
+        console.log(
+          `[FundChannel] Channel already exists on Yellow Network: ${existingId}. Reusing it.`,
+        );
         channelId = existingId;
         // fundedDuringCreate stays false → resize will run below
       }
@@ -158,7 +179,9 @@ export class FundChannelUseCase {
     // 7. Resize channel to add funds (only for pre-existing channels).
     // For newly created channels the resize was already performed inside createChannel.
     if (!fundedDuringCreate) {
-      console.log(`[FundChannel] Resizing existing channel to add ${amountInSmallestUnits} smallest units...`);
+      console.log(
+        `[FundChannel] Resizing existing channel to add ${amountInSmallestUnits} smallest units...`,
+      );
       await this.channelManager.resizeChannel({
         channelId,
         chainId,

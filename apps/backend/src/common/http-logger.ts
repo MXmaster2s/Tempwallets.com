@@ -119,7 +119,9 @@ export async function loggingFetch(
       }
     } else {
       log.error = 'Unknown error';
-      logger.error(`[${requestId}] <-- UNKNOWN ERROR after ${log.durationMs}ms`);
+      logger.error(
+        `[${requestId}] <-- UNKNOWN ERROR after ${log.durationMs}ms`,
+      );
     }
 
     throw error;
@@ -151,9 +153,7 @@ function maskUrl(url: string): string {
  * Network connectivity diagnostic helper
  * Useful for debugging production network issues
  */
-export async function diagnoseNetworkConnectivity(
-  logger: Logger,
-): Promise<{
+export async function diagnoseNetworkConnectivity(logger: Logger): Promise<{
   results: Array<{
     service: string;
     url: string;
@@ -165,10 +165,19 @@ export async function diagnoseNetworkConnectivity(
   summary: string;
 }> {
   const endpoints = [
-    { service: 'DNS (Google)', url: 'https://dns.google/resolve?name=google.com' },
+    {
+      service: 'DNS (Google)',
+      url: 'https://dns.google/resolve?name=google.com',
+    },
     { service: 'Zerion API', url: 'https://api.zerion.io/v1/' },
-    { service: 'Ethereum RPC (Alchemy)', url: 'https://eth-mainnet.alchemyapi.io/' },
-    { service: 'Yellow Network Clearnode', url: 'https://clearnode-api.yellow.network/' },
+    {
+      service: 'Ethereum RPC (Alchemy)',
+      url: 'https://eth-mainnet.alchemyapi.io/',
+    },
+    {
+      service: 'Yellow Network Clearnode',
+      url: 'https://clearnode-api.yellow.network/',
+    },
   ];
 
   const results = await Promise.all(
@@ -232,7 +241,9 @@ export function logEnvironmentInfo(logger: Logger): void {
   logger.log(`NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
   logger.log(`Platform: ${process.platform}`);
   logger.log(`Node version: ${process.version}`);
-  logger.log(`Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB used`);
+  logger.log(
+    `Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB used`,
+  );
 
   // Log presence of key environment variables (not their values)
   const keyVars = [
@@ -246,9 +257,10 @@ export function logEnvironmentInfo(logger: Logger): void {
   logger.log('Key environment variables:');
   keyVars.forEach((varName) => {
     const isSet = !!process.env[varName];
-    const preview = isSet && process.env[varName]
-      ? `${process.env[varName]!.substring(0, 10)}...`
-      : 'NOT SET';
+    const preview =
+      isSet && process.env[varName]
+        ? `${process.env[varName].substring(0, 10)}...`
+        : 'NOT SET';
     logger.log(`  ${varName}: ${isSet ? `SET (${preview})` : 'NOT SET'}`);
   });
   logger.log('========================');

@@ -14,7 +14,9 @@ export class PimlicoService {
   getBundlerUrl(_chain: string): string {
     const url = this.configService.get<string>('PIMLICO_BUNDLER_URL');
     if (!url) {
-      throw new Error('Pimlico bundler URL not configured (service deprecated)');
+      throw new Error(
+        'Pimlico bundler URL not configured (service deprecated)',
+      );
     }
     return url;
   }
@@ -41,7 +43,9 @@ export class PimlicoService {
   }
 
   async estimateUserOperationGas(): Promise<never> {
-    this.logger.warn('estimateUserOperationGas is deprecated in PimlicoService');
+    this.logger.warn(
+      'estimateUserOperationGas is deprecated in PimlicoService',
+    );
     throw new Error('PimlicoService deprecated');
   }
 

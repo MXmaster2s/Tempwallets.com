@@ -1954,12 +1954,7 @@ export class WalletService {
     if (evmChains.includes(chain)) {
       return this.nativeEoaFactory.createAccount(
         seedPhrase,
-        chain as
-          | 'ethereum'
-          | 'base'
-          | 'arbitrum'
-          | 'polygon'
-          | 'avalanche',
+        chain as 'ethereum' | 'base' | 'arbitrum' | 'polygon' | 'avalanche',
         0,
       );
     }

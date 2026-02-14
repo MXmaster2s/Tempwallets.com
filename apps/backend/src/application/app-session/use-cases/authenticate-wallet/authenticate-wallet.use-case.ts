@@ -19,7 +19,10 @@ import type { IYellowNetworkPort } from '../../ports/yellow-network.port.js';
 import { YELLOW_NETWORK_PORT } from '../../ports/yellow-network.port.js';
 import type { IWalletProviderPort } from '../../ports/wallet-provider.port.js';
 import { WALLET_PROVIDER_PORT } from '../../ports/wallet-provider.port.js';
-import { AuthenticateWalletDto, AuthenticateWalletResultDto } from './authenticate-wallet.dto.js';
+import {
+  AuthenticateWalletDto,
+  AuthenticateWalletResultDto,
+} from './authenticate-wallet.dto.js';
 
 @Injectable()
 export class AuthenticateWalletUseCase {
@@ -30,15 +33,18 @@ export class AuthenticateWalletUseCase {
     private readonly walletProvider: IWalletProviderPort,
   ) {}
 
-  async execute(dto: AuthenticateWalletDto): Promise<AuthenticateWalletResultDto> {
+  async execute(
+    dto: AuthenticateWalletDto,
+  ): Promise<AuthenticateWalletResultDto> {
     // 1. Get user's wallet address
     const walletAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
-    const { sessionId, expiresAt, authSignature } = await this.yellowNetwork.authenticate(dto.userId, walletAddress);
+    const { sessionId, expiresAt, authSignature } =
+      await this.yellowNetwork.authenticate(dto.userId, walletAddress);
 
     // 3. Return result
     return {

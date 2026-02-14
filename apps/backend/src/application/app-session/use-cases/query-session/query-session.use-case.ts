@@ -37,7 +37,7 @@ export class QuerySessionUseCase {
     // 1. Get user's wallet address
     const walletAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
@@ -48,13 +48,13 @@ export class QuerySessionUseCase {
 
     // 4. Verify user is a participant
     const isParticipant = session.definition.participants.some(
-      p => p.toLowerCase() === walletAddress.toLowerCase()
+      (p) => p.toLowerCase() === walletAddress.toLowerCase(),
     );
 
     if (!isParticipant) {
       throw new BadRequestException(
         `You are not a participant in this session. ` +
-        `Your wallet address (${walletAddress}) was not included when the session was created.`
+          `Your wallet address (${walletAddress}) was not included when the session was created.`,
       );
     }
 

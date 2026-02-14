@@ -1,104 +1,11 @@
 /**
- * Mixpanel Event Tracking for Lightning Node and WalletConnect
+ * Mixpanel Event Tracking for WalletConnect
  *
  * This file contains centralized tracking functions for key user actions.
  * Only tracks important events - not every single user action.
  */
 
 import { trackEvent } from './mixpanel';
-
-// ==========================================
-// LIGHTNING NODE EVENTS
-// ==========================================
-
-/**
- * Track when a user successfully authenticates their wallet with Clearnode
- */
-export const trackLightningWalletConnected = (params: {
-  userId: string;
-  walletAddress: string;
-  chain: string;
-  timestamp: number;
-}) => {
-  trackEvent('clearnode_connected', {
-    user_id: params.userId,
-    wallet_address: params.walletAddress,
-    chain: params.chain,
-    authenticated_at: new Date(params.timestamp).toISOString(),
-    platform: 'web',
-  });
-};
-
-/**
- * Track when a Lightning session is created (not discovered - only new ones)
- */
-export const trackLightningSessionCreated = (params: {
-  userId: string;
-  sessionId: string;
-  chain: string;
-}) => {
-  trackEvent('lightning_session_created', {
-    user_id: params.userId,
-    session_id: params.sessionId,
-    chain: params.chain,
-    created_at: new Date().toISOString(),
-  });
-};
-
-/**
- * Track when a user joins an existing Lightning session
- */
-export const trackLightningSessionJoined = (params: {
-  userId: string;
-  sessionId: string;
-  chain: string;
-}) => {
-  trackEvent('lightning_session_joined', {
-    user_id: params.userId,
-    session_id: params.sessionId,
-    chain: params.chain,
-    joined_at: new Date().toISOString(),
-  });
-};
-
-/**
- * Track sessions discovery results (only when sessions are found)
- */
-export const trackLightningSessionsDiscovered = (params: {
-  userId: string;
-  chain: string;
-  totalSessions: number;
-  activeSessions: number;
-  invitations: number;
-}) => {
-  // Only track if user has sessions (not empty results)
-  if (params.totalSessions > 0) {
-    trackEvent('lightning_sessions_discovered', {
-      user_id: params.userId,
-      chain: params.chain,
-      total_sessions: params.totalSessions,
-      active_sessions: params.activeSessions,
-      invitations: params.invitations,
-      discovered_at: new Date().toISOString(),
-    });
-  }
-};
-
-/**
- * Track authentication failures (important for debugging)
- */
-export const trackLightningAuthFailed = (params: {
-  userId: string;
-  chain: string;
-  errorMessage: string;
-}) => {
-  trackEvent('lightning_auth_failed', {
-    user_id: params.userId,
-    chain: params.chain,
-    error_message: params.errorMessage,
-    failed_at: new Date().toISOString(),
-  });
-};
 
 // ==========================================
 // WALLETCONNECT EVENTS

@@ -699,7 +699,7 @@ export class SDKChannelService {
       console.log('[SDKChannelService] Fetching proof state from contract...');
       try {
         const channelOnChain = await this.publicClient.readContract({
-          address: custodyAddress as Address,
+          address: custodyAddress,
           abi: CustodyAbi,
           functionName: 'getChannelData',
           args: [channelId],
@@ -708,7 +708,7 @@ export class SDKChannelService {
         proofForResize = (channelOnChain as any)[4];
         console.log(
           '[SDKChannelService] Got proof from contract: version =',
-          (proofForResize as any)?.version?.toString(),
+          proofForResize?.version?.toString(),
         );
       } catch (err: any) {
         console.warn(
@@ -761,7 +761,7 @@ export class SDKChannelService {
 
     // Step 4: Determine which allocations ClearNode actually signed
     const resizeState = {
-      channelId: channelId as `0x${string}`,
+      channelId: channelId,
       intent: resizeData.state.intent,
       version: BigInt(resizeData.state.version),
       data: resizeData.state.data || resizeData.state.state_data || '0x',
@@ -958,7 +958,7 @@ export class SDKChannelService {
 
     // Step 2: Build final state
     const finalState = {
-      channelId: channelId as `0x${string}`,
+      channelId: channelId,
       intent: closeData.state.intent,
       version: BigInt(closeData.state.version),
       data: closeData.state.data || closeData.state.state_data || '0x',

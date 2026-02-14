@@ -57,7 +57,8 @@ export class SendCryptoDto {
   @IsNumber()
   @ValidateIf((o) => o.tokenAddress !== undefined && o.tokenAddress !== null)
   @IsNotEmpty({
-    message: 'tokenDecimals is required when tokenAddress is provided. This should come from Zerion token data.'
+    message:
+      'tokenDecimals is required when tokenAddress is provided. This should come from Zerion token data.',
   })
   @Min(0, { message: 'tokenDecimals must be between 0 and 36' })
   @Max(36, { message: 'tokenDecimals must be between 0 and 36' })
@@ -102,7 +103,8 @@ export class SendEip7702Dto {
   @IsNumber()
   @ValidateIf((o) => o.tokenAddress !== undefined && o.tokenAddress !== null)
   @IsNotEmpty({
-    message: 'tokenDecimals is required when tokenAddress is provided. This should come from Zerion token data.'
+    message:
+      'tokenDecimals is required when tokenAddress is provided. This should come from Zerion token data.',
   })
   @Min(0, { message: 'tokenDecimals must be between 0 and 36' })
   @Max(36, { message: 'tokenDecimals must be between 0 and 36' })

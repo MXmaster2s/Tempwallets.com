@@ -28,9 +28,7 @@ import { FundChannelRequestDto } from './dto/fund-channel-request.dto.js';
 
 @Controller('channel')
 export class ChannelController {
-  constructor(
-    private readonly fundChannelUseCase: FundChannelUseCase,
-  ) {}
+  constructor(private readonly fundChannelUseCase: FundChannelUseCase) {}
 
   /**
    * POST /channel/fund

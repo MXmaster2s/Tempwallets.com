@@ -22,7 +22,10 @@ import type { IYellowNetworkPort } from '../../ports/yellow-network.port.js';
 import { YELLOW_NETWORK_PORT } from '../../ports/yellow-network.port.js';
 import type { IWalletProviderPort } from '../../ports/wallet-provider.port.js';
 import { WALLET_PROVIDER_PORT } from '../../ports/wallet-provider.port.js';
-import { DiscoverSessionsDto, DiscoverSessionsResultDto } from './discover-sessions.dto.js';
+import {
+  DiscoverSessionsDto,
+  DiscoverSessionsResultDto,
+} from './discover-sessions.dto.js';
 
 @Injectable()
 export class DiscoverSessionsUseCase {
@@ -37,7 +40,7 @@ export class DiscoverSessionsUseCase {
     // 1. Get user's wallet address
     const walletAddress = await this.walletProvider.getWalletAddress(
       dto.userId,
-      dto.chain
+      dto.chain,
     );
 
     // 2. Authenticate with Yellow Network
@@ -52,7 +55,7 @@ export class DiscoverSessionsUseCase {
 
     // 4. Return simplified result
     return {
-      sessions: sessions.map(s => ({
+      sessions: sessions.map((s) => ({
         appSessionId: s.app_session_id,
         status: s.status,
         version: s.version,
